@@ -4,25 +4,12 @@
 
 set -e
 
-CADDYFILE="/etc/caddy/Caddyfile"
+PASSWORD_FILE="/etc/sandboxer/password"
 
-# Backup current config
-cp "$CADDYFILE" "$CADDYFILE.bak"
-
-# Remove basicauth block
-python3 << 'PYEOF'
-import re
-
-with open("/etc/caddy/Caddyfile", "r") as f:
-    content = f.read()
-
-# Remove basicauth block (including comment)
-content = re.sub(r'\n\s*# Basic auth.*?\n\s*basicauth /\* \{[^}]+\}\n', '\n', content, flags=re.DOTALL)
-
-with open("/etc/caddy/Caddyfile", "w") as f:
-    f.write(content)
-PYEOF
-
-systemctl reload caddy
-
-echo "Password protection removed"
+if [ -f "$PASSWORD_FILE" ]; then
+    rm "$PASSWORD_FILE"
+    echo "Password protection removed. Restart sandboxer:"
+    echo "  sudo systemctl restart sandboxer"
+else
+    echo "No password file found. Sandboxer is already unprotected."
+fi
