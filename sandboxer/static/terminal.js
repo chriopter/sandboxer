@@ -109,3 +109,35 @@ killBtn?.addEventListener("click", async () => {
     }, 2000);
   }
 });
+
+// ─── Mobile Keyboard Handler ───
+// Scroll viewport when virtual keyboard appears (iOS Safari fix)
+
+if (window.visualViewport) {
+  const iframe = document.getElementById("terminal-iframe");
+  const termBar = document.querySelector(".term-bar");
+
+  function handleViewportResize() {
+    const viewport = window.visualViewport;
+    const keyboardHeight = window.innerHeight - viewport.height;
+
+    if (keyboardHeight > 100) {
+      // Keyboard is open - adjust layout
+      document.body.style.height = viewport.height + "px";
+      if (iframe) {
+        iframe.style.height = (viewport.height - (termBar?.offsetHeight || 0)) + "px";
+      }
+      // Scroll to top to ensure terminal is visible
+      window.scrollTo(0, viewport.offsetTop);
+    } else {
+      // Keyboard is closed - reset
+      document.body.style.height = "";
+      if (iframe) {
+        iframe.style.height = "";
+      }
+    }
+  }
+
+  window.visualViewport.addEventListener("resize", handleViewportResize);
+  window.visualViewport.addEventListener("scroll", handleViewportResize);
+}
