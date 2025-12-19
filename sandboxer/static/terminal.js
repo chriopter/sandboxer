@@ -147,10 +147,11 @@ pasteTarget.addEventListener("paste", (e) => {
       }
       pasteMode = false;
       clearTimeout(pasteTimeout);
-      // Click iframe to re-activate terminal
-      const iframe = document.getElementById("terminal-iframe");
-      iframe?.click();
-      iframe?.focus();
+      // Re-focus terminal iframe
+      setTimeout(() => {
+        const iframe = document.getElementById("terminal-iframe");
+        iframe?.contentWindow?.focus();
+      }, 50);
       return;
     }
   }
@@ -181,8 +182,7 @@ pasteBtn?.addEventListener("click", (e) => {
     if (pasteMode) {
       pasteMode = false;
       const iframe = document.getElementById("terminal-iframe");
-      iframe?.click();
-      iframe?.focus();
+      iframe?.contentWindow?.focus();
     }
   }, 3000);
 });
