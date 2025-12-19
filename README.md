@@ -31,9 +31,9 @@ You can also take over individual sessions via ssh
    claude "clone github.com/anthropics/sandboxer to /home/sandboxer/sandboxer-repo, read CLAUDE.md, then install: deps (python3 tmux ttyd caddy lazygit), copy service files, enable and start services"
    ```
 
-3. Access at `http://<host>:8080`
+3. Access at `http://<host>:8080` — default login: `admin` / `admin`
 
-4. Set a password:
+4. Change password:
    ```bash
    /home/sandboxer/sandboxer-repo/set-password.sh YOUR_PASSWORD
    sudo systemctl restart sandboxer

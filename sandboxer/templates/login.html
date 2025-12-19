@@ -29,6 +29,7 @@
       color: var(--text);
       text-align: center;
     }
+    .login-box input[type="text"],
     .login-box input[type="password"] {
       width: 100%;
       padding: 0.75rem;
@@ -40,6 +41,7 @@
       margin-bottom: 1rem;
       box-sizing: border-box;
     }
+    .login-box input[type="text"]:focus,
     .login-box input[type="password"]:focus {
       outline: none;
       border-color: var(--blue);
@@ -69,7 +71,7 @@
     <form class="login-box" method="POST" action="/login">
       <h1>sandboxer</h1>
       {{error}}
-      <input type="text" name="username" value="admin" autocomplete="username" style="display:none" aria-hidden="true">
+      <input type="text" name="username" id="username" value="admin" autocomplete="username" placeholder="Username">
       <input type="password" name="password" id="password" placeholder="Password" autocomplete="current-password" autofocus required>
       <button type="submit">Login</button>
     </form>
