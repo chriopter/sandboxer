@@ -6,6 +6,25 @@ window.addEventListener("beforeunload", (e) => {
   delete e.returnValue;
 });
 
+// ─── Force Terminal Resize on Load ───
+// xterm.js needs a resize trigger to fit the container properly
+window.addEventListener("load", () => {
+  // Trigger resize after iframe loads to force xterm.js to refit
+  setTimeout(() => {
+    window.dispatchEvent(new Event("resize"));
+  }, 500);
+
+  // Also trigger when iframe loads
+  const iframe = document.getElementById("terminal-iframe");
+  if (iframe) {
+    iframe.addEventListener("load", () => {
+      setTimeout(() => {
+        window.dispatchEvent(new Event("resize"));
+      }, 300);
+    });
+  }
+});
+
 // ─── Image Upload Handler ───
 
 const SESSION_NAME = window.SANDBOXER_SESSION || "";
