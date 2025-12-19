@@ -146,7 +146,11 @@ pasteTarget.addEventListener("paste", (e) => {
         handleFile(file);
       }
       pasteMode = false;
-      document.getElementById("terminal-iframe")?.focus();
+      clearTimeout(pasteTimeout);
+      // Click iframe to re-activate terminal
+      const iframe = document.getElementById("terminal-iframe");
+      iframe?.click();
+      iframe?.focus();
       return;
     }
   }
@@ -154,6 +158,7 @@ pasteTarget.addEventListener("paste", (e) => {
   showToast("No image in clipboard - select file", "info");
   fileInput?.click();
   pasteMode = false;
+  clearTimeout(pasteTimeout);
 });
 
 pasteTarget.addEventListener("blur", () => {
@@ -175,7 +180,9 @@ pasteBtn?.addEventListener("click", (e) => {
   pasteTimeout = setTimeout(() => {
     if (pasteMode) {
       pasteMode = false;
-      document.getElementById("terminal-iframe")?.focus();
+      const iframe = document.getElementById("terminal-iframe");
+      iframe?.click();
+      iframe?.focus();
     }
   }, 3000);
 });
