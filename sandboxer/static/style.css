@@ -836,24 +836,15 @@ main {
 
 /* ═══ Terminal Page ═══ */
 
-/*
- * Using position:fixed forces iOS Safari to keep browser chrome visible
- * and prevents viewport bugs with virtual keyboard.
- * See: https://gist.github.com/claus/622a938d21d80f367251dc2eaaa1b2a9
- */
-html:has(.terminal-page),
-html:has(.terminal-page) body {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
+html:has(.terminal-page) {
+  height: 100%;
+}
+
+body.terminal-page {
   height: 100%;
   margin: 0;
   padding: 0;
   overflow: hidden;
-}
-
-body.terminal-page {
   display: flex;
   flex-direction: column;
 }
