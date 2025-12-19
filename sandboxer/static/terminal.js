@@ -124,7 +124,16 @@ fileInput?.addEventListener("change", (e) => {
 });
 
 // ─── Clipboard Paste Handler ───
+// Ctrl+Shift+V for image paste (Ctrl+V is captured by ttyd for terminal paste)
 // Works without HTTPS (paste event doesn't require secure context)
+document.addEventListener("keydown", (e) => {
+  if (e.ctrlKey && e.shiftKey && e.key === "V") {
+    e.preventDefault();
+    // Trigger file picker as fallback, paste event will handle clipboard
+    fileInput?.click();
+  }
+});
+
 document.addEventListener("paste", (e) => {
   const items = e.clipboardData?.items;
   if (!items) return;
