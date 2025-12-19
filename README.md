@@ -1,5 +1,7 @@
 # Sandboxer
 
+<img src="logo.png" width="200" align="right" />
+
 Web terminal manager for autonomous Claude Code sessions.
 Gives Claude basically complete control of a disposable machine to run multiple Claude instances with --dangerously-skip-permissions as root.
 
