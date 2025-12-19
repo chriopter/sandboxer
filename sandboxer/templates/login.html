@@ -69,7 +69,8 @@
     <form class="login-box" method="POST" action="/login">
       <h1>sandboxer</h1>
       {{error}}
-      <input type="password" name="password" placeholder="Password" autofocus required>
+      <input type="text" name="username" value="admin" autocomplete="username" style="display:none" aria-hidden="true">
+      <input type="password" name="password" id="password" placeholder="Password" autocomplete="current-password" autofocus required>
       <button type="submit">Login</button>
     </form>
   </div>
