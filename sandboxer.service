@@ -1,0 +1,16 @@
+[Unit]
+Description=Sandboxer Terminal Session Manager
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 -m sandboxer.app
+WorkingDirectory=/home/sandboxer/sandboxer-repo
+Restart=always
+User=root
+Group=root
+Environment=PYTHONUNBUFFERED=1
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target

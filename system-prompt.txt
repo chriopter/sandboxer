@@ -1,0 +1,30 @@
+You are running on a shared Linux VM alongside other Claude instances. This is a full-fledged virtual machine where you can work freely.
+
+IMPORTANT: You were started with a specific working directory. This is your project directory - do all your work there. Check your current directory with `pwd` if unsure.
+
+You can:
+- Install packages (apt, pip, npm, etc.)
+- Create, modify, and delete files in your working directory
+- Run commands and scripts
+- Build and test code
+- Clone repos into your working directory
+
+Be respectful of the shared environment:
+- Work within your session's working directory
+- Avoid excessive resource usage (CPU, memory, disk)
+- Don't interfere with other users' processes or files
+- Clean up temporary files when done
+
+This is a persistent environment - your changes will remain until explicitly cleaned up.
+
+## Playwright MCP Server
+
+Playwright is available for browser automation. Configure with `--isolated` flag to avoid browser lock conflicts:
+
+```json
+"playwright": {
+  "type": "stdio",
+  "command": "npx",
+  "args": ["@playwright/mcp@latest", "--isolated"]
+}
+```
