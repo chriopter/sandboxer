@@ -1,11 +1,11 @@
 #!/bin/bash
-# Set password protection for Sandboxer via Caddy basic auth
+# Set password protection for Sandboxer
 # Usage: ./set-password.sh [password]
 # If no password provided, prompts interactively
 
 set -e
 
-CADDYFILE="/etc/caddy/Caddyfile"
+PASSWORD_FILE="/etc/sandboxer/password"
 
 if [ "$1" ]; then
     PASSWORD="$1"
@@ -25,35 +25,13 @@ if [ -z "$PASSWORD" ]; then
     exit 1
 fi
 
-# Generate bcrypt hash
-HASH=$(caddy hash-password --plaintext "$PASSWORD")
+# Create directory if needed
+mkdir -p "$(dirname "$PASSWORD_FILE")"
 
-# Backup current config
-cp "$CADDYFILE" "$CADDYFILE.bak"
+# Generate SHA256 hash and save
+HASH=$(echo -n "$PASSWORD" | sha256sum | cut -d' ' -f1)
+echo "sha256:$HASH" > "$PASSWORD_FILE"
+chmod 600 "$PASSWORD_FILE"
 
-# Remove existing basicauth block if present, then add new one
-python3 << PYEOF
-import re
-
-with open("$CADDYFILE", "r") as f:
-    content = f.read()
-
-# Remove existing basicauth block (including comment)
-content = re.sub(r'\n\s*# Basic auth.*?\n\s*basicauth /\* \{[^}]+\}\n', '\n', content, flags=re.DOTALL)
-
-# Add basicauth after :8080 {
-content = content.replace(':8080 {', ''':8080 {
-    # Basic auth - user: admin
-    basicauth /* {
-        admin $HASH
-    }
-''', 1)
-
-with open("$CADDYFILE", "w") as f:
-    f.write(content)
-PYEOF
-
-# Reload Caddy
-systemctl reload caddy
-
-echo "Password protection enabled. Login: admin / <your password>"
+echo "Password set. Restart sandboxer for changes to take effect:"
+echo "  sudo systemctl restart sandboxer"

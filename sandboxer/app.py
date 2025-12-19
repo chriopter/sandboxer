@@ -2,9 +2,13 @@
 """Sandboxer - Web terminal session manager."""
 
 import base64
+import hashlib
+import hmac
+import http.cookies
 import http.server
 import json
 import os
+import secrets
 import signal
 import subprocess
 import time
@@ -20,9 +24,51 @@ APP_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(APP_DIR, "static")
 TEMPLATES_DIR = os.path.join(APP_DIR, "templates")
 UPLOADS_DIR = "/tmp/sandboxer_uploads"
+PASSWORD_FILE = "/etc/sandboxer/password"
 
 # Ensure uploads directory exists
 os.makedirs(UPLOADS_DIR, exist_ok=True)
+
+# Session storage (in-memory, cleared on restart)
+_auth_sessions: set[str] = set()
+
+
+def get_password_hash() -> str | None:
+    """Get stored password hash, or None if no password set."""
+    if os.path.isfile(PASSWORD_FILE):
+        with open(PASSWORD_FILE) as f:
+            return f.read().strip()
+    return None
+
+
+def verify_password(password: str) -> bool:
+    """Verify password against stored hash."""
+    stored = get_password_hash()
+    if not stored:
+        return True  # No password = always valid
+    # Hash format: sha256:<hash>
+    if stored.startswith("sha256:"):
+        expected = stored[7:]
+        actual = hashlib.sha256(password.encode()).hexdigest()
+        return hmac.compare_digest(expected, actual)
+    return False
+
+
+def create_session() -> str:
+    """Create a new auth session token."""
+    token = secrets.token_urlsafe(32)
+    _auth_sessions.add(token)
+    return token
+
+
+def is_valid_session(token: str) -> bool:
+    """Check if session token is valid."""
+    return token in _auth_sessions
+
+
+def destroy_session(token: str):
+    """Destroy an auth session."""
+    _auth_sessions.discard(token)
 
 MIME_TYPES = {
     ".css": "text/css",
@@ -99,9 +145,28 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         pass  # Suppress logging
 
-    def send_html(self, content: str, status: int = 200):
+    def get_cookie(self, name: str) -> str | None:
+        """Get a cookie value."""
+        cookie_header = self.headers.get("Cookie", "")
+        cookies = http.cookies.SimpleCookie()
+        cookies.load(cookie_header)
+        if name in cookies:
+            return cookies[name].value
+        return None
+
+    def is_authenticated(self) -> bool:
+        """Check if request is authenticated."""
+        # No password set = no auth required
+        if not get_password_hash():
+            return True
+        token = self.get_cookie("sandboxer_session")
+        return token and is_valid_session(token)
+
+    def send_html(self, content: str, status: int = 200, headers: dict = None):
         self.send_response(status)
         self.send_header("Content-Type", "text/html; charset=utf-8")
+        for k, v in (headers or {}).items():
+            self.send_header(k, v)
         self.end_headers()
         self.wfile.write(content.encode())
 
@@ -111,15 +176,41 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(json.dumps(data).encode())
 
-    def send_redirect(self, location: str):
+    def send_redirect(self, location: str, headers: dict = None):
         self.send_response(302)
         self.send_header("Location", location)
+        for k, v in (headers or {}).items():
+            self.send_header(k, v)
         self.end_headers()
 
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
         query = urllib.parse.parse_qs(parsed.query)
         path = parsed.path
+
+        # ─── Login Page (always accessible) ───
+        if path == "/login":
+            if self.is_authenticated():
+                self.send_redirect("/")
+                return
+            error = query.get("error", [""])[0]
+            error_html = '<p class="error">Invalid password</p>' if error else ""
+            html = render_template("login.html", error=error_html)
+            self.send_html(html)
+            return
+
+        # ─── Logout ───
+        if path == "/logout":
+            token = self.get_cookie("sandboxer_session")
+            if token:
+                destroy_session(token)
+            self.send_redirect("/login", {"Set-Cookie": "sandboxer_session=; Path=/; Max-Age=0"})
+            return
+
+        # ─── Auth Check (except static files) ───
+        if not path.startswith("/static/") and not self.is_authenticated():
+            self.send_redirect("/login")
+            return
 
         # ─── Static Files ───
         if path.startswith("/static/"):
@@ -260,6 +351,22 @@ class Handler(http.server.BaseHTTPRequestHandler):
         body = self.rfile.read(content_length)
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
+
+        # ─── Login ───
+        if path == "/login":
+            form = urllib.parse.parse_qs(body.decode())
+            password = form.get("password", [""])[0]
+            if verify_password(password):
+                token = create_session()
+                self.send_redirect("/", {"Set-Cookie": f"sandboxer_session={token}; Path=/; HttpOnly; SameSite=Strict"})
+            else:
+                self.send_redirect("/login?error=1")
+            return
+
+        # ─── Auth Check for all other POST endpoints ───
+        if not self.is_authenticated():
+            self.send_json({"error": "unauthorized"}, 401)
+            return
 
         # ─── API: Set Order ───
         if path == "/api/order":
