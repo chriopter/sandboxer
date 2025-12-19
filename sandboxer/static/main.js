@@ -304,6 +304,30 @@ function initSliders() {
   }
 }
 
+// ═══ Terminal Activation ═══
+
+function initTerminalActivation() {
+  // Click on terminal to activate (enable scroll capture)
+  document.querySelectorAll(".terminal").forEach((terminal) => {
+    terminal.addEventListener("click", (e) => {
+      // Deactivate all other terminals
+      document.querySelectorAll(".terminal.active").forEach((t) => {
+        if (t !== terminal) t.classList.remove("active");
+      });
+      terminal.classList.add("active");
+    });
+  });
+
+  // Click outside terminals to deactivate
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".terminal")) {
+      document.querySelectorAll(".terminal.active").forEach((t) => {
+        t.classList.remove("active");
+      });
+    }
+  });
+}
+
 // ═══ Initialization ═══
 
 (function init() {
@@ -318,6 +342,9 @@ function initSliders() {
 
   // Initialize drag and drop
   initDragAndDrop();
+
+  // Initialize terminal activation (click to enable scroll)
+  initTerminalActivation();
 
   // Initialize preview sliders
   initSliders();
