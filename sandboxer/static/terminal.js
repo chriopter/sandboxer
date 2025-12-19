@@ -6,6 +6,39 @@ window.addEventListener("beforeunload", (e) => {
   delete e.returnValue;
 });
 
+// ─── Fix iframe/xterm.js initial sizing ───
+// xterm.js uses ResizeObserver on its container. By briefly changing
+// the iframe dimensions, we force xterm to recalculate and fit properly.
+// See: https://github.com/xtermjs/xterm.js/issues/4841
+(function() {
+  const iframe = document.getElementById("terminal-iframe");
+  if (!iframe) return;
+
+  function triggerRefit() {
+    // Briefly change width to force layout recalc
+    const originalWidth = iframe.style.width;
+    iframe.style.width = "99.9%";
+    requestAnimationFrame(() => {
+      iframe.style.width = originalWidth || "100%";
+    });
+  }
+
+  // Trigger after iframe loads
+  iframe.addEventListener("load", () => {
+    // Multiple attempts with delays for reliability
+    setTimeout(triggerRefit, 100);
+    setTimeout(triggerRefit, 500);
+    setTimeout(triggerRefit, 1000);
+  });
+
+  // Also trigger on window resize for good measure
+  let resizeTimeout;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(triggerRefit, 100);
+  });
+})();
+
 // ─── Image Upload Handler ───
 
 const SESSION_NAME = window.SANDBOXER_SESSION || "";
