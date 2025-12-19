@@ -28,7 +28,7 @@ You can also take over individual sessions via ssh
 
 2. Run:
    ```bash
-   claude "clone github.com/anthropics/sandboxer to /home/sandboxer/sandboxer-repo, read CLAUDE.md, then install: deps (python3 tmux ttyd caddy lazygit), copy service files, enable and start services"
+   claude "clone github.com/anthropics/sandboxer to /home/sandboxer/sandboxer-repo, read CLAUDE.md, then install: deps (python3 tmux ttyd caddy lazygit fzf), copy service files, enable and start services"
    ```
 
 3. Access at `http://<host>:8080` — default login: `admin` / `admin`

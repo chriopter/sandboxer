@@ -116,7 +116,6 @@ async function handleFile(file) {
 const fileInput = document.getElementById("image-input");
 const pasteBtn = document.getElementById("paste-btn");
 
-pasteBtn?.addEventListener("click", () => fileInput?.click());
 fileInput?.addEventListener("change", (e) => {
   const file = e.target.files?.[0];
   if (file) handleFile(file);
@@ -124,17 +123,18 @@ fileInput?.addEventListener("change", (e) => {
 });
 
 // ─── Clipboard Paste Handler ───
-// Ctrl+Shift+V for image paste (Ctrl+V is captured by ttyd for terminal paste)
-// Works without HTTPS (paste event doesn't require secure context)
-document.addEventListener("keydown", (e) => {
-  if (e.ctrlKey && e.shiftKey && e.key === "V") {
-    e.preventDefault();
-    // Trigger file picker as fallback, paste event will handle clipboard
-    fileInput?.click();
-  }
-});
+// Click [img] button, then Ctrl+V to paste image from clipboard
+// (Direct Ctrl+V is captured by ttyd terminal)
 
-document.addEventListener("paste", (e) => {
+let pasteMode = false;
+
+// Create hidden paste target
+const pasteTarget = document.createElement("textarea");
+pasteTarget.style.cssText = "position:fixed;left:-9999px;top:0;opacity:0;";
+pasteTarget.setAttribute("aria-hidden", "true");
+document.body.appendChild(pasteTarget);
+
+pasteTarget.addEventListener("paste", (e) => {
   const items = e.clipboardData?.items;
   if (!items) return;
 
@@ -145,9 +145,36 @@ document.addEventListener("paste", (e) => {
       if (file) {
         handleFile(file);
       }
+      pasteMode = false;
+      document.getElementById("terminal-iframe")?.focus();
       return;
     }
   }
+  // No image - open file picker instead
+  showToast("No image in clipboard - select file", "info");
+  fileInput?.click();
+  pasteMode = false;
+});
+
+pasteTarget.addEventListener("blur", () => {
+  if (pasteMode) {
+    pasteMode = false;
+  }
+});
+
+// Override [img] button to enable paste mode
+pasteBtn?.addEventListener("click", (e) => {
+  e.preventDefault();
+  pasteMode = true;
+  pasteTarget.focus();
+  showToast("Ctrl+V to paste, or click again to browse", "info");
+});
+
+// Second click opens file browser
+pasteBtn?.addEventListener("dblclick", (e) => {
+  e.preventDefault();
+  pasteMode = false;
+  fileInput?.click();
 });
 
 // ─── Kill Button Handler ───
