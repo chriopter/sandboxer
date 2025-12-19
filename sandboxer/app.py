@@ -25,12 +25,41 @@ STATIC_DIR = os.path.join(APP_DIR, "static")
 TEMPLATES_DIR = os.path.join(APP_DIR, "templates")
 UPLOADS_DIR = "/tmp/sandboxer_uploads"
 PASSWORD_FILE = "/etc/sandboxer/password"
+SESSIONS_FILE = "/etc/sandboxer/sessions.json"
+
+# Session duration: 30 days in seconds
+SESSION_DURATION = 30 * 24 * 60 * 60
 
 # Ensure uploads directory exists
 os.makedirs(UPLOADS_DIR, exist_ok=True)
+os.makedirs(os.path.dirname(SESSIONS_FILE), exist_ok=True)
 
-# Session storage (in-memory, cleared on restart)
-_auth_sessions: set[str] = set()
+# Session storage: {token: expiry_timestamp}
+_auth_sessions: dict[str, float] = {}
+
+
+def _load_sessions():
+    """Load sessions from disk."""
+    global _auth_sessions
+    if os.path.isfile(SESSIONS_FILE):
+        try:
+            with open(SESSIONS_FILE) as f:
+                data = json.load(f)
+            # Filter out expired sessions
+            now = time.time()
+            _auth_sessions = {k: v for k, v in data.items() if v > now}
+            _save_sessions()  # Save back without expired ones
+        except (json.JSONDecodeError, IOError):
+            _auth_sessions = {}
+
+
+def _save_sessions():
+    """Save sessions to disk."""
+    try:
+        with open(SESSIONS_FILE, "w") as f:
+            json.dump(_auth_sessions, f)
+    except IOError:
+        pass  # Silent fail - sessions will work in-memory
 
 
 def get_password_hash() -> str | None:
@@ -55,20 +84,31 @@ def verify_password(password: str) -> bool:
 
 
 def create_session() -> str:
-    """Create a new auth session token."""
+    """Create a new auth session token valid for 30 days."""
     token = secrets.token_urlsafe(32)
-    _auth_sessions.add(token)
+    expiry = time.time() + SESSION_DURATION
+    _auth_sessions[token] = expiry
+    _save_sessions()
     return token
 
 
 def is_valid_session(token: str) -> bool:
-    """Check if session token is valid."""
-    return token in _auth_sessions
+    """Check if session token is valid and not expired."""
+    if token not in _auth_sessions:
+        return False
+    if _auth_sessions[token] < time.time():
+        # Expired - clean up
+        del _auth_sessions[token]
+        _save_sessions()
+        return False
+    return True
 
 
 def destroy_session(token: str):
     """Destroy an auth session."""
-    _auth_sessions.discard(token)
+    if token in _auth_sessions:
+        del _auth_sessions[token]
+        _save_sessions()
 
 MIME_TYPES = {
     ".css": "text/css",
@@ -358,7 +398,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             password = form.get("password", [""])[0]
             if verify_password(password):
                 token = create_session()
-                self.send_redirect("/", {"Set-Cookie": f"sandboxer_session={token}; Path=/; HttpOnly; SameSite=Strict"})
+                # Cookie expires in 30 days (matches session duration)
+                self.send_redirect("/", {"Set-Cookie": f"sandboxer_session={token}; Path=/; HttpOnly; SameSite=Strict; Max-Age={SESSION_DURATION}"})
             else:
                 self.send_redirect("/login?error=1")
             return
@@ -441,6 +482,7 @@ def main():
     signal.signal(signal.SIGTERM, cleanup)
     signal.signal(signal.SIGINT, cleanup)
 
+    _load_sessions()  # Load persisted sessions from disk
     load_templates()
 
     print(f"sandboxer http://127.0.0.1:{PORT}")
