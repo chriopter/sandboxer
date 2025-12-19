@@ -163,17 +163,28 @@ pasteTarget.addEventListener("blur", () => {
 });
 
 // Override [img] button to enable paste mode
+let pasteTimeout;
 pasteBtn?.addEventListener("click", (e) => {
   e.preventDefault();
   pasteMode = true;
   pasteTarget.focus();
   showToast("Ctrl+V to paste, or click again to browse", "info");
+
+  // Auto-return focus to terminal after 3 seconds
+  clearTimeout(pasteTimeout);
+  pasteTimeout = setTimeout(() => {
+    if (pasteMode) {
+      pasteMode = false;
+      document.getElementById("terminal-iframe")?.focus();
+    }
+  }, 3000);
 });
 
 // Second click opens file browser
 pasteBtn?.addEventListener("dblclick", (e) => {
   e.preventDefault();
   pasteMode = false;
+  clearTimeout(pasteTimeout);
   fileInput?.click();
 });
 
