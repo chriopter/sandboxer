@@ -177,30 +177,9 @@ def start_ttyd(session_name: str) -> int:
 
     port = find_free_port()
 
-    # Catppuccin Mocha theme
-    theme_opts = [
-        "-t", "theme.background=#1e1e2e",
-        "-t", "theme.foreground=#cdd6f4",
-        "-t", "theme.cursor=#f5e0dc",
-        "-t", "theme.cursorAccent=#1e1e2e",
-        "-t", "theme.selectionBackground=#585b70",
-        "-t", "theme.black=#45475a",
-        "-t", "theme.red=#f38ba8",
-        "-t", "theme.green=#a6e3a1",
-        "-t", "theme.yellow=#f9e2af",
-        "-t", "theme.blue=#89b4fa",
-        "-t", "theme.magenta=#f5c2e7",
-        "-t", "theme.cyan=#94e2d5",
-        "-t", "theme.white=#bac2de",
-        "-t", "theme.brightBlack=#585b70",
-        "-t", "theme.brightRed=#f38ba8",
-        "-t", "theme.brightGreen=#a6e3a1",
-        "-t", "theme.brightYellow=#f9e2af",
-        "-t", "theme.brightBlue=#89b4fa",
-        "-t", "theme.brightMagenta=#f5c2e7",
-        "-t", "theme.brightCyan=#94e2d5",
-        "-t", "theme.brightWhite=#a6adc8",
-    ]
+    # Catppuccin Mocha theme (JSON format for xterm.js)
+    theme_json = '{"background":"#1e1e2e","foreground":"#cdd6f4","cursor":"#f5e0dc","cursorAccent":"#1e1e2e","selectionBackground":"#585b70","selectionForeground":"#cdd6f4","black":"#45475a","red":"#f38ba8","green":"#a6e3a1","yellow":"#f9e2af","blue":"#89b4fa","magenta":"#f5c2e7","cyan":"#94e2d5","white":"#bac2de","brightBlack":"#585b70","brightRed":"#f38ba8","brightGreen":"#a6e3a1","brightYellow":"#f9e2af","brightBlue":"#89b4fa","brightMagenta":"#f5c2e7","brightCyan":"#94e2d5","brightWhite":"#a6adc8"}'
+    theme_opts = ["-t", f"theme={theme_json}"]
 
     proc = subprocess.Popen(
         ["ttyd", "-W", "-i", "127.0.0.1", "-p", str(port)] + theme_opts + ["tmux", "attach-session", "-t", session_name],
