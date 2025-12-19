@@ -517,13 +517,13 @@ main {
   bottom: 0.8ch;
   right: 1ch;
   color: var(--text);
-  font-size: 1.1em;
+  font-size: 1.6em;
   cursor: pointer;
   transition: background 0.15s, opacity 0.15s;
   z-index: 10;
   opacity: 0;
   background: var(--surface0);
-  padding: 0.3ch 0.6ch;
+  padding: 0.5ch 1ch;
   border-radius: var(--radius);
 }
 
