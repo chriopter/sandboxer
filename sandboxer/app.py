@@ -178,7 +178,7 @@ def build_session_cards(sessions_list: list[dict]) -> str:
 def build_dir_options() -> str:
     """Build HTML options for directory select."""
     dirs = sessions.get_directories()
-    return "\n".join(f'<option value="{d}">{os.path.basename(d) or "/"}</option>' for d in dirs)
+    return "\n".join(f'<option value="{d}">{d}</option>' for d in dirs)
 
 
 class Handler(http.server.BaseHTTPRequestHandler):

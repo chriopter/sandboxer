@@ -835,13 +835,10 @@ main {
 
 html:has(.terminal-page) {
   height: 100%;
-  height: 100dvh;
 }
 
 body.terminal-page {
   height: 100%;
-  height: 100dvh;
-  width: 100%;
   margin: 0;
   padding: 0;
   overflow: hidden;
@@ -853,7 +850,6 @@ body.terminal-page {
   flex: 1;
   width: 100%;
   border: none;
-  touch-action: manipulation;
 }
 
 /* ═══ Terminal Bar ═══ */

@@ -6,25 +6,6 @@ window.addEventListener("beforeunload", (e) => {
   delete e.returnValue;
 });
 
-// ─── Force Terminal Resize on Load ───
-// xterm.js needs a resize trigger to fit the container properly
-window.addEventListener("load", () => {
-  // Trigger resize after iframe loads to force xterm.js to refit
-  setTimeout(() => {
-    window.dispatchEvent(new Event("resize"));
-  }, 500);
-
-  // Also trigger when iframe loads
-  const iframe = document.getElementById("terminal-iframe");
-  if (iframe) {
-    iframe.addEventListener("load", () => {
-      setTimeout(() => {
-        window.dispatchEvent(new Event("resize"));
-      }, 300);
-    });
-  }
-});
-
 // ─── Image Upload Handler ───
 
 const SESSION_NAME = window.SANDBOXER_SESSION || "";
@@ -128,35 +109,3 @@ killBtn?.addEventListener("click", async () => {
     }, 2000);
   }
 });
-
-// ─── Mobile Keyboard Handler ───
-// Scroll viewport when virtual keyboard appears (iOS Safari fix)
-
-if (window.visualViewport) {
-  const iframe = document.getElementById("terminal-iframe");
-  const termBar = document.querySelector(".term-bar");
-
-  function handleViewportResize() {
-    const viewport = window.visualViewport;
-    const keyboardHeight = window.innerHeight - viewport.height;
-
-    if (keyboardHeight > 100) {
-      // Keyboard is open - adjust layout
-      document.body.style.height = viewport.height + "px";
-      if (iframe) {
-        iframe.style.height = (viewport.height - (termBar?.offsetHeight || 0)) + "px";
-      }
-      // Scroll to top to ensure terminal is visible
-      window.scrollTo(0, viewport.offsetTop);
-    } else {
-      // Keyboard is closed - reset
-      document.body.style.height = "";
-      if (iframe) {
-        iframe.style.height = "";
-      }
-    }
-  }
-
-  window.visualViewport.addEventListener("resize", handleViewportResize);
-  window.visualViewport.addEventListener("scroll", handleViewportResize);
-}
