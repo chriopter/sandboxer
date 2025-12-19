@@ -944,3 +944,62 @@ body.terminal-page {
   border-color: var(--blue);
   color: var(--blue);
 }
+
+/* ═══ Mobile Responsive ═══ */
+
+/* Hide columns slider (▦) on mobile - keep only zoom slider */
+@media (max-width: 768px) {
+  #previewCols {
+    display: none;
+  }
+
+  /* Hide the ▦ label before columns slider */
+  .footer-sliders .slider-label:first-of-type {
+    display: none;
+  }
+
+  /* Portrait: 1 column */
+  @media (orientation: portrait) {
+    .grid {
+      grid-template-columns: 1fr !important;
+    }
+  }
+
+  /* Landscape: 2 columns */
+  @media (orientation: landscape) {
+    .grid {
+      grid-template-columns: repeat(2, 1fr) !important;
+    }
+  }
+
+  /* Adjust header for mobile */
+  .header {
+    padding: 0.4ch 1ch;
+    flex-wrap: wrap;
+    gap: 0.5ch;
+  }
+
+  .header-controls {
+    gap: 1ch;
+    flex-wrap: wrap;
+  }
+
+  /* Smaller padding on main */
+  main {
+    padding: 1ch;
+    padding-bottom: calc(1ch + 60px);
+  }
+
+  .grid {
+    gap: 1ch;
+  }
+
+  /* Footer adjustments */
+  .footer {
+    padding: 0.3ch 1ch;
+  }
+
+  .footer-stats {
+    gap: 1.5ch;
+  }
+}
