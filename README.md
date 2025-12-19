@@ -1,7 +1,7 @@
 # Sandboxer
 
 Web terminal manager for autonomous Claude Code sessions.
-Gives Claude basically complete control of a disposable machine to run multiple Claude instances with --dangerously-skip-permissions.
+Gives Claude basically complete control of a disposable machine to run multiple Claude instances with --dangerously-skip-permissions as root.
 
 <img width="1200" height="1806" alt="image" src="https://github.com/user-attachments/assets/e6105295-a898-4070-bc06-3458777144ec" />
 
