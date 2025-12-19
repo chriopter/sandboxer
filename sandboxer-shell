@@ -4,130 +4,142 @@
 # Usage:
 #   ssh -t sandboxer@host sandboxer-shell           # interactive picker
 #   ssh -t sandboxer@host sandboxer-shell SESSION   # attach directly
+#
+# Multi-select: Use TAB/Shift-TAB to select multiple sessions, creates split panes
 
 set -e
 
 # Use sudo for tmux since sessions run as root
-TMUX="sudo tmux"
+TMUX_CMD="sudo tmux"
 
 # Direct attach mode if session name provided
 if [ -n "$1" ]; then
     session="$1"
-    if $TMUX has-session -t "$session" 2>/dev/null; then
-        exec $TMUX attach -t "$session"
+    if $TMUX_CMD has-session -t "$session" 2>/dev/null; then
+        exec $TMUX_CMD attach -t "$session"
     else
         echo "Session '$session' not found"
         exec bash
     fi
 fi
 
-# Colors (Catppuccin Mocha) - use $'...' for actual escape chars
-RESET=$'\033[0m'
-BOLD=$'\033[1m'
-DIM=$'\033[2m'
+# Colors (Catppuccin Mocha)
 MAUVE=$'\033[38;2;203;166;247m'
-TEAL=$'\033[38;2;148;226;213m'
-GREEN=$'\033[38;2;166;227;161m'
-RED=$'\033[38;2;243;139;168m'
-OVERLAY=$'\033[38;2;108;112;134m'
-
-print_header() {
-    echo -e "${MAUVE}${BOLD}"
-    echo "  ╭─────────────────────────────────────╮"
-    echo "  │         sandboxer sessions          │"
-    echo "  ╰─────────────────────────────────────╯"
-    echo -e "${RESET}"
-}
+RESET=$'\033[0m'
 
 get_sessions() {
-    $TMUX list-sessions -F "#{session_name}|#{session_created}|#{session_attached}" 2>/dev/null || true
+    $TMUX_CMD list-sessions -F "#{session_name}" 2>/dev/null || true
 }
 
-format_time_ago() {
-    local created=$1
+format_session() {
+    local name="$1"
+    local created=$($TMUX_CMD display-message -t "$name" -p "#{session_created}" 2>/dev/null || echo "0")
+    local attached=$($TMUX_CMD display-message -t "$name" -p "#{session_attached}" 2>/dev/null || echo "0")
+    local title=$($TMUX_CMD display-message -t "$name" -p "#{pane_title}" 2>/dev/null || echo "")
+
+    # Time ago
     local now=$(date +%s)
     local diff=$((now - created))
-
+    local time_ago
     if [ $diff -lt 60 ]; then
-        echo "now"
+        time_ago="now"
     elif [ $diff -lt 3600 ]; then
-        echo "$((diff / 60))m"
+        time_ago="$((diff / 60))m"
     elif [ $diff -lt 86400 ]; then
-        echo "$((diff / 3600))h"
+        time_ago="$((diff / 3600))h"
     else
-        echo "$((diff / 86400))d"
+        time_ago="$((diff / 86400))d"
     fi
+
+    # Status indicator
+    local status="  "
+    [ "$attached" = "1" ] && status="● "
+
+    # Clean title
+    [[ "$title" == *"✳"* ]] && title="${title#*✳ }"
+
+    if [ -n "$title" ] && [ "$title" != "Window Title" ] && [ "$title" != "$name" ]; then
+        echo "$status$title ($name) [$time_ago]"
+    else
+        echo "$status$name [$time_ago]"
+    fi
+}
+
+create_split_session() {
+    local sessions=("$@")
+    local count=${#sessions[@]}
+    local split_name="split-$(date +%s)"
+
+    # Create new session with first selection
+    unset TMUX
+    $TMUX_CMD new-session -d -s "$split_name"
+    $TMUX_CMD send-keys -t "$split_name" "unset TMUX && sudo tmux attach -t '${sessions[0]}'" Enter
+
+    # Add panes for remaining sessions
+    for ((i=1; i<count; i++)); do
+        $TMUX_CMD split-window -t "$split_name"
+        $TMUX_CMD send-keys -t "$split_name" "unset TMUX && sudo tmux attach -t '${sessions[$i]}'" Enter
+        $TMUX_CMD select-layout -t "$split_name" tiled
+    done
+
+    $TMUX_CMD set -t "$split_name" mouse on
+    exec $TMUX_CMD attach -t "$split_name"
 }
 
 main() {
-    print_header
-
     local sessions_raw=$(get_sessions)
 
     if [ -z "$sessions_raw" ]; then
-        echo -e "  ${DIM}No active sessions${RESET}"
-        echo ""
+        echo -e "${MAUVE}No active sessions${RESET}"
         exec bash -l
     fi
 
-    declare -a session_names
-    local i=1
-
-    while IFS='|' read -r name created attached; do
+    # Build fzf input
+    local fzf_input=""
+    while read -r name; do
         [ -z "$name" ] && continue
-        session_names+=("$name")
-
-        local time_ago=$(format_time_ago "$created")
-        local status=""
-        [ "$attached" = "1" ] && status="${GREEN}●${RESET} " || status="  "
-
-        local title=$($TMUX display-message -t "$name" -p "#{pane_title}" 2>/dev/null || echo "")
-        [[ "$title" == *"✳"* ]] && title="${title#*✳ }"
-
-        local display="$name"
-        if [ -n "$title" ] && [ "$title" != "Window Title" ] && [ "$title" != "$name" ]; then
-            display="$title ${DIM}($name)${RESET}"
-        fi
-
-        printf "  ${TEAL}%2d)${RESET} %s%s ${OVERLAY}%s${RESET}\n" "$i" "$status" "$display" "$time_ago"
-        ((i++))
+        fzf_input+="$(format_session "$name")|$name"$'\n'
     done <<< "$sessions_raw"
 
-    echo ""
-    echo -e "  ${DIM}─────────────────────────────────────${RESET}"
-    echo -e "  ${GREEN} n)${RESET} new bash    ${GREEN}c)${RESET} new claude    ${RED}q)${RESET} quit"
-    echo ""
+    # Run fzf with multi-select
+    local selected
+    selected=$(echo -e "$fzf_input" | fzf \
+        --multi \
+        --delimiter='|' \
+        --with-nth=1 \
+        --height=50% \
+        --reverse \
+        --border=rounded \
+        --border-label=" sandboxer " \
+        --border-label-pos=3 \
+        --prompt="› " \
+        --pointer="▶" \
+        --marker="✓" \
+        --header="TAB: multi-select │ ENTER: attach" \
+        --color="fg:#cdd6f4,bg:#1e1e2e,hl:#f38ba8" \
+        --color="fg+:#cdd6f4,bg+:#313244,hl+:#f38ba8" \
+        --color="info:#94e2d5,prompt:#cba6f7,pointer:#f5e0dc" \
+        --color="marker:#a6e3a1,spinner:#f5e0dc,header:#6c7086" \
+        --color="border:#6c7086,label:#cba6f7" \
+        --bind="ctrl-c:abort" \
+        2>/dev/null) || exit 0
 
-    read -p "  › " choice
-    echo ""
+    # Extract session names
+    local session_names=()
+    while read -r line; do
+        [ -z "$line" ] && continue
+        session_names+=("${line##*|}")
+    done <<< "$selected"
 
-    # Default to first session if empty
-    [ -z "$choice" ] && choice=1
-
-    case "$choice" in
-        q|Q) exit 0 ;;
-        n|N) exec bash -l ;;
-        c|C)
-            local name="ssh-claude-$(date +%s)"
-            $TMUX new-session -d -s "$name"
-            $TMUX set -t "$name" mouse on
-            $TMUX send-keys -t "$name" "IS_SANDBOX=1 claude --dangerously-skip-permissions" Enter
-            exec $TMUX attach-session -t "$name"
-            ;;
-        *[!0-9]*)
-            echo -e "  ${RED}Invalid${RESET}"
-            exit 1
-            ;;
-        *)
-            local idx=$((choice - 1))
-            if [ $idx -ge 0 ] && [ $idx -lt ${#session_names[@]} ]; then
-                exec $TMUX attach-session -t "${session_names[$idx]}"
-            else
-                echo -e "  ${RED}Invalid${RESET}"
-                exit 1
-            fi
-            ;;
-    esac
+    if [ ${#session_names[@]} -eq 0 ]; then
+        exit 0
+    elif [ ${#session_names[@]} -eq 1 ]; then
+        # Single session - direct attach
+        exec $TMUX_CMD attach -t "${session_names[0]}"
+    else
+        # Multiple sessions - create split view
+        create_split_session "${session_names[@]}"
+    fi
 }
 
 main "$@"
