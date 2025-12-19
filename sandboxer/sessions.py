@@ -253,11 +253,11 @@ def generate_session_name(session_type: str = "claude", workdir: str = "/home/sa
 
 def get_directories() -> list[str]:
     """Get list of starting directories."""
-    dirs = ["/", "/home/sandboxer"]
+    dirs = ["/", "/home", "/home/sandboxer"]
     try:
-        for entry in os.listdir("/home/sandboxer"):
+        for entry in sorted(os.listdir("/home/sandboxer")):
             path = f"/home/sandboxer/{entry}"
-            if os.path.isdir(path) and os.path.isdir(f"{path}/.git"):
+            if os.path.isdir(path) and not entry.startswith("."):
                 dirs.append(path)
     except Exception:
         pass
