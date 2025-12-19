@@ -328,6 +328,36 @@ function initTerminalActivation() {
   });
 }
 
+// ═══ Dir Dropdown (basename when collapsed, full path when open) ═══
+
+function initDirDropdown() {
+  const dir = document.getElementById("dir");
+  if (!dir) return;
+
+  const showFull = () => {
+    [...dir.options].forEach(opt => {
+      opt.textContent = opt.value;
+    });
+  };
+
+  const showShort = () => {
+    [...dir.options].forEach(opt => {
+      opt.textContent = opt.value.split("/").pop() || "/";
+    });
+  };
+
+  // Start with short names
+  showShort();
+
+  dir.addEventListener("mousedown", showFull);
+  dir.addEventListener("focus", showFull);
+  dir.addEventListener("blur", showShort);
+  dir.addEventListener("change", () => setTimeout(showShort, 100));
+  dir.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" || e.key === "Tab") showShort();
+  });
+}
+
 // ═══ Initialization ═══
 
 (function init() {
@@ -339,6 +369,9 @@ function initTerminalActivation() {
 
   // Trigger change handler to show resume dropdown if needed
   onDirOrTypeChange();
+
+  // Initialize dir dropdown (short/full path toggle)
+  initDirDropdown();
 
   // Initialize drag and drop
   initDragAndDrop();

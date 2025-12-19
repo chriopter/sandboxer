@@ -123,6 +123,24 @@ fileInput?.addEventListener("change", (e) => {
   e.target.value = ""; // Reset for next upload
 });
 
+// ─── Clipboard Paste Handler ───
+// Works without HTTPS (paste event doesn't require secure context)
+document.addEventListener("paste", (e) => {
+  const items = e.clipboardData?.items;
+  if (!items) return;
+
+  for (const item of items) {
+    if (item.type.startsWith("image/")) {
+      e.preventDefault();
+      const file = item.getAsFile();
+      if (file) {
+        handleFile(file);
+      }
+      return;
+    }
+  }
+});
+
 // ─── Kill Button Handler ───
 
 const killBtn = document.getElementById("kill-btn");
