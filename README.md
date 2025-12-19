@@ -1,56 +1,60 @@
-# Sandboxer
+<p align="center">
+  <img src="logo.png" width="120" />
+</p>
 
-<img src="logo.png" width="200" align="right" />
+<h1 align="center">Sandboxer</h1>
 
-Web terminal manager for autonomous Claude Code sessions.
-Gives Claude basically complete control of a disposable machine to run multiple Claude instances with --dangerously-skip-permissions as root.
+<p align="center">
+  Web terminal manager for autonomous Claude Code sessions.<br>
+  Run multiple Claude instances with <code>--dangerously-skip-permissions</code> on a disposable machine.
+</p>
 
-<img width="1200" height="1806" alt="image" src="https://github.com/user-attachments/assets/e6105295-a898-4070-bc06-3458777144ec" />
+---
 
-You can also take over individual sessions via ssh
- 
-<img width="600" height="702" alt="image" src="https://github.com/user-attachments/assets/e748762f-077a-48ef-82de-fad7c351a863" />
-
-
+<img width="100%" alt="Dashboard" src="https://github.com/user-attachments/assets/e6105295-a898-4070-bc06-3458777144ec" />
 
 ## Features
 
 - **Live previews** - See all sessions at a glance in a grid layout
 - **Session persistence** - tmux-backed sessions survive restarts
-- **SSH takeover** - Take over any session from your local terminal (multi-select for split view)
-- **Drag-drop reordering** - Organize sessions your way
+- **SSH takeover** - Take over any session from your terminal (TAB for multi-select split view)
+- **Drag & drop** - Reorder sessions your way
 - **Resume sessions** - Pick up previous Claude conversations
 - **Multiple directories** - Run Claude in different project contexts
-
----
+- **Image paste** - Ctrl+V images directly into terminal
 
 ## Install
 
-1. Install [Claude Code](https://docs.anthropic.com/en/docs/claude-code) on your dedicated / disposable machine
+1. Install [Claude Code](https://docs.anthropic.com/en/docs/claude-code) on a dedicated/disposable machine
 
 2. Run:
    ```bash
-   claude "clone github.com/anthropics/sandboxer to /home/sandboxer/sandboxer-repo, read CLAUDE.md, then install: deps (python3 tmux ttyd caddy lazygit fzf), copy service files, enable and start services"
+   claude "clone github.com/anthropics/sandboxer to /home/sandboxer/sandboxer-repo, read CLAUDE.md, then install"
    ```
 
-3. Access at `http://<host>:8080` — default login: `admin` / `admin`
+3. Access at `http://<host>:8080` — default: `admin` / `admin`
 
 4. Change password:
    ```bash
    /home/sandboxer/sandboxer-repo/set-password.sh YOUR_PASSWORD
-   sudo systemctl restart sandboxer
    ```
-   Or ask Claude: `set sandboxer password to X`
 
----
+## SSH Takeover
+
+Take over sessions from your local terminal:
+
+```bash
+ssh -t sandboxer@host sandboxer-shell
+```
+
+<img width="500" alt="SSH takeover" src="https://github.com/user-attachments/assets/e748762f-077a-48ef-82de-fad7c351a863" />
+
+Use **TAB** to multi-select sessions → automatic tmux split view.
 
 ## Security
 
-- Do not use this if you are sane, it will give claude complete control of a machine.
-- Except on a disposable machine or VM without any secrets on it, also limit git access.
+> **Warning**: This gives Claude complete control of a machine. Only use on a disposable VM without secrets.
 
 ---
-
-## Thanks
 
 Built with [webtui](https://github.com/webtui/webtui)
