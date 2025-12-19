@@ -546,9 +546,6 @@ main {
 
 .terminal:hover iframe {
   opacity: 1;
-}
-
-.terminal.active iframe {
   pointer-events: auto;
 }
 

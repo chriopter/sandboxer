@@ -304,29 +304,6 @@ function initSliders() {
   }
 }
 
-// ═══ Terminal Activation ═══
-
-function initTerminalActivation() {
-  // Click on terminal to activate (enable scroll capture)
-  document.querySelectorAll(".terminal").forEach((terminal) => {
-    terminal.addEventListener("click", (e) => {
-      // Deactivate all other terminals
-      document.querySelectorAll(".terminal.active").forEach((t) => {
-        if (t !== terminal) t.classList.remove("active");
-      });
-      terminal.classList.add("active");
-    });
-  });
-
-  // Click outside terminals to deactivate
-  document.addEventListener("click", (e) => {
-    if (!e.target.closest(".terminal")) {
-      document.querySelectorAll(".terminal.active").forEach((t) => {
-        t.classList.remove("active");
-      });
-    }
-  });
-}
 
 // ═══ Dir Dropdown (basename when collapsed, full path when open) ═══
 
@@ -376,8 +353,23 @@ function initDirDropdown() {
   // Initialize drag and drop
   initDragAndDrop();
 
-  // Initialize terminal activation (click to enable scroll)
-  initTerminalActivation();
+  // Focus iframe on hover (dispatch real mouse events)
+  document.querySelectorAll(".terminal").forEach((terminal) => {
+    terminal.addEventListener("mouseenter", (e) => {
+      const iframe = terminal.querySelector("iframe");
+      if (iframe) {
+        const rect = iframe.getBoundingClientRect();
+        const evt = new MouseEvent("click", {
+          bubbles: true,
+          cancelable: true,
+          clientX: rect.left + rect.width / 2,
+          clientY: rect.top + rect.height / 2,
+          view: window
+        });
+        iframe.dispatchEvent(evt);
+      }
+    });
+  });
 
   // Initialize preview sliders
   initSliders();
