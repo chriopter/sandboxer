@@ -43,7 +43,7 @@ You can also take over individual sessions via ssh
 ## Security
 
 - Do not use this if you are sane, it will give claude complete control of a machine.
-- Except on a disposable machine or VM without any secrets on it.
+- Except on a disposable machine or VM without any secrets on it, also limit git access.
 
 ---
 
