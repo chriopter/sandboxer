@@ -1,0 +1,345 @@
+#!/usr/bin/env python3
+"""Sandboxer - Web terminal session manager."""
+
+import base64
+import http.server
+import json
+import os
+import signal
+import subprocess
+import time
+import urllib.parse
+from html import escape
+
+from . import sessions
+
+PORT = 8081
+
+# Paths
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(APP_DIR, "static")
+TEMPLATES_DIR = os.path.join(APP_DIR, "templates")
+UPLOADS_DIR = "/tmp/sandboxer_uploads"
+
+# Ensure uploads directory exists
+os.makedirs(UPLOADS_DIR, exist_ok=True)
+
+MIME_TYPES = {
+    ".css": "text/css",
+    ".js": "application/javascript",
+    ".html": "text/html",
+}
+
+# Template cache
+_templates: dict[str, str] = {}
+
+
+def load_templates():
+    """Load all HTML templates into memory."""
+    for filename in os.listdir(TEMPLATES_DIR):
+        if filename.endswith(".html"):
+            path = os.path.join(TEMPLATES_DIR, filename)
+            with open(path, "r") as f:
+                _templates[filename] = f.read()
+
+
+def render_template(name: str, **context) -> str:
+    """Render a template with variable substitution."""
+    template = _templates.get(name, "")
+    for key, value in context.items():
+        template = template.replace("{{" + key + "}}", str(value))
+    return template
+
+
+def build_session_cards(sessions_list: list[dict]) -> str:
+    """Build HTML for session cards."""
+    if not sessions_list:
+        return """
+<div class="empty">
+  <div class="empty-icon">&#9671;</div>
+  <p>no active sessions</p>
+  <p class="hint">create one below</p>
+</div>"""
+
+    cards = ""
+    for s in sessions_list:
+        port = sessions.get_ttyd_port(s["name"])
+        terminal_url = f"/t/{port}/" if port else ""
+        status = "active" if s.get("attached") else "idle"
+        status_color = "var(--green)" if s.get("attached") else "var(--overlay0)"
+
+        display_name = s.get("title") or s["name"]
+
+        cards += f"""
+<article class="card" draggable="true" data-session="{escape(s['name'])}">
+  <header>
+    <span class="card-title" onclick="renameSession('{escape(s['name'])}')">{escape(display_name)}</span>
+    <div class="card-actions">
+      <span class="card-btn" onclick="event.stopPropagation(); window.open('/terminal?session=' + encodeURIComponent('{escape(s['name'])}'), '_blank')">↗</span>
+      <span class="card-btn" onclick="event.stopPropagation(); copySSH('{escape(s['name'])}')">ssh</span>
+      <span class="card-btn card-btn-x" onclick="event.stopPropagation(); killSession(this, '{escape(s['name'])}')">×</span>
+    </div>
+  </header>
+  <div class="terminal">
+    <iframe src="{terminal_url}" loading="lazy" scrolling="no"></iframe>
+    <span class="fullscreen-btn" onclick="window.open('/terminal?session=' + encodeURIComponent('{escape(s['name'])}'), '_blank')">⛶</span>
+  </div>
+</article>"""
+
+    return cards
+
+
+def build_dir_options() -> str:
+    """Build HTML options for directory select."""
+    dirs = sessions.get_directories()
+    return "\n".join(f'<option value="{d}">{os.path.basename(d) or "/"}</option>' for d in dirs)
+
+
+class Handler(http.server.BaseHTTPRequestHandler):
+    def log_message(self, format, *args):
+        pass  # Suppress logging
+
+    def send_html(self, content: str, status: int = 200):
+        self.send_response(status)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.end_headers()
+        self.wfile.write(content.encode())
+
+    def send_json(self, data, status: int = 200):
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps(data).encode())
+
+    def send_redirect(self, location: str):
+        self.send_response(302)
+        self.send_header("Location", location)
+        self.end_headers()
+
+    def do_GET(self):
+        parsed = urllib.parse.urlparse(self.path)
+        query = urllib.parse.parse_qs(parsed.query)
+        path = parsed.path
+
+        # ─── Static Files ───
+        if path.startswith("/static/"):
+            filename = path[8:]
+            filepath = os.path.join(STATIC_DIR, filename)
+            if os.path.isfile(filepath) and ".." not in filename:
+                ext = os.path.splitext(filename)[1]
+                self.send_response(200)
+                self.send_header("Content-Type", MIME_TYPES.get(ext, "application/octet-stream"))
+                self.end_headers()
+                with open(filepath, "rb") as f:
+                    self.wfile.write(f.read())
+                return
+            self.send_response(404)
+            self.end_headers()
+            return
+
+        # ─── Main Page ───
+        if path == "/":
+            tmux_sessions = sessions.get_tmux_sessions()
+            ordered = sessions.get_ordered_sessions(tmux_sessions)
+
+            # Start ttyd for each session
+            for s in ordered:
+                sessions.start_ttyd(s["name"])
+
+            html = render_template(
+                "index.html",
+                cards=build_session_cards(ordered),
+                dir_options=build_dir_options(),
+                system_prompt_path=sessions.SYSTEM_PROMPT_PATH,
+            )
+            self.send_html(html)
+            return
+
+        # ─── Terminal Page ───
+        if path == "/terminal":
+            session_name = query.get("session", [""])[0]
+            if session_name:
+                port = sessions.start_ttyd(session_name)
+                html = render_template(
+                    "terminal.html",
+                    session_name=escape(session_name),
+                    ttyd_url=f"/t/{port}/",
+                )
+                self.send_html(html)
+                return
+            self.send_redirect("/")
+            return
+
+        # ─── Create Session ───
+        if path == "/create":
+            session_type = query.get("type", ["claude"])[0]
+            workdir = query.get("dir", ["/home/sandboxer"])[0]
+            resume_id = query.get("resume_id", [None])[0]
+            name = sessions.generate_session_name(session_type, workdir)
+            sessions.create_session(name, session_type, workdir, resume_id)
+            self.send_redirect("/")
+            return
+
+        # ─── Rename Session ───
+        if path == "/rename":
+            old = query.get("old", [""])[0]
+            new = query.get("new", [""])[0]
+            if old and new:
+                sessions.rename_session(old, new)
+            self.send_redirect("/")
+            return
+
+        # ─── Kill Session ───
+        if path == "/kill":
+            name = query.get("session", [""])[0]
+            if name:
+                sessions.kill_session(name)
+            self.send_redirect("/")
+            return
+
+        # ─── Restart Service ───
+        if path == "/restart":
+            self.send_html(
+                "<html><body style='background:#000;color:#0f0;font-family:monospace;padding:20px'>"
+                "restarting...<script>setTimeout(function(){window.location='/'},2000)</script></body></html>"
+            )
+            subprocess.Popen(["systemctl", "restart", "sandboxer"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return
+
+        # ─── API: Sessions ───
+        if path == "/api/sessions":
+            tmux_sessions = sessions.get_tmux_sessions()
+            ordered = sessions.get_ordered_sessions(tmux_sessions)
+            for s in ordered:
+                s["port"] = sessions.get_ttyd_port(s["name"])
+            self.send_json(ordered)
+            return
+
+        # ─── API: Resume Sessions ───
+        if path == "/api/resume-sessions":
+            workdir = query.get("dir", ["/home/sandboxer"])[0]
+            resumable = sessions.get_resumable_sessions(workdir)
+            self.send_json(resumable)
+            return
+
+        # ─── API: System Stats ───
+        if path == "/api/stats":
+            try:
+                # CPU usage
+                with open("/proc/stat") as f:
+                    cpu_line = f.readline()
+                cpu_parts = cpu_line.split()[1:5]
+                idle = int(cpu_parts[3])
+                total = sum(int(x) for x in cpu_parts)
+                cpu_pct = 100 - (idle * 100 // total) if total else 0
+
+                # Memory usage
+                with open("/proc/meminfo") as f:
+                    lines = f.readlines()
+                mem_total = int(lines[0].split()[1])
+                mem_avail = int(lines[2].split()[1])
+                mem_pct = 100 - (mem_avail * 100 // mem_total) if mem_total else 0
+
+                # Disk usage
+                stat = os.statvfs("/")
+                disk_total = stat.f_blocks * stat.f_frsize
+                disk_free = stat.f_bavail * stat.f_frsize
+                disk_pct = 100 - (disk_free * 100 // disk_total) if disk_total else 0
+
+                self.send_json({"cpu": cpu_pct, "mem": mem_pct, "disk": disk_pct})
+            except Exception:
+                self.send_json({"cpu": 0, "mem": 0, "disk": 0})
+            return
+
+        # ─── 404 ───
+        self.send_response(404)
+        self.end_headers()
+
+    def do_POST(self):
+        content_length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(content_length)
+        parsed = urllib.parse.urlparse(self.path)
+        path = parsed.path
+
+        # ─── API: Set Order ───
+        if path == "/api/order":
+            try:
+                data = json.loads(body)
+                order = data.get("order", [])
+                if isinstance(order, list):
+                    sessions.set_order(order)
+                    self.send_json({"ok": True})
+                else:
+                    self.send_json({"error": "order must be a list"}, 400)
+            except Exception as e:
+                self.send_json({"error": str(e)}, 500)
+            return
+
+        # ─── API: Upload Image ───
+        if path == "/api/upload":
+            try:
+                data = json.loads(body)
+                image_b64 = data.get("image", "")
+                filename = data.get("filename", f"clipboard_{int(time.time())}.png")
+
+                # Sanitize filename
+                filename = os.path.basename(filename)
+                if not filename:
+                    filename = f"clipboard_{int(time.time())}.png"
+
+                filepath = os.path.join(UPLOADS_DIR, filename)
+
+                # Decode and save
+                image_data = base64.b64decode(image_b64)
+                with open(filepath, "wb") as f:
+                    f.write(image_data)
+
+                self.send_json({"ok": True, "path": filepath})
+            except Exception as e:
+                self.send_json({"error": str(e)}, 500)
+            return
+
+        # ─── API: Inject Text to Session ───
+        if path == "/api/inject":
+            try:
+                data = json.loads(body)
+                session_name = data.get("session", "")
+                text = data.get("text", "")
+
+                if not session_name or not text:
+                    self.send_json({"error": "session and text required"}, 400)
+                    return
+
+                # Send text to tmux session
+                subprocess.run(
+                    ["tmux", "send-keys", "-t", session_name, "-l", text],
+                    capture_output=True
+                )
+                self.send_json({"ok": True})
+            except Exception as e:
+                self.send_json({"error": str(e)}, 500)
+            return
+
+        # ─── 404 ───
+        self.send_response(404)
+        self.end_headers()
+
+
+def cleanup(sig, frame):
+    print("\nshutting down")
+    exit(0)
+
+
+def main():
+    signal.signal(signal.SIGTERM, cleanup)
+    signal.signal(signal.SIGINT, cleanup)
+
+    load_templates()
+
+    print(f"sandboxer http://127.0.0.1:{PORT}")
+    server = http.server.HTTPServer(("127.0.0.1", PORT), Handler)
+    server.serve_forever()
+
+
+if __name__ == "__main__":
+    main()

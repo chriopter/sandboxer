@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{{session_name}} - sandboxer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/static/webtui.css">
+  <link rel="stylesheet" href="/static/catppuccin.css">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="terminal-page" data-webtui-theme="catppuccin-mocha">
+  <div class="term-bar">
+    <span class="term-title">{{session_name}}</span>
+    <span class="term-spacer"></span>
+    <button id="paste-btn" class="term-btn">[img]</button>
+    <span class="term-sep">│</span>
+    <button id="kill-btn" class="term-btn term-btn-danger">[kill]</button>
+  </div>
+  <iframe src="{{ttyd_url}}" id="terminal-iframe"></iframe>
+  <input type="file" id="image-input" accept="image/*" hidden>
+  <div id="paste-toast" class="paste-toast"></div>
+  <script>
+    window.SANDBOXER_SESSION = "{{session_name}}";
+  </script>
+  <script src="/static/terminal.js"></script>
+</body>
+</html>

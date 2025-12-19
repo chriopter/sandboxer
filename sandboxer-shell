@@ -1,0 +1,133 @@
+#!/bin/bash
+# sandboxer-shell - Interactive session picker for SSH takeover
+# Install: sudo ln -sf /home/sandboxer/sandboxer-repo/sandboxer-shell /usr/local/bin/sandboxer-shell
+# Usage:
+#   ssh -t sandboxer@host sandboxer-shell           # interactive picker
+#   ssh -t sandboxer@host sandboxer-shell SESSION   # attach directly
+
+set -e
+
+# Use sudo for tmux since sessions run as root
+TMUX="sudo tmux"
+
+# Direct attach mode if session name provided
+if [ -n "$1" ]; then
+    session="$1"
+    if $TMUX has-session -t "$session" 2>/dev/null; then
+        exec $TMUX attach -t "$session"
+    else
+        echo "Session '$session' not found"
+        exec bash
+    fi
+fi
+
+# Colors (Catppuccin Mocha) - use $'...' for actual escape chars
+RESET=$'\033[0m'
+BOLD=$'\033[1m'
+DIM=$'\033[2m'
+MAUVE=$'\033[38;2;203;166;247m'
+TEAL=$'\033[38;2;148;226;213m'
+GREEN=$'\033[38;2;166;227;161m'
+RED=$'\033[38;2;243;139;168m'
+OVERLAY=$'\033[38;2;108;112;134m'
+
+print_header() {
+    echo -e "${MAUVE}${BOLD}"
+    echo "  ╭─────────────────────────────────────╮"
+    echo "  │         sandboxer sessions          │"
+    echo "  ╰─────────────────────────────────────╯"
+    echo -e "${RESET}"
+}
+
+get_sessions() {
+    $TMUX list-sessions -F "#{session_name}|#{session_created}|#{session_attached}" 2>/dev/null || true
+}
+
+format_time_ago() {
+    local created=$1
+    local now=$(date +%s)
+    local diff=$((now - created))
+
+    if [ $diff -lt 60 ]; then
+        echo "now"
+    elif [ $diff -lt 3600 ]; then
+        echo "$((diff / 60))m"
+    elif [ $diff -lt 86400 ]; then
+        echo "$((diff / 3600))h"
+    else
+        echo "$((diff / 86400))d"
+    fi
+}
+
+main() {
+    print_header
+
+    local sessions_raw=$(get_sessions)
+
+    if [ -z "$sessions_raw" ]; then
+        echo -e "  ${DIM}No active sessions${RESET}"
+        echo ""
+        exec bash -l
+    fi
+
+    declare -a session_names
+    local i=1
+
+    while IFS='|' read -r name created attached; do
+        [ -z "$name" ] && continue
+        session_names+=("$name")
+
+        local time_ago=$(format_time_ago "$created")
+        local status=""
+        [ "$attached" = "1" ] && status="${GREEN}●${RESET} " || status="  "
+
+        local title=$($TMUX display-message -t "$name" -p "#{pane_title}" 2>/dev/null || echo "")
+        [[ "$title" == *"✳"* ]] && title="${title#*✳ }"
+
+        local display="$name"
+        if [ -n "$title" ] && [ "$title" != "Window Title" ] && [ "$title" != "$name" ]; then
+            display="$title ${DIM}($name)${RESET}"
+        fi
+
+        printf "  ${TEAL}%2d)${RESET} %s%s ${OVERLAY}%s${RESET}\n" "$i" "$status" "$display" "$time_ago"
+        ((i++))
+    done <<< "$sessions_raw"
+
+    echo ""
+    echo -e "  ${DIM}─────────────────────────────────────${RESET}"
+    echo -e "  ${GREEN} n)${RESET} new bash    ${GREEN}c)${RESET} new claude    ${RED}q)${RESET} quit"
+    echo ""
+
+    read -p "  › " choice
+    echo ""
+
+    # Default to first session if empty
+    [ -z "$choice" ] && choice=1
+
+    case "$choice" in
+        q|Q) exit 0 ;;
+        n|N) exec bash -l ;;
+        c|C)
+            local name="ssh-claude-$(date +%s)"
+            $TMUX new-session -d -s "$name"
+            $TMUX set -t "$name" mouse on
+            $TMUX send-keys -t "$name" "IS_SANDBOX=1 claude --dangerously-skip-permissions" Enter
+            exec $TMUX attach-session -t "$name"
+            ;;
+        *[!0-9]*)
+            echo -e "  ${RED}Invalid${RESET}"
+            exit 1
+            ;;
+        *)
+            local idx=$((choice - 1))
+            if [ $idx -ge 0 ] && [ $idx -lt ${#session_names[@]} ]; then
+                exec $TMUX attach-session -t "${session_names[$idx]}"
+            else
+                echo -e "  ${RED}Invalid${RESET}"
+                exit 1
+            fi
+            ;;
+    esac
+}
+
+main "$@"
