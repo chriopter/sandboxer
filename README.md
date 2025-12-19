@@ -15,7 +15,7 @@ You can also take over individual sessions via ssh
 
 - **Live previews** - See all sessions at a glance in a grid layout
 - **Session persistence** - tmux-backed sessions survive restarts
-- **SSH takeover** - Take over any session from your local terminal
+- **SSH takeover** - Take over any session from your local terminal (multi-select for split view)
 - **Drag-drop reordering** - Organize sessions your way
 - **Resume sessions** - Pick up previous Claude conversations
 - **Multiple directories** - Run Claude in different project contexts
