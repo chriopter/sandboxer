@@ -24,7 +24,7 @@ You can also take over individual sessions via ssh
 
 ## Install
 
-1. Install [Claude Code](https://docs.anthropic.com/en/docs/claude-code) on your dedicated sandbox machine
+1. Install [Claude Code](https://docs.anthropic.com/en/docs/claude-code) on your dedicated / disposable machine
 
 2. Run:
    ```bash
