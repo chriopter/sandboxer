@@ -133,6 +133,16 @@ body {
   text-decoration: underline;
 }
 
+.session-count {
+  font-size: 0.85em;
+  color: var(--overlay1);
+  background: var(--surface0);
+  padding: 0.15em 0.8ch;
+  border-radius: var(--radius);
+  min-width: 2.5ch;
+  text-align: center;
+}
+
 .header-controls {
   display: flex;
   gap: 2ch;

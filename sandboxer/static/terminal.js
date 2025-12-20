@@ -94,6 +94,13 @@ async function injectText(text) {
   });
 }
 
+function focusTerminal() {
+  const iframe = document.getElementById("terminal-iframe");
+  if (iframe?.contentWindow) {
+    iframe.contentWindow.focus();
+  }
+}
+
 async function handleFile(file) {
   if (!file || !file.type.startsWith("image/")) {
     showToast("Not an image", "error");
@@ -106,9 +113,12 @@ async function handleFile(file) {
     const path = await uploadImage(file);
     await injectText(path + " ");
     showToast(path, "success");
+    // Re-focus terminal after upload completes
+    setTimeout(focusTerminal, 100);
   } catch (err) {
     console.error("Upload failed:", err);
     showToast("Failed: " + err.message, "error");
+    setTimeout(focusTerminal, 100);
   }
 }
 
@@ -147,11 +157,7 @@ pasteTarget.addEventListener("paste", (e) => {
       }
       pasteMode = false;
       clearTimeout(pasteTimeout);
-      // Re-focus terminal iframe
-      setTimeout(() => {
-        const iframe = document.getElementById("terminal-iframe");
-        iframe?.contentWindow?.focus();
-      }, 50);
+      // Focus handled by handleFile after upload completes
       return;
     }
   }
@@ -181,8 +187,7 @@ pasteBtn?.addEventListener("click", (e) => {
   pasteTimeout = setTimeout(() => {
     if (pasteMode) {
       pasteMode = false;
-      const iframe = document.getElementById("terminal-iframe");
-      iframe?.contentWindow?.focus();
+      focusTerminal();
     }
   }, 3000);
 });
