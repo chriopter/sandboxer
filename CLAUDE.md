@@ -90,11 +90,13 @@ python3 -m sandboxer.app
 
 ```bash
 ssh -t sandboxer@host "sudo tmux attach -t 'session-name'"
-ssh -t sandboxer@host sandboxer-shell                     # Interactive picker
-ssh -t sandboxer@host sandboxer-shell -f /home/sandboxer  # Filter by folder
-ssh -t sandboxer@host sandboxer-shell --hierarchical      # Folder picker first
+ssh -t sandboxer@host sandboxer-shell                     # Folder picker → session picker
+ssh -t sandboxer@host sandboxer-shell -f /home/sandboxer  # Direct to folder context
+ssh -t sandboxer@host sandboxer-shell --all               # Skip folder picker, show all
 ```
 
 **Session display format:** `[folder] title (session-name) [time]`
+
+The SSH button in the web UI copies a command with the current folder context.
 
 Detach: `Ctrl-B d` | Switch: `Ctrl-B s`

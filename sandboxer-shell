@@ -2,10 +2,10 @@
 # sandboxer-shell - Interactive session picker for SSH takeover
 # Install: sudo ln -sf /home/sandboxer/sandboxer-repo/sandboxer-shell /usr/local/bin/sandboxer-shell
 # Usage:
-#   ssh -t sandboxer@host sandboxer-shell                    # interactive picker
+#   ssh -t sandboxer@host sandboxer-shell                    # folder picker → session picker
 #   ssh -t sandboxer@host sandboxer-shell SESSION            # attach directly
-#   ssh -t sandboxer@host sandboxer-shell -f /path           # filter by folder
-#   ssh -t sandboxer@host sandboxer-shell --hierarchical     # show folder picker first
+#   ssh -t sandboxer@host sandboxer-shell -f /path           # skip folder picker, filter by path
+#   ssh -t sandboxer@host sandboxer-shell --all              # skip folder picker, show all
 #
 # Multi-select: Use TAB/Shift-TAB to select multiple sessions, creates split panes
 
@@ -17,16 +17,17 @@ WORKDIRS_FILE="/etc/sandboxer/session_workdirs.json"
 
 # Parse arguments
 FOLDER_FILTER=""
-HIERARCHICAL=false
+SKIP_FOLDER_PICKER=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -f|--folder)
             FOLDER_FILTER="$2"
+            SKIP_FOLDER_PICKER=true
             shift 2
             ;;
-        -h|--hierarchical)
-            HIERARCHICAL=true
+        --all)
+            SKIP_FOLDER_PICKER=true
             shift
             ;;
         *)
@@ -172,8 +173,8 @@ pick_folder() {
 }
 
 main() {
-    # Hierarchical mode: pick folder first
-    if [ "$HIERARCHICAL" = true ]; then
+    # Show folder picker by default (unless -f or --all specified)
+    if [ "$SKIP_FOLDER_PICKER" = false ]; then
         FOLDER_FILTER=$(pick_folder)
     fi
 

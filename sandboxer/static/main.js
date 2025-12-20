@@ -63,7 +63,15 @@ async function copySSH(sessionName) {
 
 async function copyTakeover() {
   const host = window.location.hostname;
-  const cmd = `ssh -t sandboxer@${host} sandboxer-shell`;
+  const dir = document.getElementById("dir").value;
+
+  // Include folder context in SSH command
+  let cmd;
+  if (dir && dir !== "/") {
+    cmd = `ssh -t sandboxer@${host} "sandboxer-shell -f '${dir}'"`;
+  } else {
+    cmd = `ssh -t sandboxer@${host} sandboxer-shell`;
+  }
 
   try {
     await navigator.clipboard.writeText(cmd);
