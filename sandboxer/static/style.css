@@ -77,6 +77,47 @@ body {
   font-size: 1.2em;
 }
 
+/* Folder Context Switcher */
+.folder-switcher {
+  position: relative;
+}
+
+.folder-switcher::after {
+  content: "▾";
+  position: absolute;
+  right: 0.8ch;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--overlay0);
+  pointer-events: none;
+  font-size: 0.7em;
+}
+
+.folder-switcher select {
+  font-family: inherit;
+  font-size: 0.9em;
+  appearance: none;
+  background: var(--surface0);
+  color: var(--lavender);
+  border: 1px solid var(--surface1);
+  border-radius: var(--radius);
+  padding: 0.3em 2.5ch 0.3em 1ch;
+  cursor: pointer;
+  font-weight: 500;
+  min-width: 12ch;
+}
+
+.folder-switcher select:hover {
+  border-color: var(--mauve);
+  background: var(--surface1);
+}
+
+.folder-switcher select:focus {
+  outline: none;
+  border-color: var(--mauve);
+  box-shadow: 0 0 0 2px rgba(203, 166, 247, 0.2);
+}
+
 .btn-ssh-header {
   font-family: inherit;
   font-size: 0.9em;

@@ -14,15 +14,14 @@
 <header class="header">
   <div class="header-left">
     <div class="logo">sandboxer</div>
-    <button class="btn-ssh-header" onclick="copyTakeover()" title="Copy SSH session picker command">ssh</button>
-  </div>
-  <div class="header-controls">
-    <label>dir</label>
-    <div class="select-wrap">
+    <div class="select-wrap folder-switcher">
       <select id="dir" onchange="onDirOrTypeChange()">
         {{dir_options}}
       </select>
     </div>
+    <button class="btn-ssh-header" onclick="copyTakeover()" title="Copy SSH session picker command">ssh</button>
+  </div>
+  <div class="header-controls">
     <label>type</label>
     <div class="select-wrap">
       <select id="type" onchange="onDirOrTypeChange()">

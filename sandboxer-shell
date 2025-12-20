@@ -2,8 +2,10 @@
 # sandboxer-shell - Interactive session picker for SSH takeover
 # Install: sudo ln -sf /home/sandboxer/sandboxer-repo/sandboxer-shell /usr/local/bin/sandboxer-shell
 # Usage:
-#   ssh -t sandboxer@host sandboxer-shell           # interactive picker
-#   ssh -t sandboxer@host sandboxer-shell SESSION   # attach directly
+#   ssh -t sandboxer@host sandboxer-shell                    # interactive picker
+#   ssh -t sandboxer@host sandboxer-shell SESSION            # attach directly
+#   ssh -t sandboxer@host sandboxer-shell -f /path           # filter by folder
+#   ssh -t sandboxer@host sandboxer-shell --hierarchical     # show folder picker first
 #
 # Multi-select: Use TAB/Shift-TAB to select multiple sessions, creates split panes
 
@@ -11,17 +13,57 @@ set -e
 
 # Use sudo for tmux since sessions run as root
 TMUX_CMD="sudo tmux"
+WORKDIRS_FILE="/etc/sandboxer/session_workdirs.json"
 
-# Direct attach mode if session name provided
-if [ -n "$1" ]; then
-    session="$1"
-    if $TMUX_CMD has-session -t "$session" 2>/dev/null; then
-        exec $TMUX_CMD attach -t "$session"
-    else
-        echo "Session '$session' not found"
-        exec bash
+# Parse arguments
+FOLDER_FILTER=""
+HIERARCHICAL=false
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -f|--folder)
+            FOLDER_FILTER="$2"
+            shift 2
+            ;;
+        -h|--hierarchical)
+            HIERARCHICAL=true
+            shift
+            ;;
+        *)
+            # Direct attach mode if session name provided
+            session="$1"
+            if $TMUX_CMD has-session -t "$session" 2>/dev/null; then
+                exec $TMUX_CMD attach -t "$session"
+            else
+                echo "Session '$session' not found"
+                exec bash
+            fi
+            ;;
+    esac
+done
+
+# Get workdir for a session from JSON
+get_workdir() {
+    local name="$1"
+    if [ -f "$WORKDIRS_FILE" ]; then
+        python3 -c "import json; d=json.load(open('$WORKDIRS_FILE')); print(d.get('$name', ''))" 2>/dev/null || echo ""
     fi
-fi
+}
+
+# Get unique folders from workdirs
+get_folders() {
+    if [ -f "$WORKDIRS_FILE" ]; then
+        python3 -c "
+import json
+try:
+    d = json.load(open('$WORKDIRS_FILE'))
+    folders = sorted(set(d.values()))
+    for f in folders:
+        print(f)
+except: pass
+" 2>/dev/null
+    fi
+}
 
 # Colors (Catppuccin Mocha)
 MAUVE=$'\033[38;2;203;166;247m'
@@ -36,6 +78,7 @@ format_session() {
     local created=$($TMUX_CMD display-message -t "$name" -p "#{session_created}" 2>/dev/null || echo "0")
     local attached=$($TMUX_CMD display-message -t "$name" -p "#{session_attached}" 2>/dev/null || echo "0")
     local title=$($TMUX_CMD display-message -t "$name" -p "#{pane_title}" 2>/dev/null || echo "")
+    local workdir=$(get_workdir "$name")
 
     # Time ago
     local now=$(date +%s)
@@ -58,10 +101,17 @@ format_session() {
     # Clean title
     [[ "$title" == *"✳"* ]] && title="${title#*✳ }"
 
+    # Short folder name (basename or "?" if unknown)
+    local folder_short="?"
+    if [ -n "$workdir" ]; then
+        folder_short=$(basename "$workdir")
+        [ "$folder_short" = "/" ] && folder_short="/"
+    fi
+
     if [ -n "$title" ] && [ "$title" != "Window Title" ] && [ "$title" != "$name" ]; then
-        echo "$status$title ($name) [$time_ago]"
+        echo "$status[$folder_short] $title ($name) [$time_ago]"
     else
-        echo "$status$name [$time_ago]"
+        echo "$status[$folder_short] $name [$time_ago]"
     fi
 }
 
@@ -86,7 +136,47 @@ create_split_session() {
     exec $TMUX_CMD attach -t "$split_name"
 }
 
+pick_folder() {
+    local folders=$(get_folders)
+    if [ -z "$folders" ]; then
+        echo ""
+        return
+    fi
+
+    # Add "all" option at the top
+    local fzf_input="[all folders]"$'\n'"$folders"
+
+    local selected
+    selected=$(echo -e "$fzf_input" | fzf \
+        --height=40% \
+        --reverse \
+        --border=rounded \
+        --border-label=" folder " \
+        --border-label-pos=3 \
+        --prompt="› " \
+        --pointer="▶" \
+        --header="Select folder context" \
+        --color="fg:#cdd6f4,bg:#1e1e2e,hl:#f38ba8" \
+        --color="fg+:#cdd6f4,bg+:#313244,hl+:#f38ba8" \
+        --color="info:#94e2d5,prompt:#cba6f7,pointer:#f5e0dc" \
+        --color="marker:#a6e3a1,spinner:#f5e0dc,header:#6c7086" \
+        --color="border:#6c7086,label:#cba6f7" \
+        --bind="ctrl-c:abort" \
+        2>/dev/null) || echo ""
+
+    if [ "$selected" = "[all folders]" ]; then
+        echo ""
+    else
+        echo "$selected"
+    fi
+}
+
 main() {
+    # Hierarchical mode: pick folder first
+    if [ "$HIERARCHICAL" = true ]; then
+        FOLDER_FILTER=$(pick_folder)
+    fi
+
     local sessions_raw=$(get_sessions)
 
     if [ -z "$sessions_raw" ]; then
@@ -94,12 +184,35 @@ main() {
         exec bash -l
     fi
 
-    # Build fzf input
+    # Build fzf input, optionally filtering by folder
     local fzf_input=""
+    local count=0
     while read -r name; do
         [ -z "$name" ] && continue
+
+        # Filter by folder if specified
+        if [ -n "$FOLDER_FILTER" ]; then
+            local workdir=$(get_workdir "$name")
+            # Match exact folder or subfolder
+            if [ "$workdir" != "$FOLDER_FILTER" ] && [[ "$workdir" != "$FOLDER_FILTER/"* ]]; then
+                continue
+            fi
+        fi
+
         fzf_input+="$(format_session "$name")|$name"$'\n'
+        ((count++)) || true
     done <<< "$sessions_raw"
+
+    if [ $count -eq 0 ]; then
+        echo -e "${MAUVE}No sessions in folder: $FOLDER_FILTER${RESET}"
+        exec bash -l
+    fi
+
+    # Build header with folder info
+    local header="TAB: multi-select │ ENTER: attach"
+    if [ -n "$FOLDER_FILTER" ]; then
+        header="folder: $FOLDER_FILTER │ $header"
+    fi
 
     # Run fzf with multi-select
     local selected
@@ -115,7 +228,7 @@ main() {
         --prompt="› " \
         --pointer="▶" \
         --marker="✓" \
-        --header="TAB: multi-select │ ENTER: attach" \
+        --header="$header" \
         --color="fg:#cdd6f4,bg:#1e1e2e,hl:#f38ba8" \
         --color="fg+:#cdd6f4,bg+:#313244,hl+:#f38ba8" \
         --color="info:#94e2d5,prompt:#cba6f7,pointer:#f5e0dc" \
@@ -142,4 +255,4 @@ main() {
     fi
 }
 
-main "$@"
+main

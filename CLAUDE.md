@@ -39,10 +39,32 @@ sandboxer-repo/
 ## Architecture
 
 - **app.py** - HTTP server (port 8081), serves UI and manages sessions
-- **sessions.py** - tmux/ttyd orchestration, RAM-only state
+- **sessions.py** - tmux/ttyd orchestration, session tracking
 - **ttyd** - Web terminal, one per session (ports 7700-7799)
 - **tmux** - Session persistence layer
 - **Caddy** - Reverse proxy (:8080 → server + ttyd), basicauth
+
+## Folder Context Switching
+
+The folder dropdown acts as a **context switcher**, not just a working directory selector:
+
+- When a folder is selected, only sessions created in that folder are displayed
+- Sessions from parent folders and sibling folders are hidden
+- Select `/` to show all sessions across all folders
+
+**How it works:**
+
+| File | What it stores |
+|------|----------------|
+| `/etc/sandboxer/session_workdirs.json` | `{session_name: workdir}` mapping |
+
+**Lifecycle:**
+- On session create → workdir saved to JSON
+- On session delete → entry removed from JSON
+- On server start → JSON loaded, stale entries cleaned
+- On folder change → cards filtered client-side (no reload)
+
+**Legacy sessions** (created before tracking) are always visible.
 
 ## API Endpoints
 
@@ -68,7 +90,11 @@ python3 -m sandboxer.app
 
 ```bash
 ssh -t sandboxer@host "sudo tmux attach -t 'session-name'"
-ssh -t sandboxer@host sandboxer-shell  # Interactive picker
+ssh -t sandboxer@host sandboxer-shell                     # Interactive picker
+ssh -t sandboxer@host sandboxer-shell -f /home/sandboxer  # Filter by folder
+ssh -t sandboxer@host sandboxer-shell --hierarchical      # Folder picker first
 ```
+
+**Session display format:** `[folder] title (session-name) [time]`
 
 Detach: `Ctrl-B d` | Switch: `Ctrl-B s`
