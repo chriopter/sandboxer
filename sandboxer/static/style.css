@@ -143,6 +143,22 @@ body {
   text-align: center;
 }
 
+.btn-close-all {
+  font-family: inherit;
+  font-size: 1em;
+  background: transparent;
+  color: var(--overlay0);
+  border: none;
+  cursor: pointer;
+  padding: 0 0.5ch;
+  transition: color 0.15s;
+  line-height: 1;
+}
+
+.btn-close-all:hover {
+  color: var(--red);
+}
+
 .header-controls {
   display: flex;
   gap: 2ch;
