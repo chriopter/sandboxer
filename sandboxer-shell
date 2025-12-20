@@ -191,6 +191,9 @@ main() {
     while read -r name; do
         [ -z "$name" ] && continue
 
+        # Skip SSH takeover wrapper sessions
+        [[ "$name" == split-* ]] && continue
+
         # Filter by folder if specified
         if [ -n "$FOLDER_FILTER" ]; then
             local workdir=$(get_workdir "$name")

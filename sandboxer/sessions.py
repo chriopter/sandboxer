@@ -116,6 +116,9 @@ def get_tmux_sessions() -> list[dict]:
             if line:
                 parts = line.split("|")
                 name = parts[0]
+                # Filter out SSH takeover sessions created by sandboxer-shell
+                if name.startswith("split-"):
+                    continue
                 sessions.append({
                     "name": name,
                     "created": parts[1] if len(parts) > 1 else "",
