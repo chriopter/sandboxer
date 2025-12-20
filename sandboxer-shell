@@ -148,7 +148,7 @@ pick_folder() {
     local fzf_input="[all folders]"$'\n'"$folders"
 
     local selected
-    selected=$(echo -e "$fzf_input" | fzf \
+    selected=$(printf '%s' "$fzf_input" | fzf \
         --height=40% \
         --reverse \
         --border=rounded \
@@ -220,7 +220,7 @@ main() {
 
     # Run fzf with multi-select
     local selected
-    selected=$(echo -e "$fzf_input" | fzf \
+    selected=$(printf '%s' "$fzf_input" | fzf \
         --multi \
         --delimiter='|' \
         --with-nth=1 \
