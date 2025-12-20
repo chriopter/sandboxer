@@ -45,6 +45,33 @@ async function killSession(btn, name) {
   }
 }
 
+// ═══ Close All Sessions ═══
+
+async function closeAllSessions() {
+  const cards = document.querySelectorAll(".card");
+  const visibleSessions = [...cards]
+    .filter(card => card.style.display !== "none")
+    .map(card => card.dataset.session);
+
+  if (visibleSessions.length === 0) {
+    showToast("No sessions to close", "info");
+    return;
+  }
+
+  const dir = document.getElementById("dir").value;
+  const folderName = dir === "/" ? "all folders" : dir.split("/").pop() || dir;
+
+  if (!confirm(`Close ${visibleSessions.length} session(s) in "${folderName}"?`)) {
+    return;
+  }
+
+  for (const name of visibleSessions) {
+    await fetch("/kill?session=" + encodeURIComponent(name));
+  }
+
+  cleanupAndReload();
+}
+
 // ═══ SSH Session Takeover ═══
 
 async function copySSH(sessionName) {
