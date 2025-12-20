@@ -57,12 +57,13 @@ The folder dropdown acts as a **context switcher**, not just a working directory
 | File | What it stores |
 |------|----------------|
 | `/etc/sandboxer/session_workdirs.json` | `{session_name: workdir}` mapping |
+| `/etc/sandboxer/selected_folder` | Last selected folder (persistent) |
 
 **Lifecycle:**
 - On session create → workdir saved to JSON
 - On session delete → entry removed from JSON
 - On server start → JSON loaded, stale entries cleaned
-- On folder change → cards filtered client-side (no reload)
+- On folder change → cards filtered client-side, selection saved server-side
 
 **Legacy sessions** (created before tracking) are always visible.
 
@@ -78,6 +79,7 @@ The folder dropdown acts as a **context switcher**, not just a working directory
 | GET | `/api/resume-sessions?dir=PATH` | Resumable Claude sessions |
 | GET | `/api/stats` | CPU/mem/disk usage |
 | POST | `/api/order` | Set session order |
+| POST | `/api/selected-folder` | Save selected folder |
 
 ## Running Locally
 
