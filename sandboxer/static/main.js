@@ -205,6 +205,10 @@ function filterSessionsByFolder(selectedDir) {
     if (showCard) visibleCount++;
   });
 
+  // Update session count in header
+  const countEl = document.getElementById("sessionCount");
+  if (countEl) countEl.textContent = visibleCount;
+
   // Handle empty state - show message if no cards match
   if (emptyState) {
     emptyState.style.display = visibleCount === 0 ? "" : "none";
