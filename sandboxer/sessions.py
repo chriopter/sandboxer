@@ -12,10 +12,56 @@ TTYD_MAX_PORT = 7799  # Max 100 sessions
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SYSTEM_PROMPT_PATH = os.path.join(BASE_DIR, "system-prompt.txt")
+WORKDIRS_FILE = "/etc/sandboxer/session_workdirs.json"
 
 # RAM-only state
 ttyd_processes: dict[str, tuple[int, int]] = {}  # name -> (pid, port)
 session_order: list[str] = []
+
+# Persisted state: session_name -> workdir
+session_workdirs: dict[str, str] = {}
+
+
+# ═══ Workdir Persistence ═══
+
+def _load_workdirs():
+    """Load session workdirs from disk."""
+    global session_workdirs
+    if os.path.isfile(WORKDIRS_FILE):
+        try:
+            with open(WORKDIRS_FILE) as f:
+                session_workdirs = json.load(f)
+        except (json.JSONDecodeError, IOError):
+            session_workdirs = {}
+
+
+def _save_workdirs():
+    """Save session workdirs to disk."""
+    try:
+        os.makedirs(os.path.dirname(WORKDIRS_FILE), exist_ok=True)
+        with open(WORKDIRS_FILE, "w") as f:
+            json.dump(session_workdirs, f)
+    except IOError:
+        pass  # Silent fail
+
+
+def _cleanup_workdirs(existing_sessions: set[str]):
+    """Remove workdir entries for sessions that no longer exist."""
+    global session_workdirs
+    stale = [name for name in session_workdirs if name not in existing_sessions]
+    if stale:
+        for name in stale:
+            del session_workdirs[name]
+        _save_workdirs()
+
+
+def get_session_workdir(session_name: str) -> str | None:
+    """Get the workdir for a session."""
+    return session_workdirs.get(session_name)
+
+
+# Initialize on module load
+_load_workdirs()
 
 
 # ═══ Ordering (RAM only) ═══
@@ -44,6 +90,11 @@ def get_ordered_sessions(sessions: list[dict]) -> list[dict]:
     # Clean up stale entries
     existing = {s["name"] for s in sessions}
     session_order[:] = [n for n in session_order if n in existing]
+
+    # Cleanup stale workdir entries and add workdir to each session
+    _cleanup_workdirs(existing)
+    for s in result:
+        s["workdir"] = session_workdirs.get(s["name"])
 
     return result
 
@@ -120,6 +171,10 @@ def create_session(name: str, session_type: str = "claude", workdir: str = "/hom
     if name not in session_order:
         session_order.append(name)
 
+    # Track workdir (persisted)
+    session_workdirs[name] = workdir
+    _save_workdirs()
+
 
 def rename_session(old_name: str, new_name: str) -> bool:
     """Rename a tmux session."""
@@ -132,6 +187,10 @@ def rename_session(old_name: str, new_name: str) -> bool:
         if old_name in session_order:
             idx = session_order.index(old_name)
             session_order[idx] = new_name
+        # Update workdir mapping
+        if old_name in session_workdirs:
+            session_workdirs[new_name] = session_workdirs.pop(old_name)
+            _save_workdirs()
         return True
     return False
 
@@ -142,6 +201,10 @@ def kill_session(name: str):
     subprocess.run(["tmux", "kill-session", "-t", name], capture_output=True)
     if name in session_order:
         session_order.remove(name)
+    # Remove workdir tracking
+    if name in session_workdirs:
+        del session_workdirs[name]
+        _save_workdirs()
 
 
 # ═══ ttyd Management ═══

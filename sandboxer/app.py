@@ -158,8 +158,9 @@ def build_session_cards(sessions_list: list[dict]) -> str:
 
         display_name = s.get("title") or s["name"]
 
+        workdir = s.get("workdir") or ""
         cards += f"""
-<article class="card" draggable="true" data-session="{escape(s['name'])}">
+<article class="card" draggable="true" data-session="{escape(s['name'])}" data-workdir="{escape(workdir)}">
   <header>
     <span class="card-title" onclick="renameSession('{escape(s['name'])}')">{escape(display_name)}</span>
     <div class="card-actions">

@@ -155,6 +155,56 @@ function onDirOrTypeChange() {
   } else {
     resumeWrap.classList.remove("show");
   }
+
+  // Filter visible sessions by selected folder
+  filterSessionsByFolder(dir);
+}
+
+function filterSessionsByFolder(selectedDir) {
+  const cards = document.querySelectorAll(".card");
+  const grid = document.querySelector(".grid");
+  const emptyState = document.querySelector(".empty");
+  let visibleCount = 0;
+
+  cards.forEach((card) => {
+    const cardWorkdir = card.dataset.workdir;
+
+    // Show card if:
+    // 1. Selected "/" (show all)
+    // 2. Card has no workdir (legacy sessions before tracking)
+    // 3. Card workdir matches or starts with selected folder
+    const showCard =
+      selectedDir === "/" ||
+      !cardWorkdir ||
+      cardWorkdir === selectedDir ||
+      cardWorkdir.startsWith(selectedDir + "/");
+
+    card.style.display = showCard ? "" : "none";
+    if (showCard) visibleCount++;
+  });
+
+  // Handle empty state - show message if no cards match
+  if (emptyState) {
+    emptyState.style.display = visibleCount === 0 ? "" : "none";
+  } else if (visibleCount === 0 && grid) {
+    // Create temporary empty state if none exists
+    const existingTemp = document.getElementById("temp-empty");
+    if (!existingTemp) {
+      const tempEmpty = document.createElement("div");
+      tempEmpty.id = "temp-empty";
+      tempEmpty.className = "empty";
+      tempEmpty.innerHTML = `
+        <div class="empty-icon">◇</div>
+        <p>no sessions in this folder</p>
+        <p class="hint">create one below or select another folder</p>
+      `;
+      grid.appendChild(tempEmpty);
+    }
+  } else {
+    // Remove temp empty state if we have visible cards
+    const existingTemp = document.getElementById("temp-empty");
+    if (existingTemp) existingTemp.remove();
+  }
 }
 
 // ═══ Drag & Drop Reordering ═══
@@ -344,8 +394,12 @@ function initDirDropdown() {
   if (savedType) document.getElementById("type").value = savedType;
   if (savedDir) document.getElementById("dir").value = savedDir;
 
-  // Trigger change handler to show resume dropdown if needed
+  // Trigger change handler to show resume dropdown if needed and filter sessions
   onDirOrTypeChange();
+
+  // Apply initial folder filter (in case savedDir was set)
+  const currentDir = document.getElementById("dir").value;
+  filterSessionsByFolder(currentDir);
 
   // Initialize dir dropdown (short/full path toggle)
   initDirDropdown();
