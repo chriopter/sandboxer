@@ -10,7 +10,6 @@ async function createSession() {
   const resumeId = document.getElementById("resumeSession").value;
 
   localStorage.setItem("sandboxer_type", type);
-  localStorage.setItem("sandboxer_dir", dir);
 
   let url = "/create?type=" + type + "&dir=" + encodeURIComponent(dir);
   if (type === "resume" && resumeId) {
@@ -166,6 +165,21 @@ function onDirOrTypeChange() {
 
   // Filter visible sessions by selected folder
   filterSessionsByFolder(dir);
+
+  // Save selected folder to server
+  saveSelectedFolder(dir);
+}
+
+async function saveSelectedFolder(folder) {
+  try {
+    await fetch("/api/selected-folder", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ folder }),
+    });
+  } catch (err) {
+    console.warn("Failed to save selected folder:", err);
+  }
 }
 
 function filterSessionsByFolder(selectedDir) {
@@ -396,18 +410,20 @@ function initDirDropdown() {
 // ═══ Initialization ═══
 
 (function init() {
-  // Restore preferences
+  // Restore type preference (folder is server-side via selected attribute)
   const savedType = localStorage.getItem("sandboxer_type");
-  const savedDir = localStorage.getItem("sandboxer_dir");
   if (savedType) document.getElementById("type").value = savedType;
-  if (savedDir) document.getElementById("dir").value = savedDir;
 
-  // Trigger change handler to show resume dropdown if needed and filter sessions
-  onDirOrTypeChange();
-
-  // Apply initial folder filter (in case savedDir was set)
+  // Apply initial folder filter (folder already selected by server)
   const currentDir = document.getElementById("dir").value;
   filterSessionsByFolder(currentDir);
+
+  // Trigger change handler to show resume dropdown if needed
+  const type = document.getElementById("type").value;
+  if (type === "resume") {
+    document.getElementById("resumeWrap").classList.add("show");
+    loadResumeSessions(currentDir);
+  }
 
   // Initialize dir dropdown (short/full path toggle)
   initDirDropdown();

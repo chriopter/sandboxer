@@ -26,6 +26,7 @@ TEMPLATES_DIR = os.path.join(APP_DIR, "templates")
 UPLOADS_DIR = "/tmp/sandboxer_uploads"
 PASSWORD_FILE = "/etc/sandboxer/password"
 SESSIONS_FILE = "/etc/sandboxer/sessions.json"
+SELECTED_FOLDER_FILE = "/etc/sandboxer/selected_folder"
 
 # Session duration: 30 days in seconds
 SESSION_DURATION = 30 * 24 * 60 * 60
@@ -110,6 +111,27 @@ def destroy_session(token: str):
         del _auth_sessions[token]
         _save_sessions()
 
+
+def get_selected_folder() -> str:
+    """Get the saved selected folder, or default."""
+    if os.path.isfile(SELECTED_FOLDER_FILE):
+        try:
+            with open(SELECTED_FOLDER_FILE) as f:
+                return f.read().strip() or "/home/sandboxer"
+        except IOError:
+            pass
+    return "/home/sandboxer"
+
+
+def save_selected_folder(folder: str):
+    """Save the selected folder."""
+    try:
+        with open(SELECTED_FOLDER_FILE, "w") as f:
+            f.write(folder)
+    except IOError:
+        pass
+
+
 MIME_TYPES = {
     ".css": "text/css",
     ".js": "application/javascript",
@@ -181,7 +203,12 @@ def build_session_cards(sessions_list: list[dict]) -> str:
 def build_dir_options() -> str:
     """Build HTML options for directory select."""
     dirs = sessions.get_directories()
-    return "\n".join(f'<option value="{d}">{d}</option>' for d in dirs)
+    selected = get_selected_folder()
+    options = []
+    for d in dirs:
+        sel = ' selected' if d == selected else ''
+        options.append(f'<option value="{d}"{sel}>{d}</option>')
+    return "\n".join(options)
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -422,6 +449,20 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     self.send_json({"ok": True})
                 else:
                     self.send_json({"error": "order must be a list"}, 400)
+            except Exception as e:
+                self.send_json({"error": str(e)}, 500)
+            return
+
+        # ─── API: Set Selected Folder ───
+        if path == "/api/selected-folder":
+            try:
+                data = json.loads(body)
+                folder = data.get("folder", "")
+                if folder:
+                    save_selected_folder(folder)
+                    self.send_json({"ok": True})
+                else:
+                    self.send_json({"error": "folder required"}, 400)
             except Exception as e:
                 self.send_json({"error": str(e)}, 500)
             return
