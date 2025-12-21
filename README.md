@@ -39,6 +39,12 @@
    /home/sandboxer/sandboxer-repo/set-password.sh YOUR_PASSWORD
    ```
 
+5. Clone your repos to `/home/sandboxer/git/`:
+   ```bash
+   git clone <your-repo> /home/sandboxer/git/<repo-name>
+   ```
+   The folder dropdown only shows subdirectories of `/home/sandboxer/git/`.
+
 ## SSH Takeover
 
 Take over sessions from your local terminal:
