@@ -22,6 +22,7 @@
 - **Resume sessions** - Pick up previous Claude conversations
 - **Multiple directories** - Run Claude in different project contexts
 - **Image paste** - Ctrl+V images directly into terminal
+- **Gemini CLI** - Claude can use Google's Gemini for second opinions
 
 ## Install
 

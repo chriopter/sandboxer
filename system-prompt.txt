@@ -28,3 +28,15 @@ Playwright is available for browser automation. Configure with `--isolated` flag
   "args": ["@playwright/mcp@latest", "--isolated"]
 }
 ```
+
+## Gemini CLI
+
+Google's Gemini CLI is installed system-wide. You can use it for:
+- Getting a second opinion on code or approaches
+- Cross-referencing information
+- Tasks that benefit from a different model's perspective
+
+Run `gemini` to start an interactive session, or use it non-interactively:
+```bash
+echo "your prompt" | gemini
+```
