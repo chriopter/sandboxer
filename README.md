@@ -30,7 +30,7 @@
 
 2. Run:
    ```bash
-   claude "clone github.com/anthropics/sandboxer to /home/sandboxer/sandboxer-repo, read CLAUDE.md, then install"
+   claude "clone github.com/anthropics/sandboxer to /home/sandboxer/sandboxer-repo, read CLAUDE.md, then install: deps (python3 tmux ttyd caddy lazygit gemini-cli), copy service files, enable and start services"
    ```
 
 3. Access at `http://<host>:8080` — default: `admin` / `admin`
