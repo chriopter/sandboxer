@@ -379,7 +379,9 @@ async function updateStats() {
 // ═══ Preview Sliders ═══
 
 function updatePreviewCols(value) {
-  document.documentElement.style.setProperty("--preview-cols", value);
+  // Invert: slider right (4) = 1 column (bigger), left (1) = 4 columns (smaller)
+  const cols = 5 - value;
+  document.documentElement.style.setProperty("--preview-cols", cols);
   localStorage.setItem("sandboxer_preview_cols", value);
 }
 
