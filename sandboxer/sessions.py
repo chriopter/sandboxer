@@ -296,12 +296,14 @@ def generate_session_name(session_type: str = "claude", workdir: str = "/home/sa
 
 # ═══ Directory Discovery ═══
 
+GIT_DIR = "/home/sandboxer/git"
+
 def get_directories() -> list[str]:
-    """Get list of starting directories."""
-    dirs = ["/", "/home", "/home/sandboxer"]
+    """Get list of starting directories: / and subdirs of /home/sandboxer/git."""
+    dirs = ["/"]
     try:
-        for entry in sorted(os.listdir("/home/sandboxer")):
-            path = f"/home/sandboxer/{entry}"
+        for entry in sorted(os.listdir(GIT_DIR)):
+            path = f"{GIT_DIR}/{entry}"
             if os.path.isdir(path) and not entry.startswith("."):
                 dirs.append(path)
     except Exception:

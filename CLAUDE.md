@@ -4,6 +4,10 @@ Web-based terminal session manager with live previews.
 
 **Runs as root on dedicated sandbox servers.**
 
+## Location
+
+All repos live in `/home/sandboxer/git/`. The folder dropdown only shows `/` and subfolders of `/home/sandboxer/git/`.
+
 ## After Changing Code
 
 ```bash
@@ -15,7 +19,7 @@ Sessions (tmux) survive restarts. Only the web UI briefly disconnects.
 ## Structure
 
 ```
-sandboxer-repo/
+/home/sandboxer/git/sandboxer/
 ├── sandboxer/
 │   ├── app.py              # HTTP server, routing
 │   ├── sessions.py         # tmux/ttyd management
@@ -84,7 +88,7 @@ The folder dropdown acts as a **context switcher**, not just a working directory
 ## Running Locally
 
 ```bash
-cd /home/sandboxer/sandboxer-repo
+cd /home/sandboxer/git/sandboxer
 python3 -m sandboxer.app
 ```
 
@@ -92,9 +96,9 @@ python3 -m sandboxer.app
 
 ```bash
 ssh -t sandboxer@host "sudo tmux attach -t 'session-name'"
-ssh -t sandboxer@host sandboxer-shell                     # Folder picker → session picker
-ssh -t sandboxer@host sandboxer-shell -f /home/sandboxer  # Direct to folder context
-ssh -t sandboxer@host sandboxer-shell --all               # Skip folder picker, show all
+ssh -t sandboxer@host sandboxer-shell                              # Folder picker → session picker
+ssh -t sandboxer@host sandboxer-shell -f /home/sandboxer/git/valiido  # Direct to folder context
+ssh -t sandboxer@host sandboxer-shell --all                        # Skip folder picker, show all
 ```
 
 **Session display format:** `[folder] title (session-name) [time]`

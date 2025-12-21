@@ -117,10 +117,10 @@ def get_selected_folder() -> str:
     if os.path.isfile(SELECTED_FOLDER_FILE):
         try:
             with open(SELECTED_FOLDER_FILE) as f:
-                return f.read().strip() or "/home/sandboxer"
+                return f.read().strip() or "/home/sandboxer/git/sandboxer"
         except IOError:
             pass
-    return "/home/sandboxer"
+    return "/home/sandboxer/git/sandboxer"
 
 
 def save_selected_folder(folder: str):
@@ -334,7 +334,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         # ─── Create Session ───
         if path == "/create":
             session_type = query.get("type", ["claude"])[0]
-            workdir = query.get("dir", ["/home/sandboxer"])[0]
+            workdir = query.get("dir", ["/home/sandboxer/git/sandboxer"])[0]
             resume_id = query.get("resume_id", [None])[0]
             name = sessions.generate_session_name(session_type, workdir)
             sessions.create_session(name, session_type, workdir, resume_id)
@@ -378,7 +378,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         # ─── API: Resume Sessions ───
         if path == "/api/resume-sessions":
-            workdir = query.get("dir", ["/home/sandboxer"])[0]
+            workdir = query.get("dir", ["/home/sandboxer/git/sandboxer"])[0]
             resumable = sessions.get_resumable_sessions(workdir)
             self.send_json(resumable)
             return
