@@ -505,15 +505,6 @@ window.addEventListener("focus", () => {
         iframe.dispatchEvent(evt);
       }
     });
-
-    // Enable touch scrolling on previews
-    terminal.addEventListener("touchstart", () => {
-      terminal.classList.add("touch-active");
-    }, { passive: true });
-
-    terminal.addEventListener("touchend", () => {
-      setTimeout(() => terminal.classList.remove("touch-active"), 300);
-    }, { passive: true });
   });
 
   // Initialize preview sliders
