@@ -35,16 +35,9 @@
 
 3. Access at `http://<host>:8080` — default: `admin` / `admin`
 
-4. Change password:
-   ```bash
-   /home/sandboxer/sandboxer-repo/set-password.sh YOUR_PASSWORD
-   ```
+4. Change password: `claude "change sandboxer password to YOUR_PASSWORD"`
 
-5. Clone your repos to `/home/sandboxer/git/`:
-   ```bash
-   git clone <your-repo> /home/sandboxer/git/<repo-name>
-   ```
-   The folder dropdown only shows subdirectories of `/home/sandboxer/git/`.
+5. Clone repos: `claude "clone github.com/user/repo to /home/sandboxer/git/repo"`
 
 ## SSH Takeover
 
