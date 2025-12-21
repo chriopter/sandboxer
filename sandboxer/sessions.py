@@ -166,6 +166,9 @@ def create_session(name: str, session_type: str = "claude", workdir: str = "/hom
         else:
             cmd = f"IS_SANDBOX=1 claude --dangerously-skip-permissions --resume --system-prompt {SYSTEM_PROMPT_PATH}"
         subprocess.run(["tmux", "send-keys", "-t", name, cmd, "Enter"], capture_output=True)
+    elif session_type == "gemini":
+        cmd = f"cd {workdir} && gemini"
+        subprocess.run(["tmux", "send-keys", "-t", name, cmd, "Enter"], capture_output=True)
     elif session_type == "lazygit":
         subprocess.run(["tmux", "send-keys", "-t", name, "lazygit", "Enter"], capture_output=True)
     # bash type: just leave the shell prompt, no command
