@@ -92,6 +92,10 @@ cd /home/sandboxer/git/sandboxer
 python3 -m sandboxer.app
 ```
 
+## Auth
+
+Login credentials are in `.sandbox-auth` (gitignored).
+
 ## SSH Session Takeover
 
 ```bash
