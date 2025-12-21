@@ -192,7 +192,7 @@ def build_session_cards(sessions_list: list[dict]) -> str:
     </div>
   </header>
   <div class="terminal">
-    <iframe src="{terminal_url}" scrolling="no"></iframe>
+    <iframe src="{terminal_url}" scrolling="no" sandbox="allow-scripts allow-same-origin allow-forms allow-pointer-lock"></iframe>
     <span class="fullscreen-btn" onclick="window.open('/terminal?session=' + encodeURIComponent('{escape(s['name'])}'), '_blank')">⛶</span>
   </div>
 </article>"""

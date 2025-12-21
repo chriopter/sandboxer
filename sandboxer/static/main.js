@@ -442,7 +442,14 @@ function initDirDropdown() {
 
 // ═══ Auto-Reconnect Iframes ═══
 
+let lastReconnect = 0;
+const RECONNECT_COOLDOWN = 5000; // Don't reconnect more than once per 5 seconds
+
 function reconnectIframes() {
+  const now = Date.now();
+  if (now - lastReconnect < RECONNECT_COOLDOWN) return;
+  lastReconnect = now;
+
   document.querySelectorAll(".terminal iframe").forEach((iframe) => {
     if (iframe.src) {
       // Reload iframe to reconnect
@@ -453,16 +460,11 @@ function reconnectIframes() {
   });
 }
 
-// Reconnect iframes when page becomes visible (tab switch, screen wake)
+// Reconnect iframes when page becomes visible after being hidden (tab switch, screen wake)
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
     reconnectIframes();
   }
-});
-
-// Also reconnect on window focus (for when switching windows)
-window.addEventListener("focus", () => {
-  reconnectIframes();
 });
 
 // ═══ Initialization ═══
