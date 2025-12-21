@@ -192,7 +192,7 @@ def build_session_cards(sessions_list: list[dict]) -> str:
     </div>
   </header>
   <div class="terminal">
-    <iframe src="{terminal_url}" loading="lazy" scrolling="no"></iframe>
+    <iframe src="{terminal_url}" scrolling="no"></iframe>
     <span class="fullscreen-btn" onclick="window.open('/terminal?session=' + encodeURIComponent('{escape(s['name'])}'), '_blank')">⛶</span>
   </div>
 </article>"""
@@ -526,8 +526,13 @@ def main():
     signal.signal(signal.SIGTERM, cleanup)
     signal.signal(signal.SIGINT, cleanup)
 
-    _load_sessions()  # Load persisted sessions from disk
+    _load_sessions()  # Load persisted auth sessions from disk
     load_templates()
+
+    # Restore tmux sessions after reboot
+    restored = sessions.restore_sessions()
+    if restored:
+        print(f"restored {restored} session(s) from last run")
 
     print(f"sandboxer http://127.0.0.1:{PORT}")
     server = http.server.HTTPServer(("127.0.0.1", PORT), Handler)

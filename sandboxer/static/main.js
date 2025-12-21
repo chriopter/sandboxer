@@ -440,6 +440,31 @@ function initDirDropdown() {
   });
 }
 
+// ═══ Auto-Reconnect Iframes ═══
+
+function reconnectIframes() {
+  document.querySelectorAll(".terminal iframe").forEach((iframe) => {
+    if (iframe.src) {
+      // Reload iframe to reconnect
+      const src = iframe.src;
+      iframe.src = "";
+      iframe.src = src;
+    }
+  });
+}
+
+// Reconnect iframes when page becomes visible (tab switch, screen wake)
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    reconnectIframes();
+  }
+});
+
+// Also reconnect on window focus (for when switching windows)
+window.addEventListener("focus", () => {
+  reconnectIframes();
+});
+
 // ═══ Initialization ═══
 
 (function init() {
@@ -480,6 +505,15 @@ function initDirDropdown() {
         iframe.dispatchEvent(evt);
       }
     });
+
+    // Enable touch scrolling on previews
+    terminal.addEventListener("touchstart", () => {
+      terminal.classList.add("touch-active");
+    }, { passive: true });
+
+    terminal.addEventListener("touchend", () => {
+      setTimeout(() => terminal.classList.remove("touch-active"), 300);
+    }, { passive: true });
   });
 
   // Initialize preview sliders

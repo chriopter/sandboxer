@@ -567,6 +567,12 @@ main {
   transform: scale(var(--preview-scale, 0.75));
   transform-origin: top left;
   overflow: hidden;
+  touch-action: pan-y;
+}
+
+/* Enable touch scrolling on previews */
+.terminal.touch-active iframe {
+  pointer-events: auto;
 }
 
 /* Hide scrollbars in preview */

@@ -13,20 +13,31 @@ TTYD_MAX_PORT = 7799  # Max 100 sessions
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SYSTEM_PROMPT_PATH = os.path.join(BASE_DIR, "system-prompt.txt")
 WORKDIRS_FILE = "/etc/sandboxer/session_workdirs.json"
+SESSION_META_FILE = "/etc/sandboxer/session_meta.json"
 
 # RAM-only state
 ttyd_processes: dict[str, tuple[int, int]] = {}  # name -> (pid, port)
 session_order: list[str] = []
 
-# Persisted state: session_name -> workdir
+# Persisted state: session_name -> workdir (legacy)
 session_workdirs: dict[str, str] = {}
 
+# Persisted state: session_name -> {workdir, type}
+session_meta: dict[str, dict] = {}
 
-# ═══ Workdir Persistence ═══
 
-def _load_workdirs():
-    """Load session workdirs from disk."""
-    global session_workdirs
+# ═══ Session Metadata Persistence ═══
+
+def _load_session_meta():
+    """Load session metadata from disk."""
+    global session_meta, session_workdirs
+    if os.path.isfile(SESSION_META_FILE):
+        try:
+            with open(SESSION_META_FILE) as f:
+                session_meta = json.load(f)
+        except (json.JSONDecodeError, IOError):
+            session_meta = {}
+    # Also load legacy workdirs file for backward compatibility
     if os.path.isfile(WORKDIRS_FILE):
         try:
             with open(WORKDIRS_FILE) as f:
@@ -35,8 +46,18 @@ def _load_workdirs():
             session_workdirs = {}
 
 
+def _save_session_meta():
+    """Save session metadata to disk."""
+    try:
+        os.makedirs(os.path.dirname(SESSION_META_FILE), exist_ok=True)
+        with open(SESSION_META_FILE, "w") as f:
+            json.dump(session_meta, f)
+    except IOError:
+        pass  # Silent fail
+
+
 def _save_workdirs():
-    """Save session workdirs to disk."""
+    """Save session workdirs to disk (legacy compatibility)."""
     try:
         os.makedirs(os.path.dirname(WORKDIRS_FILE), exist_ok=True)
         with open(WORKDIRS_FILE, "w") as f:
@@ -45,23 +66,60 @@ def _save_workdirs():
         pass  # Silent fail
 
 
-def _cleanup_workdirs(existing_sessions: set[str]):
-    """Remove workdir entries for sessions that no longer exist."""
-    global session_workdirs
-    stale = [name for name in session_workdirs if name not in existing_sessions]
-    if stale:
-        for name in stale:
+def _cleanup_session_meta(existing_sessions: set[str]):
+    """Remove metadata entries for sessions that no longer exist."""
+    global session_meta, session_workdirs
+    stale_meta = [name for name in session_meta if name not in existing_sessions]
+    stale_workdirs = [name for name in session_workdirs if name not in existing_sessions]
+    if stale_meta:
+        for name in stale_meta:
+            del session_meta[name]
+        _save_session_meta()
+    if stale_workdirs:
+        for name in stale_workdirs:
             del session_workdirs[name]
         _save_workdirs()
 
 
 def get_session_workdir(session_name: str) -> str | None:
     """Get the workdir for a session."""
+    if session_name in session_meta:
+        return session_meta[session_name].get("workdir")
     return session_workdirs.get(session_name)
 
 
+def restore_sessions():
+    """Restore sessions from metadata after reboot."""
+    existing = {s["name"] for s in get_tmux_sessions()}
+    restored = 0
+
+    for name, meta in list(session_meta.items()):
+        if name not in existing:
+            workdir = meta.get("workdir", "/home/sandboxer")
+            session_type = meta.get("type", "bash")
+
+            # Create the tmux session
+            subprocess.run(["tmux", "new-session", "-d", "-s", name, "-c", workdir], capture_output=True)
+            subprocess.run(["tmux", "set", "-t", name, "mouse", "on"], capture_output=True)
+
+            # Start the appropriate command
+            if session_type == "claude":
+                cmd = f"IS_SANDBOX=1 claude --dangerously-skip-permissions --system-prompt {SYSTEM_PROMPT_PATH}"
+                subprocess.run(["tmux", "send-keys", "-t", name, cmd, "Enter"], capture_output=True)
+            elif session_type == "gemini":
+                cmd = f"cd {workdir} && gemini"
+                subprocess.run(["tmux", "send-keys", "-t", name, cmd, "Enter"], capture_output=True)
+            elif session_type == "lazygit":
+                subprocess.run(["tmux", "send-keys", "-t", name, "lazygit", "Enter"], capture_output=True)
+            # bash: just leave the shell prompt
+
+            restored += 1
+
+    return restored
+
+
 # Initialize on module load
-_load_workdirs()
+_load_session_meta()
 
 
 # ═══ Ordering (RAM only) ═══
@@ -91,10 +149,10 @@ def get_ordered_sessions(sessions: list[dict]) -> list[dict]:
     existing = {s["name"] for s in sessions}
     session_order[:] = [n for n in session_order if n in existing]
 
-    # Cleanup stale workdir entries and add workdir to each session
-    _cleanup_workdirs(existing)
+    # Cleanup stale metadata entries and add workdir to each session
+    _cleanup_session_meta(existing)
     for s in result:
-        s["workdir"] = session_workdirs.get(s["name"])
+        s["workdir"] = get_session_workdir(s["name"])
 
     return result
 
@@ -177,7 +235,13 @@ def create_session(name: str, session_type: str = "claude", workdir: str = "/hom
     if name not in session_order:
         session_order.append(name)
 
-    # Track workdir (persisted)
+    # Track session metadata (persisted for reboot survival)
+    # Don't persist 'resume' type - it's a one-time action
+    persist_type = "claude" if session_type == "resume" else session_type
+    session_meta[name] = {"workdir": workdir, "type": persist_type}
+    _save_session_meta()
+
+    # Also save to legacy workdirs for backward compatibility
     session_workdirs[name] = workdir
     _save_workdirs()
 
@@ -193,7 +257,11 @@ def rename_session(old_name: str, new_name: str) -> bool:
         if old_name in session_order:
             idx = session_order.index(old_name)
             session_order[idx] = new_name
-        # Update workdir mapping
+        # Update session metadata
+        if old_name in session_meta:
+            session_meta[new_name] = session_meta.pop(old_name)
+            _save_session_meta()
+        # Update legacy workdir mapping
         if old_name in session_workdirs:
             session_workdirs[new_name] = session_workdirs.pop(old_name)
             _save_workdirs()
@@ -207,7 +275,11 @@ def kill_session(name: str):
     subprocess.run(["tmux", "kill-session", "-t", name], capture_output=True)
     if name in session_order:
         session_order.remove(name)
-    # Remove workdir tracking
+    # Remove session metadata
+    if name in session_meta:
+        del session_meta[name]
+        _save_session_meta()
+    # Remove legacy workdir tracking
     if name in session_workdirs:
         del session_workdirs[name]
         _save_workdirs()
