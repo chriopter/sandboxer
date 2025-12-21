@@ -17,12 +17,14 @@
 
 - **Live previews** - See all sessions at a glance in a grid layout
 - **Session persistence** - tmux-backed sessions survive restarts
-- **SSH takeover** - Take over any session from your terminal (TAB for multi-select split view)
+- **SSH takeover** - `ssh -t sandboxer@host sandboxer-shell` to take over sessions (TAB for multi-select split view)
 - **Drag & drop** - Reorder sessions your way
 - **Resume sessions** - Pick up previous Claude conversations
 - **Multiple directories** - Run Claude in different project contexts
 - **Image paste** - Ctrl+V images directly into terminal
 - **Gemini CLI** - Claude can use Google's Gemini for second opinions
+
+<img width="500" alt="SSH takeover" src="https://github.com/user-attachments/assets/e748762f-077a-48ef-82de-fad7c351a863" />
 
 ## Install
 
@@ -38,18 +40,6 @@
 4. Change password: `claude "change sandboxer password to YOUR_PASSWORD"`
 
 5. Clone repos: `claude "clone github.com/user/repo to /home/sandboxer/git/repo"`
-
-## SSH Takeover
-
-Take over sessions from your local terminal:
-
-```bash
-ssh -t sandboxer@host sandboxer-shell
-```
-
-<img width="500" alt="SSH takeover" src="https://github.com/user-attachments/assets/e748762f-077a-48ef-82de-fad7c351a863" />
-
-Use **TAB** to multi-select sessions → automatic tmux split view.
 
 ## Security
 
