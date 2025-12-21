@@ -512,6 +512,27 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.send_json({"error": str(e)}, 500)
             return
 
+        # ─── API: Send Key to Session (for special keys) ───
+        if path == "/api/send-key":
+            try:
+                data = json.loads(body)
+                session_name = data.get("session", "")
+                key = data.get("key", "")
+
+                if not session_name or not key:
+                    self.send_json({"error": "session and key required"}, 400)
+                    return
+
+                # Send key to tmux session (without -l, interprets key names)
+                subprocess.run(
+                    ["tmux", "send-keys", "-t", session_name, key],
+                    capture_output=True
+                )
+                self.send_json({"ok": True})
+            except Exception as e:
+                self.send_json({"error": str(e)}, 500)
+            return
+
         # ─── 404 ───
         self.send_response(404)
         self.end_headers()

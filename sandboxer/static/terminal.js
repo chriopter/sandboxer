@@ -219,3 +219,49 @@ killBtn?.addEventListener("click", async () => {
     }, 2000);
   }
 });
+
+// ─── Mobile Touch Bar ───
+
+const touchBar = document.querySelector(".touch-bar");
+let activeModifiers = { ctrl: false, alt: false };
+
+async function sendKey(key) {
+  // Apply modifiers
+  let finalKey = key;
+  if (activeModifiers.ctrl) {
+    finalKey = "C-" + key.toLowerCase();
+  } else if (activeModifiers.alt) {
+    finalKey = "M-" + key.toLowerCase();
+  }
+
+  await fetch("/api/send-key", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ session: SESSION_NAME, key: finalKey })
+  });
+
+  // Clear modifiers after use (unless it's a modifier key itself)
+  if (!["ctrl", "alt"].includes(key.toLowerCase())) {
+    activeModifiers.ctrl = false;
+    activeModifiers.alt = false;
+    touchBar?.querySelectorAll(".mod-btn").forEach(btn => btn.classList.remove("active"));
+  }
+
+  focusTerminal();
+}
+
+touchBar?.addEventListener("click", (e) => {
+  const btn = e.target.closest("button");
+  if (!btn) return;
+
+  const key = btn.dataset.key;
+  const mod = btn.dataset.mod;
+
+  if (mod) {
+    // Toggle modifier
+    activeModifiers[mod] = !activeModifiers[mod];
+    btn.classList.toggle("active", activeModifiers[mod]);
+  } else if (key) {
+    sendKey(key);
+  }
+});

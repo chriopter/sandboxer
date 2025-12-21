@@ -931,6 +931,55 @@ body.terminal-page {
   border: none;
 }
 
+/* ═══ Mobile Touch Bar ═══ */
+
+.touch-bar {
+  display: none;
+  background: var(--mantle);
+  border-bottom: 1px solid var(--surface0);
+  padding: 0.4ch 0.5ch;
+  gap: 0.4ch;
+  flex-shrink: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.touch-bar button {
+  font-family: inherit;
+  font-size: 0.9em;
+  background: var(--surface0);
+  color: var(--text);
+  border: 1px solid var(--surface1);
+  border-radius: var(--radius);
+  padding: 0.6em 1.2ch;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.touch-bar button:active {
+  background: var(--surface1);
+}
+
+.touch-bar button.mod-btn {
+  color: var(--overlay1);
+}
+
+.touch-bar button.mod-btn.active {
+  background: var(--mauve);
+  color: var(--crust);
+  border-color: var(--mauve);
+}
+
+/* Show touch bar only on touch devices */
+@media (pointer: coarse) {
+  .touch-bar {
+    display: flex;
+  }
+}
+
 /* ═══ Terminal Bar ═══ */
 
 .term-bar {
