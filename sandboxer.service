@@ -5,7 +5,7 @@ After=network.target
 [Service]
 Type=simple
 ExecStart=/usr/bin/python3 -m sandboxer.app
-WorkingDirectory=/home/sandboxer/sandboxer-repo
+WorkingDirectory=/home/sandboxer/git/sandboxer
 Restart=always
 User=root
 Group=root
