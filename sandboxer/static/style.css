@@ -62,19 +62,19 @@ body.sidebar-closed .sidebar-header {
   padding: 0.5ch;
 }
 
-body.sidebar-closed .sidebar-toggle {
-  position: static;
-}
+/* Toggle stays in same position when closed */
 
 body.sidebar-closed main {
   margin-left: 32px;
 }
 
 .sidebar-header {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0.5ch;
   padding: 0.5ch;
+  padding-right: calc(24px + 1ch); /* Space for toggle button */
   border-bottom: 1px solid var(--surface0);
 }
 
@@ -167,12 +167,21 @@ body.sidebar-closed main {
   transform: translateX(2px);
 }
 
+/* Session Type Icons */
 .sidebar-list li::before {
   content: "› ";
   color: var(--overlay0);
 }
+.sidebar-list li.type-claude::before { content: "🤖 "; }
+.sidebar-list li.type-gemini::before { content: "✨ "; }
+.sidebar-list li.type-bash::before { content: ">_ "; color: var(--green); font-weight: bold; }
+.sidebar-list li.type-lazygit::before { content: "📦 "; }
+.sidebar-list li.type-resume::before { content: "↺ "; }
 
 .sidebar-toggle {
+  position: absolute;
+  top: 0.5ch;
+  right: 0.5ch;
   width: 24px;
   height: 24px;
   background: var(--surface0) !important;
@@ -186,6 +195,7 @@ body.sidebar-closed main {
   padding: 0 !important;
   transition: background 0.15s, color 0.15s;
   flex-shrink: 0;
+  z-index: 10;
 }
 
 .sidebar-toggle:hover {
@@ -194,16 +204,13 @@ body.sidebar-closed main {
 }
 
 .sidebar-toggle::after {
-  content: "‹";
-  font-size: 1rem;
-}
-
-body.sidebar-closed .sidebar-toggle::after {
-  content: "›";
+  content: "☰";
+  font-size: 0.9rem;
 }
 
 .sidebar-ssh,
-.sidebar-close-all {
+.sidebar-close-all,
+.sidebar-restart {
   width: 100%;
   margin-bottom: 0.5ch;
 }
@@ -346,7 +353,8 @@ body.sidebar-closed .sidebar-toggle::after {
   }
 
   .sidebar-ssh,
-  .sidebar-close-all {
+  .sidebar-close-all,
+  .sidebar-restart {
     padding: 0.8em !important;
     font-size: 1em;
   }
@@ -579,16 +587,17 @@ main {
 /* ═══ Terminal Preview ═══ */
 
 .terminal {
-  aspect-ratio: 16 / 9;
   background: var(--crust);
   position: relative;
   overflow: hidden;
+  /* Container sizes to hold scaled iframe - never clips */
+  height: calc(450px * var(--preview-scale, 0.75));
 }
 
 .terminal iframe {
   /* Fixed size - never changes when sidebar toggles, prevents terminal re-render */
-  width: calc(800px / var(--preview-scale, 0.75));
-  height: calc(450px / var(--preview-scale, 0.75));
+  width: 800px;
+  height: 450px;
   border: none;
   pointer-events: none;
   opacity: 0.9;
@@ -958,6 +967,11 @@ body.terminal-page {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
+
+/* Stats Icons */
+#cpuStat::before { content: "⚡ "; }
+#memStat::before { content: "🧠 "; }
+#diskStat::before { content: "💾 "; }
 
 /* Card Hover Polish */
 .card {

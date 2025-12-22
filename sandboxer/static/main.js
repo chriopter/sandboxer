@@ -102,6 +102,18 @@ async function closeAllSessions() {
   cleanupAndReload();
 }
 
+// ═══ Restart Sandboxer ═══
+
+function restartSandboxer() {
+  if (!confirm("Restart sandboxer service? The UI will briefly disconnect.")) {
+    return;
+  }
+  showToast("Restarting sandboxer...", "info");
+  fetch("/restart").then(() => {
+    setTimeout(() => location.reload(), 2000);
+  });
+}
+
 // ═══ SSH Session Takeover ═══
 
 async function copySSH(sessionName) {
@@ -400,7 +412,6 @@ function initSidebar() {
 function populateSidebar() {
   const list = document.getElementById("sidebarList");
   const cards = document.querySelectorAll(".card");
-  const dir = document.getElementById("dir").value;
 
   list.innerHTML = "";
 
@@ -411,6 +422,16 @@ function populateSidebar() {
     const title = card.querySelector(".card-title")?.textContent || name;
 
     const li = document.createElement("li");
+
+    // Detect session type for icon styling
+    let type = "other";
+    if (name.startsWith("claude")) type = "claude";
+    else if (name.startsWith("gemini")) type = "gemini";
+    else if (name.startsWith("bash")) type = "bash";
+    else if (name.startsWith("lazygit")) type = "lazygit";
+    else if (name.startsWith("resume")) type = "resume";
+
+    li.classList.add("type-" + type);
     li.textContent = title;
     li.title = name;
     li.onclick = () => {
