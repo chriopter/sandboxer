@@ -328,51 +328,80 @@ mobileAttachBtn?.addEventListener("click", () => {
 });
 
 // ─── Mobile Touch Scroll Handler ───
-// xterm.js has limited touch scroll support, so we add a fallback
-// that sends tmux scroll commands on swipe gestures
+// Touch overlay captures swipes for tmux scrolling, passes taps to terminal
 
-if (window.matchMedia("(pointer: coarse)").matches) {
-  const iframe = document.getElementById("terminal-iframe");
+const touchOverlay = document.getElementById("touch-overlay");
+
+if (touchOverlay && window.matchMedia("(pointer: coarse)").matches) {
   let touchStartY = 0;
+  let touchStartX = 0;
+  let touchStartTime = 0;
   let lastScrollTime = 0;
-  const SCROLL_THRESHOLD = 20; // pixels to trigger scroll
-  const SCROLL_COOLDOWN = 80; // ms between scroll commands
+  let hasMoved = false;
+  const SCROLL_THRESHOLD = 15;
+  const SCROLL_COOLDOWN = 60;
+  const TAP_THRESHOLD = 10; // max movement for a tap
+  const TAP_TIME = 300; // max time for a tap
 
-  // Listen on document to catch touches that bubble up from iframe
-  document.addEventListener("touchstart", (e) => {
-    // Only handle touches on terminal area (not on buttons/inputs)
-    const target = e.target;
-    if (target.tagName === "BUTTON" || target.tagName === "INPUT") return;
-    if (target === iframe || target.closest(".terminal-page")) {
-      touchStartY = e.touches[0].clientY;
-    }
+  touchOverlay.addEventListener("touchstart", (e) => {
+    touchStartY = e.touches[0].clientY;
+    touchStartX = e.touches[0].clientX;
+    touchStartTime = Date.now();
+    hasMoved = false;
   }, { passive: true });
 
-  document.addEventListener("touchmove", (e) => {
+  touchOverlay.addEventListener("touchmove", (e) => {
     if (!touchStartY) return;
+
+    const deltaY = touchStartY - e.touches[0].clientY;
+    const deltaX = touchStartX - e.touches[0].clientX;
+
+    // Check if this is a scroll gesture
+    if (Math.abs(deltaY) > TAP_THRESHOLD || Math.abs(deltaX) > TAP_THRESHOLD) {
+      hasMoved = true;
+    }
 
     const now = Date.now();
     if (now - lastScrollTime < SCROLL_COOLDOWN) return;
 
-    const deltaY = touchStartY - e.touches[0].clientY;
-
     if (Math.abs(deltaY) > SCROLL_THRESHOLD) {
-      // Scroll direction: swipe up (deltaY > 0) = scroll down (show newer)
-      const dir = deltaY > 0 ? "down" : "up";
+      // Scroll: swipe up = scroll up (older), swipe down = scroll down (newer)
+      const dir = deltaY > 0 ? "up" : "down";
 
-      // Send tmux scroll command directly
       fetch("/api/tmux-scroll", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ session: SESSION_NAME, direction: dir })
       });
 
-      touchStartY = e.touches[0].clientY; // Reset for continuous scroll
+      touchStartY = e.touches[0].clientY;
       lastScrollTime = now;
     }
   }, { passive: true });
 
-  document.addEventListener("touchend", () => {
+  touchOverlay.addEventListener("touchend", (e) => {
+    const elapsed = Date.now() - touchStartTime;
+
+    // If it was a tap (not a scroll), pass it through to the terminal
+    if (!hasMoved && elapsed < TAP_TIME) {
+      // Temporarily hide overlay to let click through
+      touchOverlay.style.pointerEvents = "none";
+      setTimeout(() => {
+        touchOverlay.style.pointerEvents = "auto";
+      }, 100);
+
+      // Simulate click on iframe at touch position
+      const iframe = document.getElementById("terminal-iframe");
+      if (iframe) {
+        iframe.focus();
+        // Try to focus xterm inside iframe
+        try {
+          iframe.contentWindow?.focus();
+        } catch (e) {}
+      }
+    }
+
     touchStartY = 0;
+    touchStartX = 0;
   }, { passive: true });
 }

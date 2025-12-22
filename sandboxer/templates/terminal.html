@@ -28,7 +28,10 @@
     <button data-key="Left" size-="small" variant-="background1">←</button>
     <button data-key="Right" size-="small" variant-="background1">→</button>
   </div>
-  <iframe src="{{ttyd_url}}" id="terminal-iframe"></iframe>
+  <div class="terminal-wrap" id="terminal-wrap">
+    <iframe src="{{ttyd_url}}" id="terminal-iframe"></iframe>
+    <div class="touch-overlay" id="touch-overlay"></div>
+  </div>
   <div class="mobile-input-bar">
     <button id="mobile-attach-btn" size-="small" variant-="background1">📎</button>
     <input type="text" id="mobile-text-input" placeholder="Type here..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">

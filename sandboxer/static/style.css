@@ -9,27 +9,6 @@ body {
   min-height: 100vh;
 }
 
-/* ═══ Header ═══ */
-
-.header {
-  background: var(--mantle);
-  border-bottom: 1px solid var(--surface0);
-  padding: 0.5lh 2ch;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-
-.logo {
-  color: var(--mauve);
-  font-weight: 600;
-}
-
-.logo::before { content: "◈ "; }
-
 .dir-select {
   min-width: 0;
   flex: 1;
@@ -57,7 +36,6 @@ body {
 }
 
 /* Shift layout for sidebar */
-.header,
 main {
   margin-left: 200px;
   transition: margin-left 0.2s ease;
@@ -69,9 +47,14 @@ body.sidebar-closed .sidebar {
 }
 
 body.sidebar-closed .sidebar-header .dir-select,
+body.sidebar-closed .sidebar-new,
 body.sidebar-closed .sidebar-list,
 body.sidebar-closed .sidebar-bottom {
   display: none;
+}
+
+body.sidebar-closed .sidebar-new-collapsed {
+  display: flex;
 }
 
 body.sidebar-closed .sidebar-header {
@@ -83,7 +66,6 @@ body.sidebar-closed .sidebar-toggle {
   position: static;
 }
 
-body.sidebar-closed .header,
 body.sidebar-closed main {
   margin-left: 32px;
 }
@@ -100,6 +82,34 @@ body.sidebar-closed main {
   flex: 1;
   min-width: 0;
   max-width: none;
+}
+
+.sidebar-new {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5ch;
+  padding: 0.5ch;
+  border-bottom: 1px solid var(--surface0);
+}
+
+.sidebar-new select {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar-new .new-btn {
+  flex-shrink: 0;
+}
+
+.sidebar-new-collapsed {
+  display: none;
+  width: 24px;
+  height: 24px;
+  margin: 0.5ch auto;
+  padding: 0 !important;
+  font-size: 1.2em;
+  align-items: center;
+  justify-content: center;
 }
 
 .sidebar-bottom {
@@ -195,6 +205,34 @@ body.sidebar-closed .sidebar-toggle::after {
 
 .sidebar-overlay {
   display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 80;
+}
+
+/* Mobile: full-screen sidebar */
+@media (max-width: 600px) {
+  .sidebar {
+    width: 100%;
+    z-index: 200;
+  }
+
+  main {
+    margin-left: 0;
+  }
+
+  body:not(.sidebar-closed) .sidebar-overlay {
+    display: block;
+  }
+
+  body.sidebar-closed .sidebar {
+    width: 40px;
+  }
+
+  body.sidebar-closed main {
+    margin-left: 40px;
+  }
 }
 
 /* ═══ Main ═══ */
@@ -535,14 +573,34 @@ body.terminal-page {
 .term-spacer { flex: 1; }
 .term-bar [is-="separator"] { height: 1.5lh; }
 
-.terminal-page iframe {
+.terminal-wrap {
   flex: 1;
-  width: 100%;
+  position: relative;
   min-height: 0;
+}
+
+.terminal-page iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   border: none;
-  touch-action: manipulation;
-  -webkit-overflow-scrolling: touch;
-  overflow: auto;
+}
+
+/* Touch overlay - only visible on mobile, captures swipe for scrolling */
+.touch-overlay {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  .touch-overlay {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    /* Allow taps to pass through to iframe */
+    pointer-events: auto;
+  }
 }
 
 /* ═══ Touch Bar ═══ */
@@ -604,7 +662,7 @@ body.terminal-page {
   }
 
   /* Make room for fixed input bar */
-  .terminal-page iframe {
+  .terminal-wrap {
     margin-bottom: 45px;
   }
 
