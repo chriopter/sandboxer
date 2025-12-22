@@ -425,9 +425,7 @@ body.terminal-page {
   background: var(--mantle);
   border-top: 1px solid var(--surface0);
   padding: 0.8ch;
-  padding-bottom: calc(0.8ch + env(safe-area-inset-bottom, 0px));
   gap: 0.8ch;
-  flex-shrink: 0;
 }
 
 .mobile-input-bar input {
@@ -442,7 +440,20 @@ body.terminal-page {
 }
 
 @media (pointer: coarse) {
-  .mobile-input-bar { display: flex; }
+  .mobile-input-bar {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding-bottom: calc(0.8ch + env(safe-area-inset-bottom, 0px) + 50px);
+    z-index: 1000;
+  }
+
+  /* Make room for fixed input bar */
+  .terminal-page iframe {
+    margin-bottom: 100px;
+  }
 }
 
 /* ═══ Mobile Responsive ═══ */
