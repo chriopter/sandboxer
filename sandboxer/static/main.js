@@ -349,19 +349,6 @@ function hideModal() {
   document.getElementById("modal").classList.remove("show");
 }
 
-// ═══ Layout Menu ═══
-
-function toggleLayoutMenu() {
-  document.getElementById("layoutMenu").classList.toggle("show");
-}
-
-document.addEventListener("click", (e) => {
-  const menu = document.getElementById("layoutMenu");
-  if (menu && !e.target.closest(".layout-toggle")) {
-    menu.classList.remove("show");
-  }
-});
-
 // ═══ System Stats ═══
 
 async function updateStats() {
