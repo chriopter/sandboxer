@@ -304,11 +304,15 @@ body.sidebar-closed .sidebar-toggle::after {
     display: block;
   }
 
-  /* Hide sidebar when closed */
+  /* Hide sidebar completely when closed - no mini strip on mobile */
   body.sidebar-closed .sidebar {
     width: 0;
     border: none;
     overflow: hidden;
+  }
+
+  body.sidebar-closed main {
+    margin-left: 0;
   }
 
   /* Hide floating toggle - we have header now */
