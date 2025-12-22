@@ -110,6 +110,7 @@ body.sidebar-closed main {
   font-size: 1.2em;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .sidebar-bottom {
@@ -622,16 +623,18 @@ body.terminal-page {
   }
 }
 
-/* ═══ Touch Bar ═══ */
+/* ═══ Mobile Input Area (touch bar + text input) ═══ */
+
+.mobile-input-area {
+  display: none;
+}
 
 .touch-bar {
-  display: none;
-  background: var(--mantle);
-  border-bottom: 1px solid var(--surface0);
-  padding: 0.4ch 0.5ch;
+  display: flex;
+  padding: 0.3ch 0.5ch;
   gap: 0.4ch;
-  flex-shrink: 0;
   overflow-x: auto;
+  border-bottom: 1px solid var(--surface0);
 }
 
 .touch-bar button { flex-shrink: 0; }
@@ -640,16 +643,8 @@ body.terminal-page {
   color: var(--crust) !important;
 }
 
-@media (pointer: coarse) {
-  .touch-bar { display: flex; }
-}
-
-/* ═══ Mobile Input ═══ */
-
 .mobile-input-bar {
-  display: none;
-  background: var(--mantle);
-  border-top: 1px solid var(--surface0);
+  display: flex;
   padding: 0.5ch;
   gap: 0.5ch;
   align-items: center;
@@ -670,19 +665,20 @@ body.terminal-page {
 }
 
 @media (pointer: coarse) {
-  .mobile-input-bar {
-    display: flex;
+  .mobile-input-area {
+    display: block;
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
-    padding-bottom: 0;
+    background: var(--mantle);
+    border-top: 1px solid var(--surface0);
     z-index: 1000;
   }
 
-  /* Make room for fixed input bar */
+  /* Make room for fixed input area */
   .terminal-wrap {
-    margin-bottom: 45px;
+    margin-bottom: 80px;
   }
 
   /* Hide [img] button on mobile - use attach button instead */
