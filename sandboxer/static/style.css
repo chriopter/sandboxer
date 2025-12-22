@@ -347,6 +347,8 @@ body.sidebar-closed main {
     margin-bottom: 4px;
   }
 
+  /* Consistent dropdown styling for mobile */
+  .sidebar select,
   .sidebar-header .dir-select {
     height: 48px;
     font-size: 1em;
@@ -385,25 +387,11 @@ body.sidebar-closed main {
     gap: 10px;
     padding: 0;
     border-bottom: none;
-    background: var(--surface0);
-    border-radius: 12px;
-    padding: 12px;
+    background: transparent;
   }
 
   .sidebar-new select {
     width: 100%;
-    height: 48px;
-    font-size: 1em;
-    border-radius: 8px;
-    background: var(--base) !important;
-    color: var(--text) !important;
-    border: 1px solid var(--surface1) !important;
-    -webkit-appearance: none;
-    appearance: none;
-    padding: 0 40px 0 14px;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23a6adc8' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E") !important;
-    background-repeat: no-repeat !important;
-    background-position: right 12px center !important;
   }
 
   .sidebar-new .new-btn {
