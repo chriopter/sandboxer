@@ -420,33 +420,14 @@ function initViewModes() {
 }
 
 
-// ═══ Dir Dropdown (basename when collapsed, full path when open) ═══
+// ═══ Dir Dropdown (show repo name only) ═══
 
 function initDirDropdown() {
   const dir = document.getElementById("dir");
   if (!dir) return;
 
-  const showFull = () => {
-    [...dir.options].forEach(opt => {
-      opt.textContent = opt.value;
-    });
-  };
-
-  const showShort = () => {
-    [...dir.options].forEach(opt => {
-      opt.textContent = opt.value.split("/").pop() || "/";
-    });
-  };
-
-  // Start with short names
-  showShort();
-
-  dir.addEventListener("mousedown", showFull);
-  dir.addEventListener("focus", showFull);
-  dir.addEventListener("blur", showShort);
-  dir.addEventListener("change", () => setTimeout(showShort, 100));
-  dir.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" || e.key === "Tab") showShort();
+  [...dir.options].forEach(opt => {
+    opt.textContent = opt.value.split("/").pop() || "/";
   });
 }
 
