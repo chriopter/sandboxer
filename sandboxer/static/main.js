@@ -4,12 +4,12 @@ let resumeSessionsCache = {};
 
 // ═══ Session Management ═══
 
-async function createSession() {
-  const type = document.getElementById("type").value;
+async function createSession(forceType) {
+  const type = forceType || document.getElementById("type").value;
   const dir = document.getElementById("dir").value;
   const resumeId = document.getElementById("resumeSession").value;
 
-  localStorage.setItem("sandboxer_type", type);
+  if (!forceType) localStorage.setItem("sandboxer_type", type);
 
   let url = "/api/create?type=" + type + "&dir=" + encodeURIComponent(dir);
   if (type === "resume" && resumeId) {
