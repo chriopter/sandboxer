@@ -37,6 +37,15 @@
   </div>
 </header>
 
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <span>Sessions</span>
+    <button size-="small" onclick="toggleSidebar()">×</button>
+  </div>
+  <ul class="sidebar-list" id="sidebarList">
+  </ul>
+</aside>
+
 <main>
   <div class="grid">
     {{cards}}
@@ -51,8 +60,8 @@
     <span class="stat" id="diskStat">disk <span>--%</span></span>
   </div>
   <div class="footer-right">
+    <button size-="small" onclick="toggleSidebar()" title="Session list">≡</button>
     <div class="view-modes" id="viewModes">
-      <button data-view="list" size-="small" title="List">≡</button>
       <button data-view="1" size-="small" title="1 col">◻</button>
       <button data-view="2" size-="small" title="2 col">◻◻</button>
       <button data-view="3" size-="small" title="3 col">◻◻◻</button>

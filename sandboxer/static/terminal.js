@@ -291,31 +291,25 @@ const mobileInput = document.getElementById("mobile-text-input");
 const mobileSendBtn = document.getElementById("mobile-send-btn");
 
 async function sendMobileText() {
-  const text = mobileInput?.value;
-  if (!text) {
-    showToast("No text to send", "info");
-    return;
-  }
+  const text = mobileInput?.value || "";
 
-  try {
+  // Send text if any
+  if (text) {
     await fetch("/api/inject", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ session: SESSION_NAME, text: text })
     });
-
-    await fetch("/api/send-key", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session: SESSION_NAME, key: "Enter" })
-    });
-
-    mobileInput.value = "";
-    showToast("Sent!", "success");
-  } catch (err) {
-    showToast("Error: " + err.message, "error");
   }
-  focusTerminal();
+
+  // Always send Enter
+  await fetch("/api/send-key", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ session: SESSION_NAME, key: "Enter" })
+  });
+
+  mobileInput.value = "";
 }
 
 mobileInput?.addEventListener("keydown", (e) => {
