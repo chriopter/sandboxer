@@ -303,9 +303,9 @@ body.sidebar-closed main {
 
   /* Main content below header - header is 50px */
   main {
-    margin-left: 0;
-    padding: 12px;
-    padding-top: 62px; /* 50px header + 12px gap */
+    margin-left: 0 !important;
+    padding: 12px !important;
+    padding-top: 70px !important; /* 50px header + 20px gap */
   }
 
   /* Sidebar full screen */
@@ -835,13 +835,21 @@ main {
 
 /* ═══ Terminal Page ═══ */
 
-html:has(.terminal-page) { height: var(--vh, 100dvh); }
+html:has(.terminal-page) {
+  height: var(--vh, 100dvh);
+  width: 100%;
+  overflow: hidden;
+}
 
 body.terminal-page {
   height: var(--vh, 100dvh);
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  width: 100%;
+  max-width: 100vw;
+  margin: 0;
+  padding: 0;
 }
 
 .term-bar {
@@ -862,6 +870,7 @@ body.terminal-page {
   flex: 1;
   position: relative;
   min-height: 0;
+  width: 100%;
 }
 
 .terminal-page iframe {
@@ -956,10 +965,12 @@ body.terminal-page {
     bottom: 0;
     left: 0;
     right: 0;
+    width: 100%;
     background: var(--mantle);
     border-top: 1px solid var(--surface0);
     z-index: 1000;
     padding-bottom: env(safe-area-inset-bottom);
+    box-sizing: border-box;
   }
 
   /* Make room for fixed input area (touch bar ~60px + input bar ~64px + safe area) */
