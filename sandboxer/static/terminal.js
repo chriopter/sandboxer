@@ -365,8 +365,8 @@ if (touchOverlay && window.matchMedia("(pointer: coarse)").matches) {
     if (now - lastScrollTime < SCROLL_COOLDOWN) return;
 
     if (Math.abs(deltaY) > SCROLL_THRESHOLD) {
-      // Scroll: swipe up = scroll up (older), swipe down = scroll down (newer)
-      const dir = deltaY > 0 ? "up" : "down";
+      // Swipe up (deltaY > 0) = show older content = scroll down in tmux
+      const dir = deltaY > 0 ? "down" : "up";
 
       fetch("/api/tmux-scroll", {
         method: "POST",

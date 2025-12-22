@@ -211,7 +211,7 @@ body.sidebar-closed .sidebar-toggle::after {
   z-index: 80;
 }
 
-/* Mobile: full-screen sidebar */
+/* Mobile: full-screen sidebar, no mini strip */
 @media (max-width: 600px) {
   .sidebar {
     width: 100%;
@@ -226,12 +226,29 @@ body.sidebar-closed .sidebar-toggle::after {
     display: block;
   }
 
+  /* Hide sidebar completely when closed on mobile */
   body.sidebar-closed .sidebar {
-    width: 40px;
+    width: 0;
+    border: none;
   }
 
   body.sidebar-closed main {
-    margin-left: 40px;
+    margin-left: 0;
+  }
+
+  /* Floating toggle button on mobile */
+  body.sidebar-closed .sidebar-toggle {
+    position: fixed;
+    top: 0.5ch;
+    left: 0.5ch;
+    z-index: 200;
+    width: 36px;
+    height: 36px;
+  }
+
+  /* Hide green + button on mobile */
+  .sidebar-new-collapsed {
+    display: none !important;
   }
 }
 
