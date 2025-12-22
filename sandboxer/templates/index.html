@@ -15,10 +15,10 @@
 <header class="header">
   <div class="header-left">
     <span class="logo">sandboxer</span>
+    <button variant-="teal" size-="small" onclick="copyTakeover()" title="Copy SSH command">ssh</button>
     <select id="dir" class="dir-select" onchange="onDirOrTypeChange()">
       {{dir_options}}
     </select>
-    <span is-="badge" variant-="mauve" id="sessionCount">0</span>
     <button variant-="red" size-="small" onclick="closeAllSessions()" title="Close all sessions">×</button>
   </div>
   <div class="header-right">
@@ -35,7 +35,6 @@
       </select>
     </span>
     <button variant-="green" size-="small" onclick="createSession()">+ new</button>
-    <button variant-="teal" size-="small" onclick="copyTakeover()" title="Copy SSH command">ssh</button>
   </div>
 </header>
 
