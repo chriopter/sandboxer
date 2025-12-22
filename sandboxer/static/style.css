@@ -305,7 +305,7 @@ body.sidebar-closed main {
   main {
     margin-left: 0;
     padding: 12px;
-    padding-top: 80px;
+    padding-top: 90px !important;
   }
 
   /* Sidebar full screen */
@@ -520,6 +520,14 @@ body.sidebar-closed main {
 
 main {
   padding: 2ch;
+}
+
+/* Mobile override must come after */
+@media (max-width: 600px) {
+  main {
+    padding: 12px !important;
+    padding-top: 100px !important;
+  }
 }
 
 /* ═══ Footer ═══ */
