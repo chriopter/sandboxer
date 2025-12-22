@@ -383,24 +383,26 @@ body.sidebar-closed main {
 
   /* Better sidebar new session controls */
   .sidebar-new {
-    flex-direction: column;
-    gap: 10px;
+    flex-direction: row;
+    gap: 8px;
     padding: 0;
     border-bottom: none;
     background: transparent;
   }
 
   .sidebar-new select {
-    width: 100%;
+    flex: 1;
+    min-width: 0;
   }
 
   .sidebar-new .new-btn {
-    width: 100%;
-    justify-content: center;
-    height: 52px;
-    font-size: 1.1em;
+    width: auto;
+    padding: 0 20px !important;
+    height: 48px;
+    font-size: 1em;
     border-radius: 8px;
     font-weight: 600;
+    flex-shrink: 0;
   }
 
   /* Session list - fills available space */
