@@ -304,7 +304,8 @@ body.sidebar-closed main {
   /* Main content below header */
   main {
     margin-left: 0;
-    padding-top: calc(50px + 12px);
+    padding: 12px;
+    padding-top: calc(50px + 16px);
   }
 
   /* Sidebar full screen */
@@ -1005,11 +1006,6 @@ body.terminal-page {
     gap: 0.8ch;
   }
 
-  main {
-    padding: 1ch;
-    padding-bottom: calc(1ch + 70px);
-  }
-
   .grid { gap: 1ch; }
 }
 
@@ -1028,10 +1024,6 @@ body.terminal-page {
 
   .stat {
     font-size: 0.75em;
-  }
-
-  main {
-    padding-bottom: calc(1ch + 90px);
   }
 }
 
