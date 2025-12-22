@@ -534,6 +534,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return
 
         # ─── API: Tmux Scroll (for mobile touch scrolling) ───
+        # IMPORTANT: This endpoint enables mobile scrolling on iOS Safari.
+        # xterm.js touch scroll doesn't work, so terminal.js sends swipe
+        # gestures here to scroll via tmux copy-mode. DO NOT DELETE.
         if path == "/api/tmux-scroll":
             try:
                 data = json.loads(body)

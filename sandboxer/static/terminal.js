@@ -328,7 +328,10 @@ mobileAttachBtn?.addEventListener("click", () => {
 });
 
 // ─── Mobile Touch Scroll Handler ───
-// Touch overlay captures swipes for tmux scrolling, passes taps to terminal
+// IMPORTANT: This is the solution for mobile scrolling on iOS Safari.
+// xterm.js/ttyd touch scroll doesn't work, so we use a transparent overlay
+// that captures swipe gestures and sends them to tmux copy-mode via API.
+// DO NOT DELETE - this took significant research to solve.
 
 const touchOverlay = document.getElementById("touch-overlay");
 

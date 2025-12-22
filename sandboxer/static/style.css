@@ -54,7 +54,7 @@ body.sidebar-closed .sidebar-bottom {
 }
 
 body.sidebar-closed .sidebar-new-collapsed {
-  display: flex;
+  display: flex !important;
 }
 
 body.sidebar-closed .sidebar-header {
@@ -246,8 +246,8 @@ body.sidebar-closed .sidebar-toggle::after {
     height: 36px;
   }
 
-  /* Hide green + button on mobile */
-  .sidebar-new-collapsed {
+  /* Hide green + button on mobile - even when sidebar closed */
+  body.sidebar-closed .sidebar-new-collapsed {
     display: none !important;
   }
 }
@@ -604,7 +604,9 @@ body.terminal-page {
   border: none;
 }
 
-/* Touch overlay - only visible on mobile, captures swipe for scrolling */
+/* Touch overlay - IMPORTANT: enables mobile scrolling on iOS Safari.
+   xterm.js touch scroll does not work, so this overlay captures swipes
+   and sends them to tmux via /api/tmux-scroll. DO NOT DELETE. */
 .touch-overlay {
   display: none;
 }
