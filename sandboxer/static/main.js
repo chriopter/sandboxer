@@ -193,6 +193,9 @@ function onDirOrTypeChange() {
   // Filter visible sessions by selected folder
   filterSessionsByFolder(dir);
 
+  // Update sidebar list immediately
+  populateSidebar();
+
   // Save selected folder to server
   saveSelectedFolder(dir);
 }

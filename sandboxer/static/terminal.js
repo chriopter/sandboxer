@@ -326,3 +326,55 @@ const mobileAttachBtn = document.getElementById("mobile-attach-btn");
 mobileAttachBtn?.addEventListener("click", () => {
   fileInput?.click();
 });
+
+// ─── Mobile Touch Scroll Handler ───
+// xterm.js has limited touch scroll support, so we add a fallback
+// that sends tmux scroll commands on swipe gestures
+
+if (window.matchMedia("(pointer: coarse)").matches) {
+  const iframe = document.getElementById("terminal-iframe");
+  let touchStartY = 0;
+  let touchStartTime = 0;
+  let lastScrollTime = 0;
+  const SCROLL_THRESHOLD = 30; // pixels to trigger scroll
+  const SCROLL_COOLDOWN = 50; // ms between scroll commands
+
+  // Listen on document to catch touches that bubble up from iframe
+  document.addEventListener("touchstart", (e) => {
+    if (e.target === iframe || e.target.closest(".terminal-page")) {
+      touchStartY = e.touches[0].clientY;
+      touchStartTime = Date.now();
+    }
+  }, { passive: true });
+
+  document.addEventListener("touchmove", (e) => {
+    if (!touchStartY) return;
+
+    const now = Date.now();
+    if (now - lastScrollTime < SCROLL_COOLDOWN) return;
+
+    const deltaY = touchStartY - e.touches[0].clientY;
+
+    if (Math.abs(deltaY) > SCROLL_THRESHOLD) {
+      // Send tmux scroll: negative = scroll up (show older), positive = scroll down
+      const scrollDir = deltaY > 0 ? "Down" : "Up";
+
+      // Use WheelUp/WheelDown for tmux mouse mode scrolling
+      fetch("/api/send-key", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session: SESSION_NAME,
+          key: scrollDir === "Up" ? "WheelUp" : "WheelDown"
+        })
+      });
+
+      touchStartY = e.touches[0].clientY; // Reset for continuous scroll
+      lastScrollTime = now;
+    }
+  }, { passive: true });
+
+  document.addEventListener("touchend", () => {
+    touchStartY = 0;
+  }, { passive: true });
+}

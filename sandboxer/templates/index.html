@@ -35,15 +35,17 @@
 
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
 <aside class="sidebar" id="sidebar">
-  <div class="sidebar-top">
+  <div class="sidebar-header">
     <select id="dir" class="dir-select" onchange="onDirOrTypeChange()">
       {{dir_options}}
     </select>
-    <button variant-="red" size-="small" onclick="closeAllSessions()" title="Close all sessions">×</button>
+    <button class="sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">‹</button>
   </div>
   <ul class="sidebar-list" id="sidebarList">
   </ul>
   <div class="sidebar-bottom">
+    <button variant-="teal" size-="small" onclick="copyTakeover()" title="Copy SSH command" class="sidebar-ssh">ssh</button>
+    <button variant-="red" size-="small" onclick="closeAllSessions()" title="Close all sessions" class="sidebar-close-all">× close all</button>
     <div class="sidebar-controls">
       <span class="control-label">View</span>
       <div class="view-modes" id="viewModes">
@@ -62,8 +64,12 @@
         <button data-zoom="100" size-="small">2X</button>
       </div>
     </div>
+    <div class="sidebar-stats">
+      <span class="stat" id="cpuStat">cpu <span>--%</span></span>
+      <span class="stat" id="memStat">mem <span>--%</span></span>
+      <span class="stat" id="diskStat">disk <span>--%</span></span>
+    </div>
   </div>
-  <button class="sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">‹</button>
 </aside>
 
 <main>
@@ -71,15 +77,6 @@
     {{cards}}
   </div>
 </main>
-
-<footer class="footer">
-  <div class="footer-left">
-    <button variant-="teal" size-="small" onclick="copyTakeover()" title="Copy SSH command">ssh</button>
-    <span class="stat" id="cpuStat">cpu <span>--%</span></span>
-    <span class="stat" id="memStat">mem <span>--%</span></span>
-    <span class="stat" id="diskStat">disk <span>--%</span></span>
-  </div>
-</footer>
 
 <div id="modal" class="modal" onclick="if(event.target===this) hideModal()">
   <div class="modal-box">

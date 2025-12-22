@@ -54,7 +54,7 @@ body {
   top: 0;
   left: 0;
   bottom: 0;
-  width: 160px;
+  width: 200px;
   background: var(--mantle);
   border-right: 1px solid var(--surface0);
   z-index: 90;
@@ -66,9 +66,8 @@ body {
 
 /* Shift layout for sidebar */
 .header,
-main,
-.footer {
-  margin-left: 160px;
+main {
+  margin-left: 200px;
   transition: margin-left 0.2s ease;
 }
 
@@ -77,35 +76,35 @@ body.sidebar-closed .sidebar {
   width: 32px;
 }
 
-body.sidebar-closed .sidebar-top,
+body.sidebar-closed .sidebar-header .dir-select,
 body.sidebar-closed .sidebar-list,
 body.sidebar-closed .sidebar-bottom {
   display: none;
 }
 
+body.sidebar-closed .sidebar-header {
+  justify-content: center;
+  padding: 0.5ch;
+}
+
 body.sidebar-closed .sidebar-toggle {
-  position: relative;
-  right: auto;
-  top: auto;
-  margin: 0.5lh auto;
+  position: static;
 }
 
 body.sidebar-closed .header,
-body.sidebar-closed main,
-body.sidebar-closed .footer {
+body.sidebar-closed main {
   margin-left: 32px;
 }
 
-.sidebar-top {
+.sidebar-header {
   display: flex;
   align-items: center;
   gap: 0.5ch;
-  padding: 0.5lh 0.5ch;
-  padding-right: 2ch;
+  padding: 0.5ch;
   border-bottom: 1px solid var(--surface0);
 }
 
-.sidebar-top .dir-select {
+.sidebar-header .dir-select {
   flex: 1;
   min-width: 0;
   max-width: none;
@@ -159,9 +158,6 @@ body.sidebar-closed .footer {
 }
 
 .sidebar-toggle {
-  position: absolute;
-  right: 0.5ch;
-  top: 0.5lh;
   width: 24px;
   height: 24px;
   background: var(--surface0) !important;
@@ -174,7 +170,7 @@ body.sidebar-closed .footer {
   justify-content: center;
   padding: 0 !important;
   transition: background 0.15s, color 0.15s;
-  z-index: 10;
+  flex-shrink: 0;
 }
 
 .sidebar-toggle:hover {
@@ -191,6 +187,20 @@ body.sidebar-closed .sidebar-toggle::after {
   content: "›";
 }
 
+.sidebar-ssh,
+.sidebar-close-all {
+  width: 100%;
+  margin-bottom: 0.5ch;
+}
+
+.sidebar-stats {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 0.5ch;
+  margin-top: 0.3ch;
+  border-top: 1px solid var(--surface0);
+}
+
 .sidebar-overlay {
   display: none;
 }
@@ -199,7 +209,6 @@ body.sidebar-closed .sidebar-toggle::after {
 
 main {
   padding: 2ch;
-  padding-bottom: calc(2ch + 40px);
 }
 
 /* ═══ Footer ═══ */
@@ -539,8 +548,9 @@ body.terminal-page {
   width: 100%;
   min-height: 0;
   border: none;
-  /* Let xterm.js/tmux handle touch - don't restrict */
-  touch-action: none;
+  touch-action: manipulation;
+  -webkit-overflow-scrolling: touch;
+  overflow: auto;
 }
 
 /* ═══ Touch Bar ═══ */
