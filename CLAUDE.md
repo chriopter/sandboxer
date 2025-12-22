@@ -113,7 +113,19 @@ Detach: `Ctrl-B d` | Switch: `Ctrl-B s`
 
 ## WebTUI Usage Rules
 
-This project uses [WebTUI](https://webtui.ironclad.sh/) for terminal-style UI. **Always use WebTUI's semantic attributes instead of custom CSS classes.**
+This project uses [WebTUI](https://webtui.ironclad.sh/) ([GitHub](https://github.com/webtui/webtui)) for terminal-style UI.
+
+**Package sources:**
+- `@webtui/css` - Main CSS library
+- `@webtui/theme-catppuccin` - Catppuccin theme
+
+**Update CSS files:**
+```bash
+curl -s "https://unpkg.com/@webtui/css/dist/full.css" -o sandboxer/static/webtui.css
+curl -s "https://unpkg.com/@webtui/theme-catppuccin/dist/index.css" -o sandboxer/static/catppuccin.css
+```
+
+**Always use WebTUI's semantic attributes instead of custom CSS classes.**
 
 ### Theme Setup
 
