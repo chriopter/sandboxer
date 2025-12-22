@@ -29,6 +29,10 @@
     <button data-key="Right">→</button>
   </div>
   <iframe src="{{ttyd_url}}" id="terminal-iframe"></iframe>
+  <div class="mobile-input-bar">
+    <input type="text" id="mobile-text-input" placeholder="Type here..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+    <button id="mobile-send-btn">⏎</button>
+  </div>
   <input type="file" id="image-input" accept="image/*" hidden>
   <div id="paste-toast" class="paste-toast"></div>
   <script>

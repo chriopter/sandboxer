@@ -434,8 +434,43 @@ main {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(var(--preview-cols, 3), 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 2ch;
+}
+
+/* View modes */
+.grid[data-view="1"] {
+  grid-template-columns: 1fr;
+}
+
+.grid[data-view="2"] {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.grid[data-view="3"] {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+/* List view - compact rows, no terminal preview */
+.grid[data-view="list"] {
+  grid-template-columns: 1fr;
+  gap: 0.5ch;
+}
+
+.grid[data-view="list"] .card {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.grid[data-view="list"] .card header {
+  flex: 1;
+  border-bottom: none;
+  padding: 0.5ch 1ch;
+}
+
+.grid[data-view="list"] .terminal {
+  display: none;
 }
 
 /* ═══ Card ═══ */
@@ -678,10 +713,43 @@ main {
   margin-left: 0.5ch;
 }
 
-.footer-sliders {
+/* ═══ View Mode Buttons ═══ */
+
+.view-modes {
+  display: flex;
+  gap: 2px;
+  background: var(--surface0);
+  padding: 2px;
+  border-radius: var(--radius);
+}
+
+.view-modes button {
+  font-family: inherit;
+  font-size: 0.85em;
+  background: transparent;
+  color: var(--overlay1);
+  border: none;
+  padding: 0.3em 0.6em;
+  border-radius: calc(var(--radius) - 2px);
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: -0.1em;
+}
+
+.view-modes button:hover {
+  color: var(--text);
+  background: var(--surface1);
+}
+
+.view-modes button.active {
+  background: var(--mauve);
+  color: var(--crust);
+}
+
+.footer-controls {
   display: flex;
   align-items: center;
-  gap: 0.8ch;
+  gap: 1ch;
 }
 
 .slider-label {
@@ -689,7 +757,7 @@ main {
   font-size: 0.9em;
 }
 
-.footer-sliders input[type="range"] {
+#previewScale {
   -webkit-appearance: none;
   appearance: none;
   width: 50px;
@@ -699,7 +767,7 @@ main {
   cursor: pointer;
 }
 
-.footer-sliders input[type="range"]::-webkit-slider-thumb {
+#previewScale::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 10px;
@@ -709,7 +777,7 @@ main {
   cursor: pointer;
 }
 
-.footer-sliders input[type="range"]::-moz-range-thumb {
+#previewScale::-moz-range-thumb {
   width: 10px;
   height: 10px;
   background: var(--overlay1);
@@ -980,6 +1048,61 @@ body.terminal-page {
   }
 }
 
+/* ═══ Mobile Text Input Bar ═══ */
+
+.mobile-input-bar {
+  display: none;
+  background: var(--mantle);
+  border-top: 1px solid var(--surface0);
+  padding: 0.5ch;
+  gap: 0.5ch;
+  flex-shrink: 0;
+}
+
+.mobile-input-bar input {
+  flex: 1;
+  font-family: inherit;
+  font-size: 16px; /* Prevents iOS zoom on focus */
+  background: var(--base);
+  color: var(--text);
+  border: 1px solid var(--surface1);
+  border-radius: var(--radius);
+  padding: 0.8em 1ch;
+  outline: none;
+}
+
+.mobile-input-bar input:focus {
+  border-color: var(--mauve);
+}
+
+.mobile-input-bar button {
+  font-family: inherit;
+  font-size: 1.2em;
+  background: var(--mauve);
+  color: var(--crust);
+  border: none;
+  border-radius: var(--radius);
+  padding: 0.5em 1em;
+  cursor: pointer;
+}
+
+.mobile-input-bar button:active {
+  background: var(--lavender);
+}
+
+/* Show mobile input bar on touch devices */
+@media (pointer: coarse) {
+  .mobile-input-bar {
+    display: flex;
+  }
+
+  /* Adjust iframe to make room */
+  .terminal-page iframe {
+    flex: 1;
+    min-height: 0;
+  }
+}
+
 /* ═══ Terminal Bar ═══ */
 
 .term-bar {
@@ -1075,31 +1198,7 @@ body.terminal-page {
 
 /* ═══ Mobile Responsive ═══ */
 
-/* Hide columns slider (▦) on mobile - keep only zoom slider */
 @media (max-width: 768px) {
-  #previewCols {
-    display: none;
-  }
-
-  /* Hide the ▦ label before columns slider */
-  .footer-sliders .slider-label:first-of-type {
-    display: none;
-  }
-
-  /* Portrait: 1 column */
-  @media (orientation: portrait) {
-    .grid {
-      grid-template-columns: 1fr !important;
-    }
-  }
-
-  /* Landscape: 2 columns */
-  @media (orientation: landscape) {
-    .grid {
-      grid-template-columns: repeat(2, 1fr) !important;
-    }
-  }
-
   /* Adjust header for mobile */
   .header {
     padding: 0.4ch 1ch;

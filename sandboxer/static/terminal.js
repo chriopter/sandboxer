@@ -265,3 +265,40 @@ touchBar?.addEventListener("click", (e) => {
     sendKey(key);
   }
 });
+
+// ─── Mobile Text Input Bar ───
+
+const mobileInput = document.getElementById("mobile-text-input");
+const mobileSendBtn = document.getElementById("mobile-send-btn");
+
+async function sendMobileText() {
+  const text = mobileInput?.value;
+  if (!text) return;
+
+  // Send text to tmux session
+  await fetch("/api/inject", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ session: SESSION_NAME, text: text })
+  });
+
+  // Send Enter key
+  await fetch("/api/send-key", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ session: SESSION_NAME, key: "Enter" })
+  });
+
+  // Clear input
+  mobileInput.value = "";
+  focusTerminal();
+}
+
+mobileInput?.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    sendMobileText();
+  }
+});
+
+mobileSendBtn?.addEventListener("click", sendMobileText);

@@ -58,11 +58,15 @@
     <span class="stat" id="memStat">mem <span>--%</span></span>
     <span class="stat" id="diskStat">disk <span>--%</span></span>
   </div>
-  <div class="footer-sliders">
-    <span class="slider-label">▦</span>
-    <input type="range" id="previewCols" min="1" max="4" value="3" oninput="updatePreviewCols(this.value)" title="columns">
+  <div class="footer-controls">
     <span class="slider-label">◔</span>
     <input type="range" id="previewScale" min="50" max="100" value="75" oninput="updatePreviewScale(this.value)" title="zoom">
+    <div class="view-modes" id="viewModes">
+      <button data-view="list" title="List view">≡</button>
+      <button data-view="1" title="1 column">▢</button>
+      <button data-view="2" title="2 columns">▢▢</button>
+      <button data-view="3" title="3 columns">▢▢▢</button>
+    </div>
   </div>
 </footer>
 

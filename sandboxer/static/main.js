@@ -376,14 +376,7 @@ async function updateStats() {
   }
 }
 
-// ═══ Preview Sliders ═══
-
-function updatePreviewCols(value) {
-  // Invert: slider right (4) = 1 column (bigger), left (1) = 4 columns (smaller)
-  const cols = 5 - value;
-  document.documentElement.style.setProperty("--preview-cols", cols);
-  localStorage.setItem("sandboxer_preview_cols", value);
-}
+// ═══ Preview Scale ═══
 
 function updatePreviewScale(value) {
   const scale = value / 100;
@@ -391,22 +384,52 @@ function updatePreviewScale(value) {
   localStorage.setItem("sandboxer_preview_scale", value);
 }
 
-function initSliders() {
-  const savedCols = localStorage.getItem("sandboxer_preview_cols") || "3";
-  const savedScale = localStorage.getItem("sandboxer_preview_scale") || "75";
+function initPreviewScale() {
+  const saved = localStorage.getItem("sandboxer_preview_scale") || "75";
+  const slider = document.getElementById("previewScale");
+  if (slider) {
+    slider.value = saved;
+    updatePreviewScale(saved);
+  }
+}
 
-  const colsSlider = document.getElementById("previewCols");
-  const scaleSlider = document.getElementById("previewScale");
+// ═══ View Modes ═══
 
-  if (colsSlider) {
-    colsSlider.value = savedCols;
-    updatePreviewCols(savedCols);
+function setViewMode(mode) {
+  const grid = document.querySelector(".grid");
+  const buttons = document.querySelectorAll(".view-modes button");
+
+  if (grid) {
+    grid.dataset.view = mode;
   }
 
-  if (scaleSlider) {
-    scaleSlider.value = savedScale;
-    updatePreviewScale(savedScale);
+  buttons.forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.view === mode);
+  });
+
+  localStorage.setItem("sandboxer_view_mode", mode);
+}
+
+function getDefaultViewMode() {
+  // Mobile defaults to list
+  if (window.matchMedia("(pointer: coarse)").matches) {
+    return "list";
   }
+  return "2";
+}
+
+function initViewModes() {
+  const saved = localStorage.getItem("sandboxer_view_mode");
+  const mode = saved || getDefaultViewMode();
+
+  setViewMode(mode);
+
+  // Button click handlers
+  document.querySelectorAll(".view-modes button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      setViewMode(btn.dataset.view);
+    });
+  });
 }
 
 
@@ -509,8 +532,9 @@ document.addEventListener("visibilitychange", () => {
     });
   });
 
-  // Initialize preview sliders
-  initSliders();
+  // Initialize view modes and preview scale
+  initViewModes();
+  initPreviewScale();
 
   // Start stats updates
   updateStats();
