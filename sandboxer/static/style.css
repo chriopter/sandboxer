@@ -669,6 +669,10 @@ body.terminal-page {
   min-width: 3ch;
 }
 
+#mobile-send-btn {
+  min-width: 6ch;
+}
+
 @media (pointer: coarse) {
   .mobile-input-area {
     display: block;
