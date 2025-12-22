@@ -377,8 +377,8 @@ body.sidebar-closed main {
   }
 
   .sidebar-toggle::after {
-    content: "✕";
-    font-size: 1.3rem;
+    content: "☰";
+    font-size: 1.4rem;
   }
 
   /* Better sidebar new session controls */
