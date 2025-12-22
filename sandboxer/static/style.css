@@ -504,9 +504,16 @@ body.sidebar-closed main {
   .grid {
     grid-template-columns: 1fr 1fr;
     gap: 10px;
+    width: 100%;
   }
 
-  .grid[data-view="1"] { grid-template-columns: 1fr; }
+  .grid[data-view="1"] {
+    grid-template-columns: 1fr;
+  }
+
+  .grid[data-view="1"] .card {
+    max-width: 100%;
+  }
 }
 
 /* ═══ Main ═══ */
