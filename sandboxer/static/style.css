@@ -116,6 +116,54 @@ body.sidebar-closed .footer {
   border-left-color: var(--mauve);
 }
 
+.sidebar-toggle {
+  position: absolute;
+  right: -24px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 48px;
+  background: var(--surface0) !important;
+  border: 1px solid var(--surface1) !important;
+  border-left: none !important;
+  border-radius: 0 4px 4px 0;
+  color: var(--subtext0) !important;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2em;
+  padding: 0 !important;
+  transition: background 0.15s, color 0.15s;
+}
+
+.sidebar-toggle:hover {
+  background: var(--surface1) !important;
+  color: var(--text) !important;
+}
+
+/* When sidebar closed, move toggle to compensate for transform */
+body.sidebar-closed .sidebar-toggle {
+  right: -184px; /* 160px sidebar width + 24px button */
+}
+
+body.sidebar-closed .sidebar-toggle::after {
+  content: "›";
+}
+
+body:not(.sidebar-closed) .sidebar-toggle::after {
+  content: "‹";
+}
+
+/* Hide text content, use ::after for arrow */
+.sidebar-toggle {
+  font-size: 0;
+}
+
+.sidebar-toggle::after {
+  font-size: 1.2rem;
+}
+
 .sidebar-overlay {
   display: none;
 }

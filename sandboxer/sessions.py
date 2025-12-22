@@ -118,8 +118,35 @@ def restore_sessions():
     return restored
 
 
+# ═══ Orphan Cleanup ═══
+
+def _cleanup_orphan_ttyd():
+    """Kill any ttyd processes not tracked by this session (orphans from crashes)."""
+    try:
+        # Get all ttyd PIDs
+        result = subprocess.run(["pgrep", "-f", "^ttyd"], capture_output=True, text=True)
+        if result.returncode != 0:
+            return  # No ttyd processes
+
+        pids = [int(p) for p in result.stdout.strip().split("\n") if p]
+        tracked_pids = {pid for pid, _ in ttyd_processes.values()}
+
+        orphans = [p for p in pids if p not in tracked_pids]
+        for pid in orphans:
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except OSError:
+                pass
+
+        if orphans:
+            print(f"[sandboxer] Cleaned up {len(orphans)} orphan ttyd processes")
+    except Exception:
+        pass
+
+
 # Initialize on module load
 _load_session_meta()
+_cleanup_orphan_ttyd()
 
 
 # ═══ Ordering (RAM only) ═══
