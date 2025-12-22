@@ -446,13 +446,13 @@ body.terminal-page {
     bottom: 0;
     left: 0;
     right: 0;
-    padding-bottom: calc(0.8ch + env(safe-area-inset-bottom, 0px) + 10px);
+    padding-bottom: calc(0.8ch + env(safe-area-inset-bottom, 0px));
     z-index: 1000;
   }
 
   /* Make room for fixed input bar */
   .terminal-page iframe {
-    margin-bottom: 60px;
+    margin-bottom: 50px;
   }
 }
 
