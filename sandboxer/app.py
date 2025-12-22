@@ -10,7 +10,10 @@ import json
 import os
 import secrets
 import signal
+import socket
+import socketserver
 import subprocess
+import threading
 import time
 import urllib.parse
 from html import escape
@@ -161,28 +164,14 @@ def render_template(name: str, **context) -> str:
     return template
 
 
-def build_session_cards(sessions_list: list[dict]) -> str:
-    """Build HTML for session cards."""
-    if not sessions_list:
-        return """
-<div class="empty">
-  <div class="empty-icon">&#9671;</div>
-  <p>no active sessions</p>
-  <p class="hint">create one below</p>
-</div>"""
+def build_single_card(s: dict) -> str:
+    """Build HTML for a single session card."""
+    port = sessions.get_ttyd_port(s["name"])
+    terminal_url = f"/t/{port}/" if port else ""
+    display_name = s.get("title") or s["name"]
+    workdir = s.get("workdir") or ""
 
-    cards = ""
-    for s in sessions_list:
-        port = sessions.get_ttyd_port(s["name"])
-        terminal_url = f"/t/{port}/" if port else ""
-        status = "active" if s.get("attached") else "idle"
-        status_color = "var(--green)" if s.get("attached") else "var(--overlay0)"
-
-        display_name = s.get("title") or s["name"]
-
-        workdir = s.get("workdir") or ""
-        cards += f"""
-<article class="card" draggable="true" data-session="{escape(s['name'])}" data-workdir="{escape(workdir)}">
+    return f"""<article class="card" draggable="true" data-session="{escape(s['name'])}" data-workdir="{escape(workdir)}">
   <header>
     <span class="card-title" onclick="renameSession('{escape(s['name'])}')">{escape(display_name)}</span>
     <div class="card-actions">
@@ -197,7 +186,18 @@ def build_session_cards(sessions_list: list[dict]) -> str:
   </div>
 </article>"""
 
-    return cards
+
+def build_session_cards(sessions_list: list[dict]) -> str:
+    """Build HTML for session cards."""
+    if not sessions_list:
+        return """
+<div class="empty">
+  <div class="empty-icon">&#9671;</div>
+  <p>no active sessions</p>
+  <p class="hint">create one below</p>
+</div>"""
+
+    return "".join(build_single_card(s) for s in sessions_list)
 
 
 def build_dir_options() -> str:
@@ -365,6 +365,21 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 "restarting...<script>setTimeout(function(){window.location='/'},2000)</script></body></html>"
             )
             subprocess.Popen(["systemctl", "restart", "sandboxer"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return
+
+        # ─── API: Create Session (returns card HTML) ───
+        if path == "/api/create":
+            session_type = query.get("type", ["claude"])[0]
+            workdir = query.get("dir", ["/home/sandboxer/git/sandboxer"])[0]
+            resume_id = query.get("resume_id", [None])[0]
+            name = sessions.generate_session_name(session_type, workdir)
+            sessions.create_session(name, session_type, workdir, resume_id)
+
+            # Build card HTML for the new session
+            sessions.start_ttyd(name)
+            s = {"name": name, "title": name, "workdir": workdir}
+            card_html = build_single_card(s)
+            self.send_json({"ok": True, "name": name, "html": card_html})
             return
 
         # ─── API: Sessions ───
@@ -583,6 +598,34 @@ def cleanup(sig, frame):
     exit(0)
 
 
+class ThreadedHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
+    """Handle requests in separate threads."""
+    daemon_threads = True
+
+
+def sd_notify(state: str):
+    """Send notification to systemd."""
+    addr = os.environ.get("NOTIFY_SOCKET")
+    if not addr:
+        return
+    if addr[0] == "@":
+        addr = "\0" + addr[1:]
+    try:
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+        sock.connect(addr)
+        sock.send(state.encode())
+        sock.close()
+    except Exception:
+        pass
+
+
+def watchdog_thread(interval: float):
+    """Periodically ping systemd watchdog."""
+    while True:
+        time.sleep(interval)
+        sd_notify("WATCHDOG=1")
+
+
 def main():
     signal.signal(signal.SIGTERM, cleanup)
     signal.signal(signal.SIGINT, cleanup)
@@ -595,8 +638,18 @@ def main():
     if restored:
         print(f"restored {restored} session(s) from last run")
 
+    # Start watchdog thread if systemd watchdog is enabled
+    watchdog_usec = os.environ.get("WATCHDOG_USEC")
+    if watchdog_usec:
+        interval = int(watchdog_usec) / 1_000_000 / 2  # Ping at half the interval
+        t = threading.Thread(target=watchdog_thread, args=(interval,), daemon=True)
+        t.start()
+
+    # Notify systemd we're ready
+    sd_notify("READY=1")
+
     print(f"sandboxer http://127.0.0.1:{PORT}")
-    server = http.server.HTTPServer(("127.0.0.1", PORT), Handler)
+    server = ThreadedHTTPServer(("127.0.0.1", PORT), Handler)
     server.serve_forever()
 
 

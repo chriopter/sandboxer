@@ -86,7 +86,6 @@ body.sidebar-closed main {
 
 .sidebar-new {
   display: flex;
-  flex-wrap: wrap;
   gap: 0.5ch;
   padding: 0.5ch;
   border-bottom: 1px solid var(--surface0);
@@ -99,6 +98,7 @@ body.sidebar-closed main {
 
 .sidebar-new .new-btn {
   flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .sidebar-new-collapsed {
@@ -216,44 +216,144 @@ body.sidebar-closed .sidebar-toggle::after {
   z-index: 80;
 }
 
-/* Mobile: full-screen sidebar, no mini strip */
+/* ═══ Mobile Header ═══ */
+
+.mobile-header {
+  display: none;
+}
+
+/* Mobile: full-screen sidebar with header */
 @media (max-width: 600px) {
+  /* Show mobile header */
+  .mobile-header {
+    display: flex;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 44px;
+    background: var(--mantle);
+    border-bottom: 1px solid var(--surface0);
+    z-index: 150;
+    align-items: center;
+    padding: 0 1ch;
+    gap: 1ch;
+  }
+
+  .mobile-menu-btn {
+    background: transparent !important;
+    color: var(--text) !important;
+    padding: 0.5ch !important;
+    border: none !important;
+    font-size: 1.4em;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .mobile-title {
+    flex: 1;
+    font-weight: 600;
+    color: var(--mauve);
+    text-align: center;
+  }
+
+  .mobile-title::before {
+    content: "◈ ";
+  }
+
+  .mobile-add-btn {
+    background: var(--green) !important;
+    color: var(--crust) !important;
+    width: 36px;
+    height: 36px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5em;
+    font-weight: bold;
+    border: none !important;
+    padding: 0 !important;
+  }
+
+  /* Main content below header */
+  main {
+    margin-left: 0;
+    padding-top: calc(44px + 1ch);
+  }
+
+  /* Sidebar full screen */
   .sidebar {
     width: 100%;
     z-index: 200;
-  }
-
-  main {
-    margin-left: 0;
+    top: 0;
   }
 
   body:not(.sidebar-closed) .sidebar-overlay {
     display: block;
   }
 
-  /* Hide sidebar completely when closed on mobile */
+  /* Hide sidebar when closed */
   body.sidebar-closed .sidebar {
     width: 0;
     border: none;
+    overflow: hidden;
   }
 
-  body.sidebar-closed main {
-    margin-left: 0;
-  }
-
-  /* Floating toggle button on mobile */
-  body.sidebar-closed .sidebar-toggle {
-    position: fixed;
-    top: 0.5ch;
-    left: 0.5ch;
-    z-index: 200;
-    width: 36px;
-    height: 36px;
-  }
-
-  /* Hide green + button on mobile - even when sidebar closed */
+  /* Hide floating toggle - we have header now */
+  body.sidebar-closed .sidebar-toggle,
   body.sidebar-closed .sidebar-new-collapsed {
     display: none !important;
+  }
+
+  /* Better sidebar layout on mobile */
+  .sidebar-new {
+    flex-direction: column;
+    gap: 0.8ch;
+  }
+
+  .sidebar-new select {
+    width: 100%;
+  }
+
+  .sidebar-new .new-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 0.8em !important;
+  }
+
+  /* More spacious bottom controls */
+  .sidebar-bottom {
+    padding: 1ch;
+    gap: 0.8ch;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sidebar-ssh,
+  .sidebar-close-all {
+    padding: 0.8em !important;
+    font-size: 1em;
+  }
+
+  .sidebar-controls {
+    flex-wrap: wrap;
+    justify-content: center;
+    margin: 0.5ch 0;
+  }
+
+  .control-label {
+    width: 100%;
+    text-align: center;
+    margin-bottom: 0.3ch;
+  }
+
+  .sidebar-stats {
+    justify-content: space-around;
+    padding-top: 1ch;
   }
 }
 

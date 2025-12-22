@@ -12,6 +12,12 @@
 </head>
 <body data-webtui-theme="catppuccin-mocha">
 
+<header class="mobile-header">
+  <button class="mobile-menu-btn" onclick="toggleSidebar()">☰</button>
+  <span class="mobile-title">sandboxer</span>
+  <button class="mobile-add-btn" onclick="createSession()">+</button>
+</header>
+
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-header">

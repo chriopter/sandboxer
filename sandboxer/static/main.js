@@ -11,13 +11,43 @@ async function createSession() {
 
   localStorage.setItem("sandboxer_type", type);
 
-  let url = "/create?type=" + type + "&dir=" + encodeURIComponent(dir);
+  let url = "/api/create?type=" + type + "&dir=" + encodeURIComponent(dir);
   if (type === "resume" && resumeId) {
     url += "&resume_id=" + encodeURIComponent(resumeId);
   }
 
-  await fetch(url);
-  cleanupAndReload();
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+
+    if (data.ok && data.html) {
+      const grid = document.querySelector(".grid");
+
+      // Remove empty state if present
+      const empty = grid.querySelector(".empty");
+      if (empty) empty.remove();
+      const tempEmpty = document.getElementById("temp-empty");
+      if (tempEmpty) tempEmpty.remove();
+
+      // Insert new card at beginning
+      const template = document.createElement("template");
+      template.innerHTML = data.html.trim();
+      const newCard = template.content.firstChild;
+      grid.prepend(newCard);
+
+      // Initialize drag & drop for new card
+      initCardDragDrop(newCard);
+
+      // Update sidebar
+      populateSidebar();
+
+      // Save new order
+      saveCardOrder();
+    }
+  } catch (err) {
+    console.error("Failed to create session:", err);
+    cleanupAndReload();
+  }
 }
 
 function renameSession(name) {
@@ -263,52 +293,54 @@ function filterSessionsByFolder(selectedDir) {
 
 let draggedCard = null;
 
+function initCardDragDrop(card) {
+  const grid = document.querySelector(".grid");
+
+  card.addEventListener("dragstart", (e) => {
+    draggedCard = card;
+    card.classList.add("dragging");
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", card.dataset.session);
+  });
+
+  card.addEventListener("dragend", () => {
+    draggedCard?.classList.remove("dragging");
+    draggedCard = null;
+    document.querySelectorAll(".card.drag-over").forEach((c) => c.classList.remove("drag-over"));
+    saveCardOrder();
+  });
+
+  card.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    if (!draggedCard || draggedCard === card) return;
+    e.dataTransfer.dropEffect = "move";
+    card.classList.add("drag-over");
+  });
+
+  card.addEventListener("dragleave", () => {
+    card.classList.remove("drag-over");
+  });
+
+  card.addEventListener("drop", (e) => {
+    e.preventDefault();
+    card.classList.remove("drag-over");
+    if (!draggedCard || draggedCard === card) return;
+
+    const allCards = [...grid.querySelectorAll(".card")];
+    const draggedIndex = allCards.indexOf(draggedCard);
+    const targetIndex = allCards.indexOf(card);
+
+    if (draggedIndex < targetIndex) {
+      card.after(draggedCard);
+    } else {
+      card.before(draggedCard);
+    }
+  });
+}
+
 function initDragAndDrop() {
   const grid = document.querySelector(".grid");
-  const cards = grid.querySelectorAll(".card");
-
-  cards.forEach((card) => {
-    card.addEventListener("dragstart", (e) => {
-      draggedCard = card;
-      card.classList.add("dragging");
-      e.dataTransfer.effectAllowed = "move";
-      e.dataTransfer.setData("text/plain", card.dataset.session);
-    });
-
-    card.addEventListener("dragend", () => {
-      draggedCard?.classList.remove("dragging");
-      draggedCard = null;
-      document.querySelectorAll(".card.drag-over").forEach((c) => c.classList.remove("drag-over"));
-      saveCardOrder();
-    });
-
-    card.addEventListener("dragover", (e) => {
-      e.preventDefault();
-      if (!draggedCard || draggedCard === card) return;
-      e.dataTransfer.dropEffect = "move";
-      card.classList.add("drag-over");
-    });
-
-    card.addEventListener("dragleave", () => {
-      card.classList.remove("drag-over");
-    });
-
-    card.addEventListener("drop", (e) => {
-      e.preventDefault();
-      card.classList.remove("drag-over");
-      if (!draggedCard || draggedCard === card) return;
-
-      const allCards = [...grid.querySelectorAll(".card")];
-      const draggedIndex = allCards.indexOf(draggedCard);
-      const targetIndex = allCards.indexOf(card);
-
-      if (draggedIndex < targetIndex) {
-        card.after(draggedCard);
-      } else {
-        card.before(draggedCard);
-      }
-    });
-  });
+  grid.querySelectorAll(".card").forEach(initCardDragDrop);
 }
 
 async function saveCardOrder() {
@@ -329,12 +361,14 @@ async function saveCardOrder() {
 // ═══ Navigation Helpers ═══
 
 function cleanupAndNavigate(url) {
-  document.querySelectorAll("iframe").forEach((f) => f.remove());
+  // Hide iframes instead of removing to avoid black flash
+  document.querySelectorAll("iframe").forEach((f) => f.style.visibility = "hidden");
   location.href = url;
 }
 
 function cleanupAndReload() {
-  document.querySelectorAll("iframe").forEach((f) => f.remove());
+  // Hide iframes instead of removing to avoid black flash
+  document.querySelectorAll("iframe").forEach((f) => f.style.visibility = "hidden");
   location.reload();
 }
 
@@ -354,7 +388,10 @@ function toggleSidebar() {
 
 function initSidebar() {
   const saved = localStorage.getItem("sandboxer_sidebar");
-  if (saved === "closed") {
+  const isMobile = window.innerWidth <= 600;
+
+  // On mobile, default to closed; on desktop, default to open
+  if (saved === "closed" || (isMobile && saved !== "open")) {
     document.body.classList.add("sidebar-closed");
   }
   populateSidebar();
@@ -575,7 +612,8 @@ document.addEventListener("visibilitychange", () => {
   // Prevent beforeunload dialogs
   window.onbeforeunload = null;
   window.addEventListener("beforeunload", (e) => {
-    document.querySelectorAll("iframe").forEach((f) => f.remove());
+    // Hide iframes instead of removing to avoid black flash
+    document.querySelectorAll("iframe").forEach((f) => f.style.visibility = "hidden");
     delete e.returnValue;
     return undefined;
   });
