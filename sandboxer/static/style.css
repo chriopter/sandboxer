@@ -305,7 +305,7 @@ body.sidebar-closed main {
   main {
     margin-left: 0;
     padding: 12px;
-    padding-top: calc(50px + 24px);
+    padding-top: 80px;
   }
 
   /* Sidebar full screen */
