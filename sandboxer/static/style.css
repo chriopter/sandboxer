@@ -17,18 +17,10 @@ body {
   padding: 0.5lh 2ch;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 2ch;
+  justify-content: center;
   position: sticky;
   top: 0;
   z-index: 100;
-}
-
-.header-left,
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 1ch;
 }
 
 .logo {
@@ -39,13 +31,13 @@ body {
 .logo::before { content: "◈ "; }
 
 .dir-select {
-  min-width: 10ch;
-  max-width: 18ch;
+  min-width: 0;
+  flex: 1;
 }
 
 .resume-wrap { display: none; }
 .resume-wrap.show { display: contents; }
-#resumeSession { max-width: 25ch; }
+#resumeSession { max-width: none; flex: 1; }
 
 /* ═══ Sidebar ═══ */
 

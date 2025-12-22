@@ -13,10 +13,18 @@
 <body data-webtui-theme="catppuccin-mocha">
 
 <header class="header">
-  <div class="header-left">
-    <span class="logo">sandboxer</span>
+  <span class="logo">sandboxer</span>
+</header>
+
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <select id="dir" class="dir-select" onchange="onDirOrTypeChange()">
+      {{dir_options}}
+    </select>
+    <button class="sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">‹</button>
   </div>
-  <div class="header-right">
+  <div class="sidebar-new">
     <select id="type" onchange="onDirOrTypeChange()">
       <option value="claude">claude</option>
       <option value="gemini">gemini</option>
@@ -29,18 +37,9 @@
         <option value="">...</option>
       </select>
     </span>
-    <button variant-="green" size-="small" onclick="createSession()">+ new</button>
+    <button variant-="green" size-="small" onclick="createSession()" class="new-btn">+ new</button>
   </div>
-</header>
-
-<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
-<aside class="sidebar" id="sidebar">
-  <div class="sidebar-header">
-    <select id="dir" class="dir-select" onchange="onDirOrTypeChange()">
-      {{dir_options}}
-    </select>
-    <button class="sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">‹</button>
-  </div>
+  <button variant-="green" class="sidebar-new-collapsed" onclick="createSession()" title="New claude session">+</button>
   <ul class="sidebar-list" id="sidebarList">
   </ul>
   <div class="sidebar-bottom">

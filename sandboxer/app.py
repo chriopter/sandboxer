@@ -533,6 +533,43 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.send_json({"error": str(e)}, 500)
             return
 
+        # ─── API: Tmux Scroll (for mobile touch scrolling) ───
+        if path == "/api/tmux-scroll":
+            try:
+                data = json.loads(body)
+                session_name = data.get("session", "")
+                direction = data.get("direction", "up")
+
+                if not session_name:
+                    self.send_json({"error": "session required"}, 400)
+                    return
+
+                # Check if already in copy mode
+                result = subprocess.run(
+                    ["tmux", "display-message", "-t", session_name, "-p", "#{pane_in_mode}"],
+                    capture_output=True, text=True
+                )
+                in_copy_mode = result.stdout.strip() == "1"
+
+                if not in_copy_mode:
+                    # Enter copy mode first
+                    subprocess.run(
+                        ["tmux", "copy-mode", "-t", session_name],
+                        capture_output=True
+                    )
+
+                # Send scroll command
+                scroll_cmd = "scroll-up" if direction == "up" else "scroll-down"
+                subprocess.run(
+                    ["tmux", "send-keys", "-t", session_name, "-X", "-N", "3", scroll_cmd],
+                    capture_output=True
+                )
+
+                self.send_json({"ok": True})
+            except Exception as e:
+                self.send_json({"error": str(e)}, 500)
+            return
+
         # ─── 404 ───
         self.send_response(404)
         self.end_headers()

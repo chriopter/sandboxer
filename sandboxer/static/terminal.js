@@ -334,16 +334,17 @@ mobileAttachBtn?.addEventListener("click", () => {
 if (window.matchMedia("(pointer: coarse)").matches) {
   const iframe = document.getElementById("terminal-iframe");
   let touchStartY = 0;
-  let touchStartTime = 0;
   let lastScrollTime = 0;
-  const SCROLL_THRESHOLD = 30; // pixels to trigger scroll
-  const SCROLL_COOLDOWN = 50; // ms between scroll commands
+  const SCROLL_THRESHOLD = 20; // pixels to trigger scroll
+  const SCROLL_COOLDOWN = 80; // ms between scroll commands
 
   // Listen on document to catch touches that bubble up from iframe
   document.addEventListener("touchstart", (e) => {
-    if (e.target === iframe || e.target.closest(".terminal-page")) {
+    // Only handle touches on terminal area (not on buttons/inputs)
+    const target = e.target;
+    if (target.tagName === "BUTTON" || target.tagName === "INPUT") return;
+    if (target === iframe || target.closest(".terminal-page")) {
       touchStartY = e.touches[0].clientY;
-      touchStartTime = Date.now();
     }
   }, { passive: true });
 
@@ -356,17 +357,14 @@ if (window.matchMedia("(pointer: coarse)").matches) {
     const deltaY = touchStartY - e.touches[0].clientY;
 
     if (Math.abs(deltaY) > SCROLL_THRESHOLD) {
-      // Send tmux scroll: negative = scroll up (show older), positive = scroll down
-      const scrollDir = deltaY > 0 ? "Down" : "Up";
+      // Scroll direction: swipe up (deltaY > 0) = scroll down (show newer)
+      const dir = deltaY > 0 ? "down" : "up";
 
-      // Use WheelUp/WheelDown for tmux mouse mode scrolling
-      fetch("/api/send-key", {
+      // Send tmux scroll command directly
+      fetch("/api/tmux-scroll", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          session: SESSION_NAME,
-          key: scrollDir === "Up" ? "WheelUp" : "WheelDown"
-        })
+        body: JSON.stringify({ session: SESSION_NAME, direction: dir })
       });
 
       touchStartY = e.touches[0].clientY; // Reset for continuous scroll
