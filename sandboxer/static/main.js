@@ -335,6 +335,60 @@ function cleanupAndReload() {
   location.reload();
 }
 
+// ═══ Sidebar ═══
+
+function toggleSidebar() {
+  const isClosed = document.body.classList.contains("sidebar-closed");
+
+  if (isClosed) {
+    document.body.classList.remove("sidebar-closed");
+    localStorage.setItem("sandboxer_sidebar", "open");
+  } else {
+    document.body.classList.add("sidebar-closed");
+    localStorage.setItem("sandboxer_sidebar", "closed");
+  }
+}
+
+function initSidebar() {
+  const saved = localStorage.getItem("sandboxer_sidebar");
+  if (saved === "closed") {
+    document.body.classList.add("sidebar-closed");
+  }
+  populateSidebar();
+}
+
+function populateSidebar() {
+  const list = document.getElementById("sidebarList");
+  const cards = document.querySelectorAll(".card");
+  const dir = document.getElementById("dir").value;
+
+  list.innerHTML = "";
+
+  cards.forEach(card => {
+    if (card.style.display === "none") return;
+
+    const name = card.dataset.session;
+    const title = card.querySelector(".card-title")?.textContent || name;
+
+    const li = document.createElement("li");
+    li.textContent = title;
+    li.title = name;
+    li.onclick = () => {
+      window.open("/terminal?session=" + encodeURIComponent(name), "_blank");
+      toggleSidebar();
+    };
+    list.appendChild(li);
+  });
+
+  if (list.children.length === 0) {
+    const li = document.createElement("li");
+    li.textContent = "No sessions";
+    li.style.color = "var(--overlay0)";
+    li.style.cursor = "default";
+    list.appendChild(li);
+  }
+}
+
 // ═══ Modal ═══
 
 function showModal() {
@@ -402,9 +456,9 @@ function setViewMode(mode) {
 }
 
 function getDefaultViewMode() {
-  // Mobile defaults to list
+  // Mobile defaults to 1 column
   if (window.matchMedia("(pointer: coarse)").matches) {
-    return "list";
+    return "1";
   }
   return "2";
 }
@@ -485,6 +539,9 @@ document.addEventListener("visibilitychange", () => {
 
   // Initialize drag and drop
   initDragAndDrop();
+
+  // Initialize sidebar
+  initSidebar();
 
   // Focus iframe on hover (dispatch real mouse events)
   document.querySelectorAll(".terminal").forEach((terminal) => {

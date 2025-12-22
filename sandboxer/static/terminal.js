@@ -320,3 +320,9 @@ mobileInput?.addEventListener("keydown", (e) => {
 });
 
 mobileSendBtn?.addEventListener("click", sendMobileText);
+
+// Mobile attach button - opens file picker
+const mobileAttachBtn = document.getElementById("mobile-attach-btn");
+mobileAttachBtn?.addEventListener("click", () => {
+  fileInput?.click();
+});
