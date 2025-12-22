@@ -208,6 +208,11 @@ body.sidebar-closed main {
   font-size: 0.9rem;
 }
 
+.sidebar-action-row {
+  display: flex;
+  flex-direction: column;
+}
+
 .sidebar-ssh,
 .sidebar-close-all,
 .sidebar-restart {
@@ -356,6 +361,13 @@ body.sidebar-closed main {
     height: 48px;
     border-radius: 8px;
     font-size: 1.2em;
+    background: var(--surface1) !important;
+    border: 1px solid var(--surface2) !important;
+  }
+
+  .sidebar-toggle::after {
+    content: "✕";
+    font-size: 1.1rem;
   }
 
   /* Better sidebar new session controls */
@@ -385,13 +397,15 @@ body.sidebar-closed main {
     font-weight: 600;
   }
 
-  /* Session list - clean cards */
+  /* Session list - fills available space */
   .sidebar-list {
     padding: 0;
     margin: 0;
     gap: 8px;
     display: flex;
     flex-direction: column;
+    flex: 1;
+    overflow-y: auto;
   }
 
   .sidebar-list li {
@@ -402,6 +416,13 @@ body.sidebar-closed main {
     align-items: center;
     border-radius: 10px;
     margin-bottom: 0;
+    flex-shrink: 0;
+  }
+
+  /* Better session type indicators on mobile */
+  .sidebar-list li::before {
+    font-size: 1.1em;
+    margin-right: 2px;
   }
 
   /* Bottom controls - cleaner layout */
@@ -414,20 +435,21 @@ body.sidebar-closed main {
     margin-top: auto;
   }
 
-  /* Action buttons row */
+  /* Action buttons - 3 equal columns */
+  .sidebar-action-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
   .sidebar-ssh,
   .sidebar-close-all,
   .sidebar-restart {
     height: 48px;
-    font-size: 1em;
+    font-size: 0.85em;
     border-radius: 8px;
     margin-bottom: 0;
-  }
-
-  /* Group ssh and restart together, close-all separate */
-  .sidebar-bottom > button:first-child,
-  .sidebar-bottom > button:nth-child(2) {
-    display: inline-flex;
+    width: 100%;
   }
 
   /* Hide view mode controls on mobile - use default */
@@ -444,15 +466,20 @@ body.sidebar-closed main {
   .sidebar-stats {
     flex-direction: row;
     justify-content: space-around;
-    padding: 12px;
+    padding: 10px 12px;
     margin-top: 0;
     border-radius: 10px;
   }
 
   .sidebar-stats .stat {
     flex-direction: row;
-    gap: 6px;
-    font-size: 0.85em;
+    gap: 4px;
+    font-size: 0.8em;
+  }
+
+  /* Hide emoji on mobile stats */
+  .sidebar-stats .stat::before {
+    display: none !important;
   }
 
   /* Fix card title truncation - allow 2 lines */

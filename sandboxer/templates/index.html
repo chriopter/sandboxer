@@ -45,9 +45,11 @@
   <ul class="sidebar-list" id="sidebarList">
   </ul>
   <div class="sidebar-bottom">
-    <button variant-="teal" size-="small" onclick="copyTakeover()" title="Copy SSH command" class="sidebar-ssh">ssh</button>
-    <button variant-="red" size-="small" onclick="closeAllSessions()" title="Close all sessions" class="sidebar-close-all">× close all</button>
-    <button variant-="mauve" size-="small" onclick="restartSandboxer()" title="Restart sandboxer service" class="sidebar-restart">↻ restart</button>
+    <div class="sidebar-action-row">
+      <button variant-="teal" size-="small" onclick="copyTakeover()" title="Copy SSH command" class="sidebar-ssh">ssh</button>
+      <button variant-="mauve" size-="small" onclick="restartSandboxer()" title="Restart sandboxer" class="sidebar-restart">restart</button>
+      <button variant-="red" size-="small" onclick="closeAllSessions()" title="Close all sessions" class="sidebar-close-all">close</button>
+    </div>
     <div class="sidebar-controls">
       <span class="control-label">View</span>
       <div class="view-modes" id="viewModes">
