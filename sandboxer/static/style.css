@@ -301,11 +301,11 @@ body.sidebar-closed main {
     padding: 0 !important;
   }
 
-  /* Main content below header */
+  /* Main content below header - header is 50px */
   main {
     margin-left: 0;
     padding: 12px;
-    padding-top: 90px !important;
+    padding-top: 62px; /* 50px header + 12px gap */
   }
 
   /* Sidebar full screen */
@@ -522,13 +522,6 @@ main {
   padding: 2ch;
 }
 
-/* Mobile override must come after */
-@media (max-width: 600px) {
-  main {
-    padding: 12px !important;
-    padding-top: 100px !important;
-  }
-}
 
 /* ═══ Footer ═══ */
 
@@ -909,13 +902,15 @@ body.terminal-page {
   gap: 6px;
   overflow-x: auto;
   border-bottom: 1px solid var(--surface0);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .touch-bar button {
-  flex-shrink: 0;
-  min-width: 48px;
+  flex: 1;
+  min-width: 44px;
   height: 44px;
-  font-size: 0.95em;
+  font-size: 0.9em;
   font-weight: 600;
   border-radius: 8px;
 }
