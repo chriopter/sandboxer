@@ -15,34 +15,28 @@
 <header class="header">
   <div class="header-left">
     <div class="logo">sandboxer</div>
-    <div class="select-wrap folder-switcher">
-      <select id="dir" onchange="onDirOrTypeChange()">
-        {{dir_options}}
-      </select>
-    </div>
-    <span id="sessionCount" class="session-count">0</span>
-    <button class="btn-close-all" onclick="closeAllSessions()" title="Close all sessions in current folder">×</button>
-    <button class="btn-ssh-header" onclick="copyTakeover()" title="Copy SSH session picker command">ssh</button>
+    <select id="dir" class="dir-select" onchange="onDirOrTypeChange()">
+      {{dir_options}}
+    </select>
+    <span is-="badge" variant-="mauve" id="sessionCount">0</span>
+    <button variant-="red" size-="small" onclick="closeAllSessions()" title="Close all sessions">×</button>
   </div>
-  <div class="header-controls">
-    <label>type</label>
-    <div class="select-wrap">
-      <select id="type" onchange="onDirOrTypeChange()">
-        <option value="claude">claude</option>
-        <option value="gemini">gemini</option>
-        <option value="resume">claude resume</option>
-        <option value="lazygit">lazygit</option>
-        <option value="bash">bash</option>
-      </select>
-    </div>
+  <div class="header-right">
+    <select id="type" onchange="onDirOrTypeChange()">
+      <option value="claude">claude</option>
+      <option value="gemini">gemini</option>
+      <option value="resume">resume</option>
+      <option value="lazygit">lazygit</option>
+      <option value="bash">bash</option>
+    </select>
     <span id="resumeWrap" class="resume-wrap">
-      <div class="select-wrap">
-        <select id="resumeSession">
-          <option value="">...</option>
-        </select>
-      </div>
+      <select id="resumeSession">
+        <option value="">...</option>
+      </select>
     </span>
-    <button class="btn-new-top" onclick="createSession()">+ new</button>
+    <button variant-="green" size-="small" onclick="createSession()">+ new</button>
+    <span is-="separator" direction-="y"></span>
+    <button variant-="teal" size-="small" onclick="copyTakeover()" title="Copy SSH command">ssh</button>
   </div>
 </header>
 
@@ -59,20 +53,23 @@
     <span class="stat" id="diskStat">disk <span>--%</span></span>
   </div>
   <div class="footer-controls">
-    <span class="slider-label">◔</span>
-    <input type="range" id="previewScale" min="50" max="100" value="75" oninput="updatePreviewScale(this.value)" title="zoom">
+    <label class="zoom-control">
+      <span>◔</span>
+      <input type="range" id="previewScale" min="50" max="100" value="75" oninput="updatePreviewScale(this.value)" title="Preview zoom">
+    </label>
+    <span is-="separator" direction-="y"></span>
     <div class="view-modes" id="viewModes">
-      <button data-view="list" title="List view">≡</button>
-      <button data-view="1" title="1 column">▢</button>
-      <button data-view="2" title="2 columns">▢▢</button>
-      <button data-view="3" title="3 columns">▢▢▢</button>
+      <button data-view="list" size-="small" title="List view">≡</button>
+      <button data-view="1" size-="small" title="1 column">◻</button>
+      <button data-view="2" size-="small" title="2 columns">◻◻</button>
+      <button data-view="3" size-="small" title="3 columns">◻◻◻</button>
     </div>
   </div>
 </footer>
 
 <div id="modal" class="modal" onclick="if(event.target===this) hideModal()">
   <div class="modal-box">
-    <button class="modal-close" onclick="hideModal()">&times;</button>
+    <button class="modal-close" variant-="red" size-="small" onclick="hideModal()">×</button>
     <h2>claude command</h2>
     <pre>IS_SANDBOX=1 claude --dangerously-skip-permissions \
   --system-prompt {{system_prompt_path}}</pre>

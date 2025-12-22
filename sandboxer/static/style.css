@@ -885,6 +885,7 @@ body.terminal-page {
   background: var(--mantle);
   border-top: 1px solid var(--surface0);
   padding: 0.5ch;
+  padding-bottom: calc(0.5ch + env(safe-area-inset-bottom, 0px));
   gap: 0.5ch;
   flex-shrink: 0;
 }

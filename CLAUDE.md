@@ -110,3 +110,129 @@ ssh -t sandboxer@host sandboxer-shell --all                        # Skip folder
 The SSH button in the web UI copies a command with the current folder context.
 
 Detach: `Ctrl-B d` | Switch: `Ctrl-B s`
+
+## WebTUI Usage Rules
+
+This project uses [WebTUI](https://webtui.ironclad.sh/) for terminal-style UI. **Always use WebTUI's semantic attributes instead of custom CSS classes.**
+
+### Theme Setup
+
+```html
+<body data-webtui-theme="catppuccin-mocha">
+```
+
+### Buttons
+
+Use native `<button>` elements with WebTUI attributes:
+
+```html
+<!-- Basic button (default has line through middle) -->
+<button>label</button>
+
+<!-- With box border -->
+<button box-="round">label</button>
+<button box-="square">label</button>
+
+<!-- Color variants (Catppuccin) -->
+<button variant-="green">create</button>
+<button variant-="red">delete</button>
+<button variant-="teal">ssh</button>
+<button variant-="mauve">action</button>
+
+<!-- Sizes -->
+<button size-="small">sm</button>
+<button size-="large">lg</button>
+```
+
+**DON'T** create custom button classes. Use `variant-=` for colors.
+
+### Badges
+
+For counts, labels, tags:
+
+```html
+<span is-="badge">5</span>
+<span is-="badge" variant-="green">active</span>
+<span is-="badge" cap-="round">pill</span>
+```
+
+### Separators
+
+Visual dividers between elements:
+
+```html
+<!-- Horizontal (default) -->
+<span is-="separator" style="width: 2ch;"></span>
+
+<!-- Vertical -->
+<span is-="separator" direction-="y" style="height: 1lh;"></span>
+```
+
+### Inputs & Selects
+
+Standard HTML inputs are styled automatically. For custom elements:
+
+```html
+<input type="text" size-="small">
+<select>...</select>
+```
+
+### Boxes
+
+Add borders to any container:
+
+```html
+<div box-="round">content</div>
+<div box-="square">content</div>
+<div box-="double">content</div>
+```
+
+### CSS Variables (Catppuccin Mocha)
+
+Use these instead of hardcoded colors:
+
+| Variable | Usage |
+|----------|-------|
+| `--base` | Main background |
+| `--mantle` | Header/footer background |
+| `--surface0/1/2` | Elevated surfaces |
+| `--text` | Primary text |
+| `--subtext0/1` | Secondary text |
+| `--overlay0/1/2` | Muted text |
+| `--green` | Success, create actions |
+| `--red` | Danger, delete actions |
+| `--teal` | Links, SSH |
+| `--mauve` | Primary accent |
+| `--lavender` | Secondary accent |
+
+### What NOT to do
+
+```html
+<!-- BAD: Custom classes for buttons -->
+<button class="btn-primary">Create</button>
+
+<!-- GOOD: WebTUI attributes -->
+<button variant-="green">Create</button>
+
+<!-- BAD: Hardcoded colors -->
+<span style="color: #a6e3a1;">text</span>
+
+<!-- GOOD: CSS variables -->
+<span style="color: var(--green);">text</span>
+
+<!-- BAD: Custom badge styling -->
+<span class="count-badge">5</span>
+
+<!-- GOOD: WebTUI badge -->
+<span is-="badge">5</span>
+```
+
+### style.css Guidelines
+
+Only add custom CSS for:
+1. Layout (flexbox/grid for header, footer, cards)
+2. Component-specific styles not in WebTUI (terminal previews, cards)
+3. Animations and transitions
+4. Responsive breakpoints
+
+**Never duplicate** what WebTUI provides (buttons, badges, inputs, separators).

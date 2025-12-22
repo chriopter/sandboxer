@@ -186,14 +186,14 @@ def build_session_cards(sessions_list: list[dict]) -> str:
   <header>
     <span class="card-title" onclick="renameSession('{escape(s['name'])}')">{escape(display_name)}</span>
     <div class="card-actions">
-      <span class="card-btn" onclick="event.stopPropagation(); window.open('/terminal?session=' + encodeURIComponent('{escape(s['name'])}'), '_blank')">↗</span>
-      <span class="card-btn" onclick="event.stopPropagation(); copySSH('{escape(s['name'])}')">ssh</span>
-      <span class="card-btn card-btn-x" onclick="event.stopPropagation(); killSession(this, '{escape(s['name'])}')">×</span>
+      <button size-="small" onclick="event.stopPropagation(); window.open('/terminal?session=' + encodeURIComponent('{escape(s['name'])}'), '_blank')">↗</button>
+      <button size-="small" variant-="teal" onclick="event.stopPropagation(); copySSH('{escape(s['name'])}')">ssh</button>
+      <button size-="small" variant-="red" class="kill-btn" onclick="event.stopPropagation(); killSession(this, '{escape(s['name'])}')">×</button>
     </div>
   </header>
   <div class="terminal">
     <iframe src="{terminal_url}" scrolling="no" sandbox="allow-scripts allow-same-origin allow-forms allow-pointer-lock"></iframe>
-    <span class="fullscreen-btn" onclick="window.open('/terminal?session=' + encodeURIComponent('{escape(s['name'])}'), '_blank')">⛶</span>
+    <button class="fullscreen-btn" size-="small" onclick="window.open('/terminal?session=' + encodeURIComponent('{escape(s['name'])}'), '_blank')">⛶</button>
   </div>
 </article>"""
 
