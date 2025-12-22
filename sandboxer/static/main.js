@@ -363,21 +363,29 @@ async function updateStats() {
   }
 }
 
-// ═══ Preview Scale ═══
+// ═══ Preview Zoom ═══
 
-function updatePreviewScale(value) {
+function setZoomMode(value) {
   const scale = value / 100;
   document.documentElement.style.setProperty("--preview-scale", scale);
-  localStorage.setItem("sandboxer_preview_scale", value);
+  localStorage.setItem("sandboxer_zoom", value);
+
+  // Update button active state
+  document.querySelectorAll(".zoom-modes button").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.zoom === String(value));
+  });
 }
 
-function initPreviewScale() {
-  const saved = localStorage.getItem("sandboxer_preview_scale") || "75";
-  const slider = document.getElementById("previewScale");
-  if (slider) {
-    slider.value = saved;
-    updatePreviewScale(saved);
-  }
+function initZoomModes() {
+  const saved = localStorage.getItem("sandboxer_zoom") || "75";
+  setZoomMode(saved);
+
+  // Button click handlers
+  document.querySelectorAll(".zoom-modes button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      setZoomMode(btn.dataset.zoom);
+    });
+  });
 }
 
 // ═══ View Modes ═══
@@ -500,9 +508,9 @@ document.addEventListener("visibilitychange", () => {
     });
   });
 
-  // Initialize view modes and preview scale
+  // Initialize view modes and zoom
   initViewModes();
-  initPreviewScale();
+  initZoomModes();
 
   // Start stats updates
   updateStats();

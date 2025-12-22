@@ -13,15 +13,15 @@
 <body data-webtui-theme="catppuccin-mocha">
 
 <header class="header">
-  <div class="header-group">
-    <div class="logo">sandboxer</div>
+  <div class="header-left">
+    <span class="logo">sandboxer</span>
     <select id="dir" class="dir-select" onchange="onDirOrTypeChange()">
       {{dir_options}}
     </select>
     <span is-="badge" variant-="mauve" id="sessionCount">0</span>
     <button variant-="red" size-="small" onclick="closeAllSessions()" title="Close all sessions">×</button>
   </div>
-  <div class="header-group">
+  <div class="header-right">
     <select id="type" onchange="onDirOrTypeChange()">
       <option value="claude">claude</option>
       <option value="gemini">gemini</option>
@@ -35,22 +35,6 @@
       </select>
     </span>
     <button variant-="green" size-="small" onclick="createSession()">+ new</button>
-  </div>
-  <div class="header-group">
-    <div class="view-modes" id="viewModes">
-      <button data-view="list" size-="small" title="List">≡</button>
-      <button data-view="1" size-="small" title="1 col">◻</button>
-      <button data-view="2" size-="small" title="2 col">◻◻</button>
-      <button data-view="3" size-="small" title="3 col">◻◻◻</button>
-    </div>
-    <input type="range" id="previewScale" min="50" max="100" value="75" oninput="updatePreviewScale(this.value)" title="Preview zoom">
-  </div>
-  <div class="header-group header-stats">
-    <span class="stat" id="cpuStat"><span>--%</span> cpu</span>
-    <span class="stat" id="memStat"><span>--%</span> mem</span>
-    <span class="stat" id="diskStat"><span>--%</span> disk</span>
-  </div>
-  <div class="header-group">
     <button variant-="teal" size-="small" onclick="copyTakeover()" title="Copy SSH command">ssh</button>
   </div>
 </header>
@@ -61,6 +45,28 @@
   </div>
 </main>
 
+<footer class="footer">
+  <div class="footer-left">
+    <span class="stat" id="cpuStat">cpu <span>--%</span></span>
+    <span class="stat" id="memStat">mem <span>--%</span></span>
+    <span class="stat" id="diskStat">disk <span>--%</span></span>
+  </div>
+  <div class="footer-right">
+    <div class="view-modes" id="viewModes">
+      <button data-view="list" size-="small" title="List">≡</button>
+      <button data-view="1" size-="small" title="1 col">◻</button>
+      <button data-view="2" size-="small" title="2 col">◻◻</button>
+      <button data-view="3" size-="small" title="3 col">◻◻◻</button>
+    </div>
+    <div class="zoom-modes" id="zoomModes">
+      <button data-zoom="50" size-="small">S</button>
+      <button data-zoom="62" size-="small">M</button>
+      <button data-zoom="75" size-="small">L</button>
+      <button data-zoom="87" size-="small">XL</button>
+      <button data-zoom="100" size-="small">2X</button>
+    </div>
+  </div>
+</footer>
 
 <div id="modal" class="modal" onclick="if(event.target===this) hideModal()">
   <div class="modal-box">

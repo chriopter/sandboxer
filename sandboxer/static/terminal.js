@@ -6,6 +6,17 @@ window.addEventListener("beforeunload", (e) => {
   delete e.returnValue;
 });
 
+// ─── iOS Safari viewport fix ───
+// Set CSS variable to actual visible viewport height
+function setViewportHeight() {
+  const vh = window.visualViewport?.height || window.innerHeight;
+  document.documentElement.style.setProperty('--vh', `${vh}px`);
+}
+
+setViewportHeight();
+window.visualViewport?.addEventListener('resize', setViewportHeight);
+window.addEventListener('resize', setViewportHeight);
+
 // ─── Fix iframe/xterm.js initial sizing ───
 // xterm.js uses ResizeObserver on its container. By briefly changing
 // the iframe dimensions, we force xterm to recalculate and fit properly.
@@ -174,25 +185,33 @@ pasteTarget.addEventListener("blur", () => {
   }
 });
 
-// Override [img] button to enable paste mode
+// [img] button handler
 let pasteTimeout;
+const isMobile = window.matchMedia("(pointer: coarse)").matches;
+
 pasteBtn?.addEventListener("click", (e) => {
   e.preventDefault();
-  pasteMode = true;
-  pasteTarget.focus();
-  showToast("Ctrl+V to paste, or click again to browse", "info");
 
-  // Auto-return focus to terminal after 3 seconds
-  clearTimeout(pasteTimeout);
-  pasteTimeout = setTimeout(() => {
-    if (pasteMode) {
-      pasteMode = false;
-      focusTerminal();
-    }
-  }, 3000);
+  if (isMobile) {
+    // Mobile: open file picker directly
+    fileInput?.click();
+  } else {
+    // Desktop: enable paste mode
+    pasteMode = true;
+    pasteTarget.focus();
+    showToast("Ctrl+V to paste, or double-click to browse", "info");
+
+    clearTimeout(pasteTimeout);
+    pasteTimeout = setTimeout(() => {
+      if (pasteMode) {
+        pasteMode = false;
+        focusTerminal();
+      }
+    }, 3000);
+  }
 });
 
-// Second click opens file browser
+// Desktop: double-click opens file browser
 pasteBtn?.addEventListener("dblclick", (e) => {
   e.preventDefault();
   pasteMode = false;
@@ -273,24 +292,29 @@ const mobileSendBtn = document.getElementById("mobile-send-btn");
 
 async function sendMobileText() {
   const text = mobileInput?.value;
-  if (!text) return;
+  if (!text) {
+    showToast("No text to send", "info");
+    return;
+  }
 
-  // Send text to tmux session
-  await fetch("/api/inject", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ session: SESSION_NAME, text: text })
-  });
+  try {
+    await fetch("/api/inject", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session: SESSION_NAME, text: text })
+    });
 
-  // Send Enter key
-  await fetch("/api/send-key", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ session: SESSION_NAME, key: "Enter" })
-  });
+    await fetch("/api/send-key", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session: SESSION_NAME, key: "Enter" })
+    });
 
-  // Clear input
-  mobileInput.value = "";
+    mobileInput.value = "";
+    showToast("Sent!", "success");
+  } catch (err) {
+    showToast("Error: " + err.message, "error");
+  }
   focusTerminal();
 }
 
