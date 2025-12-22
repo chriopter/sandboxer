@@ -396,6 +396,9 @@ function toggleSidebar() {
     document.body.classList.add("sidebar-closed");
     localStorage.setItem("sandboxer_sidebar", "closed");
   }
+
+  // Recalculate terminal scales after sidebar animation
+  setTimeout(updateTerminalScales, 250);
 }
 
 function initSidebar() {
@@ -474,17 +477,42 @@ async function updateStats() {
   }
 }
 
+// ═══ Terminal Preview Scaling ═══
+
+function updateTerminalScales() {
+  document.querySelectorAll(".terminal").forEach(terminal => {
+    const card = terminal.closest(".card");
+    if (!card) return;
+
+    // Get card width (accounting for padding)
+    const cardWidth = card.offsetWidth;
+    if (cardWidth === 0) return; // Not visible
+
+    // Iframe is 800px wide, scale to fit card width
+    const scale = Math.min(1, cardWidth / 800);
+    terminal.style.setProperty("--terminal-scale", scale);
+  });
+}
+
+// Debounced version for resize events
+let scaleTimeout;
+function debouncedUpdateScales() {
+  clearTimeout(scaleTimeout);
+  scaleTimeout = setTimeout(updateTerminalScales, 100);
+}
+
 // ═══ Preview Zoom ═══
 
 function setZoomMode(value) {
-  const scale = value / 100;
-  document.documentElement.style.setProperty("--preview-scale", scale);
   localStorage.setItem("sandboxer_zoom", value);
 
   // Update button active state
   document.querySelectorAll(".zoom-modes button").forEach(btn => {
     btn.classList.toggle("active", btn.dataset.zoom === String(value));
   });
+
+  // Recalculate scales (zoom affects base scale preference)
+  updateTerminalScales();
 }
 
 function initZoomModes() {
@@ -514,6 +542,9 @@ function setViewMode(mode) {
   });
 
   localStorage.setItem("sandboxer_view_mode", mode);
+
+  // Recalculate terminal scales after layout change
+  setTimeout(updateTerminalScales, 50);
 }
 
 function getDefaultViewMode() {
@@ -625,6 +656,10 @@ document.addEventListener("visibilitychange", () => {
   // Initialize view modes and zoom
   initViewModes();
   initZoomModes();
+
+  // Initialize terminal scaling
+  updateTerminalScales();
+  window.addEventListener("resize", debouncedUpdateScales);
 
   // Start stats updates
   updateStats();

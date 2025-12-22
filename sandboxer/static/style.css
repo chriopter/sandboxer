@@ -246,23 +246,24 @@ body.sidebar-closed main {
     top: 0;
     left: 0;
     right: 0;
-    height: 44px;
+    height: 50px;
     background: var(--mantle);
     border-bottom: 1px solid var(--surface0);
     z-index: 150;
     align-items: center;
-    padding: 0 1ch;
-    gap: 1ch;
+    padding: 0 12px;
+    gap: 12px;
   }
 
   .mobile-menu-btn {
-    background: transparent !important;
+    background: var(--surface0) !important;
     color: var(--text) !important;
-    padding: 0.5ch !important;
+    padding: 0 !important;
     border: none !important;
-    font-size: 1.4em;
-    width: 36px;
-    height: 36px;
+    font-size: 1.3em;
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -271,6 +272,7 @@ body.sidebar-closed main {
   .mobile-title {
     flex: 1;
     font-weight: 600;
+    font-size: 1.1em;
     color: var(--mauve);
     text-align: center;
   }
@@ -282,13 +284,13 @@ body.sidebar-closed main {
   .mobile-add-btn {
     background: var(--green) !important;
     color: var(--crust) !important;
-    width: 36px;
-    height: 36px;
-    border-radius: 4px;
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.5em;
+    font-size: 1.6em;
     font-weight: bold;
     border: none !important;
     padding: 0 !important;
@@ -297,7 +299,7 @@ body.sidebar-closed main {
   /* Main content below header */
   main {
     margin-left: 0;
-    padding-top: calc(44px + 1ch);
+    padding-top: calc(50px + 12px);
   }
 
   /* Sidebar full screen */
@@ -305,6 +307,9 @@ body.sidebar-closed main {
     width: 100%;
     z-index: 200;
     top: 0;
+    padding: 12px;
+    padding-top: 8px;
+    gap: 12px;
   }
 
   body:not(.sidebar-closed) .sidebar-overlay {
@@ -316,6 +321,7 @@ body.sidebar-closed main {
     width: 0;
     border: none;
     overflow: hidden;
+    padding: 0;
   }
 
   body.sidebar-closed main {
@@ -328,70 +334,125 @@ body.sidebar-closed main {
     display: none !important;
   }
 
-  /* Better sidebar layout on mobile */
+  /* Mobile sidebar header with close button */
+  .sidebar-header {
+    padding: 0;
+    padding-right: 0;
+    border-bottom: none;
+    margin-bottom: 4px;
+  }
+
+  .sidebar-header .dir-select {
+    height: 48px;
+    font-size: 1em;
+    border-radius: 8px;
+  }
+
+  .sidebar-toggle {
+    position: relative;
+    top: 0;
+    right: 0;
+    width: 48px;
+    height: 48px;
+    border-radius: 8px;
+    font-size: 1.2em;
+  }
+
+  /* Better sidebar new session controls */
   .sidebar-new {
     flex-direction: column;
-    gap: 0.8ch;
+    gap: 10px;
+    padding: 0;
+    border-bottom: none;
+    background: var(--surface0);
+    border-radius: 12px;
+    padding: 12px;
   }
 
   .sidebar-new select {
     width: 100%;
+    height: 48px;
+    font-size: 1em;
+    border-radius: 8px;
   }
 
   .sidebar-new .new-btn {
     width: 100%;
     justify-content: center;
-    padding: 0.8em !important;
+    height: 52px;
+    font-size: 1.1em;
+    border-radius: 8px;
+    font-weight: 600;
   }
 
-  /* More spacious bottom controls */
-  .sidebar-bottom {
-    padding: 1ch;
-    gap: 0.8ch;
+  /* Session list - clean cards */
+  .sidebar-list {
+    padding: 0;
+    margin: 0;
+    gap: 8px;
     display: flex;
     flex-direction: column;
   }
 
+  .sidebar-list li {
+    padding: 14px 16px;
+    font-size: 1em;
+    min-height: 52px;
+    display: flex;
+    align-items: center;
+    border-radius: 10px;
+    margin-bottom: 0;
+  }
+
+  /* Bottom controls - cleaner layout */
+  .sidebar-bottom {
+    padding: 0;
+    gap: 10px;
+    display: flex;
+    flex-direction: column;
+    border-top: none;
+    margin-top: auto;
+  }
+
+  /* Action buttons row */
   .sidebar-ssh,
   .sidebar-close-all,
   .sidebar-restart {
-    padding: 0.8em !important;
+    height: 48px;
     font-size: 1em;
+    border-radius: 8px;
+    margin-bottom: 0;
   }
 
-  .sidebar-controls {
-    flex-wrap: wrap;
-    justify-content: center;
-    margin: 0.5ch 0;
+  /* Group ssh and restart together, close-all separate */
+  .sidebar-bottom > button:first-child,
+  .sidebar-bottom > button:nth-child(2) {
+    display: inline-flex;
   }
 
-  .control-label {
-    width: 100%;
-    text-align: center;
-    margin-bottom: 0.3ch;
+  /* Hide view mode controls on mobile - use default */
+  .sidebar-controls:has(.view-modes) {
+    display: none;
   }
 
-  .sidebar-stats {
-    justify-content: space-around;
-    padding-top: 1ch;
-  }
-
-  /* Hide zoom controls on mobile - too detailed */
+  /* Hide zoom controls on mobile */
   .sidebar-controls:has(.zoom-modes) {
     display: none;
   }
 
-  /* Better session list on mobile */
-  .sidebar-list {
-    padding: 0.5ch;
+  /* Stats - compact horizontal bar */
+  .sidebar-stats {
+    flex-direction: row;
+    justify-content: space-around;
+    padding: 12px;
+    margin-top: 0;
+    border-radius: 10px;
   }
 
-  .sidebar-list li {
-    padding: 0.8em 1ch;
-    font-size: 0.9em;
-    min-height: 44px;
-    display: flex;
-    align-items: center;
+  .sidebar-stats .stat {
+    flex-direction: row;
+    gap: 6px;
+    font-size: 0.85em;
   }
 
   /* Fix card title truncation - allow 2 lines */
@@ -403,10 +464,10 @@ body.sidebar-closed main {
     line-height: 1.3;
   }
 
-  /* Make cards single column on very small screens */
+  /* Grid defaults to 2 columns on mobile */
   .grid {
     grid-template-columns: 1fr 1fr;
-    gap: 1ch;
+    gap: 10px;
   }
 
   .grid[data-view="1"] { grid-template-columns: 1fr; }
@@ -590,18 +651,19 @@ main {
   background: var(--crust);
   position: relative;
   overflow: hidden;
-  /* Container sizes to hold scaled iframe - never clips */
-  height: calc(450px * var(--preview-scale, 0.75));
+  /* Aspect ratio ensures proper height based on width */
+  aspect-ratio: 16 / 9;
+  width: 100%;
 }
 
 .terminal iframe {
-  /* Fixed size - never changes when sidebar toggles, prevents terminal re-render */
+  /* Fixed size for stable rendering - scaled to fit container */
   width: 800px;
   height: 450px;
   border: none;
   pointer-events: none;
   opacity: 0.9;
-  transform: scale(var(--preview-scale, 0.75));
+  transform: scale(var(--terminal-scale, 0.5));
   transform-origin: top left;
 }
 
@@ -792,13 +854,21 @@ body.terminal-page {
 
 .touch-bar {
   display: flex;
-  padding: 0.3ch 0.5ch;
-  gap: 0.4ch;
+  padding: 8px 10px;
+  gap: 6px;
   overflow-x: auto;
   border-bottom: 1px solid var(--surface0);
 }
 
-.touch-bar button { flex-shrink: 0; }
+.touch-bar button {
+  flex-shrink: 0;
+  min-width: 48px;
+  height: 44px;
+  font-size: 0.95em;
+  font-weight: 600;
+  border-radius: 8px;
+}
+
 .touch-bar .mod-btn.active {
   background: var(--mauve) !important;
   color: var(--crust) !important;
@@ -806,27 +876,31 @@ body.terminal-page {
 
 .mobile-input-bar {
   display: flex;
-  padding: 0.5ch;
-  gap: 0.5ch;
+  padding: 8px 10px;
+  gap: 8px;
   align-items: center;
 }
 
 .mobile-input-bar input {
   flex: 1;
   font-size: 16px;
-  padding: 0.5em 1ch;
+  padding: 12px 14px;
   min-width: 0;
-  height: 2em;
+  height: 48px;
+  border-radius: 8px;
 }
 
 .mobile-input-bar button {
   flex-shrink: 0;
-  height: 2em !important;
-  min-width: 3ch;
+  height: 48px !important;
+  min-width: 48px;
+  border-radius: 8px;
+  font-size: 1.1em;
 }
 
 #mobile-send-btn {
-  min-width: 6ch;
+  min-width: 64px;
+  font-weight: 600;
 }
 
 @media (pointer: coarse) {
@@ -839,11 +913,12 @@ body.terminal-page {
     background: var(--mantle);
     border-top: 1px solid var(--surface0);
     z-index: 1000;
+    padding-bottom: env(safe-area-inset-bottom);
   }
 
-  /* Make room for fixed input area */
+  /* Make room for fixed input area (touch bar ~60px + input bar ~64px + safe area) */
   .terminal-wrap {
-    margin-bottom: 80px;
+    margin-bottom: 130px;
   }
 
   /* Hide [img] button on mobile - use attach button instead */
