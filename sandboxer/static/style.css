@@ -77,14 +77,10 @@ body.sidebar-closed .sidebar {
   width: 32px;
 }
 
-body.sidebar-closed .sidebar-header span,
-body.sidebar-closed .sidebar-list {
+body.sidebar-closed .sidebar-top,
+body.sidebar-closed .sidebar-list,
+body.sidebar-closed .sidebar-bottom {
   display: none;
-}
-
-body.sidebar-closed .sidebar-header {
-  padding: 0;
-  border-bottom: none;
 }
 
 body.sidebar-closed .sidebar-toggle {
@@ -100,14 +96,42 @@ body.sidebar-closed .footer {
   margin-left: 32px;
 }
 
-.sidebar-header {
+.sidebar-top {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0.5lh 1ch;
+  gap: 0.5ch;
+  padding: 0.5lh 0.5ch;
+  padding-right: 2ch;
   border-bottom: 1px solid var(--surface0);
-  color: var(--subtext0);
-  font-size: 0.8em;
+}
+
+.sidebar-top .dir-select {
+  flex: 1;
+  min-width: 0;
+  max-width: none;
+}
+
+.sidebar-bottom {
+  border-top: 1px solid var(--surface0);
+  padding: 0.5ch;
+}
+
+.sidebar-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5ch;
+  margin-bottom: 0.3ch;
+}
+
+.sidebar-controls:last-child {
+  margin-bottom: 0;
+}
+
+.control-label {
+  font-size: 0.7em;
+  color: var(--overlay0);
+  width: 3ch;
+  flex-shrink: 0;
 }
 
 .sidebar-list {
@@ -190,15 +214,8 @@ main {
   padding: 0.3lh 2ch;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  z-index: 100;
-}
-
-.footer-left,
-.footer-right {
-  display: flex;
-  align-items: center;
   gap: 1.5ch;
+  z-index: 100;
 }
 
 .stat {
@@ -214,6 +231,7 @@ main {
 /* View mode buttons */
 .view-modes {
   display: flex;
+  flex: 1;
   gap: 1px;
   background: var(--surface0);
   border-radius: 3px;
@@ -221,10 +239,11 @@ main {
 }
 
 .view-modes button {
-  padding: 0.15em 0.5em !important;
+  flex: 1;
+  padding: 0.2em 0 !important;
   border-radius: 2px;
   letter-spacing: -0.05em;
-  font-size: 0.85em;
+  font-size: 0.7em;
   color: var(--overlay1) !important;
   background: transparent !important;
 }
@@ -242,6 +261,7 @@ main {
 /* Zoom mode buttons */
 .zoom-modes {
   display: flex;
+  flex: 1;
   gap: 1px;
   background: var(--surface0);
   border-radius: 3px;
@@ -249,7 +269,8 @@ main {
 }
 
 .zoom-modes button {
-  padding: 0.15em 0.4em !important;
+  flex: 1;
+  padding: 0.2em 0 !important;
   border-radius: 2px;
   font-size: 0.75em;
   color: var(--overlay1) !important;
@@ -518,8 +539,8 @@ body.terminal-page {
   width: 100%;
   min-height: 0;
   border: none;
-  -webkit-overflow-scrolling: touch;
-  touch-action: pan-y;
+  /* Let xterm.js/tmux handle touch - don't restrict */
+  touch-action: none;
 }
 
 /* ═══ Touch Bar ═══ */
