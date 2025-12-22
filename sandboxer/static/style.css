@@ -111,6 +111,10 @@ body.sidebar-closed main {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  background: var(--green) !important;
+  color: var(--crust) !important;
+  border-radius: 4px;
+  border: none !important;
 }
 
 .sidebar-bottom {
@@ -435,8 +439,9 @@ main {
 }
 
 .terminal iframe {
-  width: calc((100% + 20px) / var(--preview-scale, 0.75));
-  height: calc(100% / var(--preview-scale, 0.75));
+  /* Fixed size - never changes when sidebar toggles, prevents terminal re-render */
+  width: calc(800px / var(--preview-scale, 0.75));
+  height: calc(450px / var(--preview-scale, 0.75));
   border: none;
   pointer-events: none;
   opacity: 0.9;
