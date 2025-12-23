@@ -91,7 +91,7 @@ body.sidebar-closed main {
   display: flex;
   align-items: center;
   gap: 0.5ch;
-  padding: 0.5ch;
+  padding: 0.5ch 0.8ch;
   border-bottom: 1px solid var(--surface0);
 }
 

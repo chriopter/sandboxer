@@ -11,6 +11,7 @@ import threading
 # When running as sandboxer user, we need a path that user can access
 CLAUDE_PATH = "/home/sandboxer/.local/bin/claude"
 SYSTEM_PROMPT_PATH = "/home/sandboxer/git/sandboxer/system-prompt.txt"
+CHAT_HISTORY_FILE = "/etc/sandboxer/chat_history.json"
 
 # Active chat sessions: name -> (process, session_id)
 # Note: process is None for one-shot mode (each message spawns a new process)
@@ -18,6 +19,31 @@ chat_sessions: dict[str, tuple] = {}
 
 # Message history per session: name -> list of message dicts
 chat_history: dict[str, list] = {}
+
+
+def _load_chat_history():
+    """Load chat history from disk."""
+    global chat_history
+    if os.path.isfile(CHAT_HISTORY_FILE):
+        try:
+            with open(CHAT_HISTORY_FILE) as f:
+                chat_history = json.load(f)
+        except (json.JSONDecodeError, IOError):
+            chat_history = {}
+
+
+def _save_chat_history():
+    """Save chat history to disk."""
+    os.makedirs(os.path.dirname(CHAT_HISTORY_FILE), exist_ok=True)
+    try:
+        with open(CHAT_HISTORY_FILE, "w") as f:
+            json.dump(chat_history, f)
+    except IOError:
+        pass
+
+
+# Load history on module import
+_load_chat_history()
 
 # SSE subscribers per session: name -> list of queues
 chat_subscribers: dict[str, list] = {}
@@ -47,6 +73,7 @@ def broadcast_message(name: str, message: dict):
     if name not in chat_history:
         chat_history[name] = []
     chat_history[name].append(message)
+    _save_chat_history()
 
     # Broadcast to subscribers
     with subscribers_lock:
@@ -70,7 +97,15 @@ def init_chat_session(name: str, workdir: str, resume_id: str = None) -> str:
     # Clear history for new sessions (no resume_id means fresh start)
     if not resume_id and name in chat_history:
         del chat_history[name]
+        _save_chat_history()
     return session_id
+
+
+def delete_chat_history(name: str):
+    """Delete chat history for a session (called when session is killed)."""
+    if name in chat_history:
+        del chat_history[name]
+        _save_chat_history()
 
 
 def stop_chat_session(name: str) -> str:

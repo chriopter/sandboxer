@@ -56,6 +56,10 @@ async function sendMessage() {
   let currentBubble = null;
   let currentText = "";
   let removedThinking = false;
+  let streamedResponse = false;  // Track if we got streaming (skip final assistant msg)
+
+  // Mark as sending to skip sync messages
+  window.activeSending = true;
 
   try {
     const res = await fetch("/api/chat-send", {

@@ -184,6 +184,7 @@ def build_single_card(s: dict, mode: str = "cli") -> str:
       <input type="text" placeholder="Message..." onkeydown="if(event.key==='Enter'){{sendChat('{escape(s['name'])}')}}">
       <button size-="small" variant-="green" onclick="sendChat('{escape(s['name'])}')">send</button>
     </div>
+    <button class="fullscreen-btn" size-="small" onclick="openFullscreen('{escape(s['name'])}')">⛶</button>
   </div>
 </article>"""
 
@@ -398,6 +399,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             name = query.get("session", [""])[0]
             if name:
                 sessions.kill_session(name)
+                chat.delete_chat_history(name)
             self.send_redirect("/")
             return
 
