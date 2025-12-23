@@ -781,8 +781,8 @@ main {
   background: var(--crust);
   position: relative;
   overflow: hidden;
-  /* Aspect ratio ensures proper height based on width */
-  aspect-ratio: 16 / 9;
+  /* Aspect ratio matches iframe 830x450 (extra width for scrollbar clipping) */
+  aspect-ratio: 83 / 45;
   width: 100%;
 }
 

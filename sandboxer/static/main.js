@@ -680,8 +680,8 @@ function updateTerminalScales() {
     const cardWidth = card.offsetWidth;
     if (cardWidth === 0) return; // Not visible
 
-    // Iframe is 800px wide, scale to fit card width with zoom multiplier
-    const baseScale = cardWidth / 800;
+    // Iframe is 830px wide (extra for scrollbar clipping), scale to fit card
+    const baseScale = cardWidth / 830;
     const scale = baseScale * zoomMultiplier;
     terminal.style.setProperty("--terminal-scale", scale);
   });
@@ -1488,6 +1488,71 @@ document.querySelectorAll('.card-image-input').forEach(input => {
       uploadImageToSession(sessionName, file);
     }
     e.target.value = ''; // Reset for next upload
+  });
+});
+
+// ═══ Chat Image Upload ═══
+
+function triggerChatImageUpload(sessionName) {
+  const card = document.querySelector(`[data-session="${sessionName}"]`);
+  const input = card?.querySelector('.chat-image-input');
+  if (input) input.click();
+}
+
+async function uploadImageToChat(sessionName, file) {
+  if (!file || !file.type.startsWith("image/")) {
+    showToast("Not an image", "error");
+    return;
+  }
+
+  const card = document.querySelector(`[data-session="${sessionName}"]`);
+  const textInput = card?.querySelector(".chat-input input[type='text']");
+
+  showToast("Uploading...", "info");
+
+  try {
+    // Convert to base64
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(",")[1]);
+      reader.onerror = () => reject(new Error("Failed to read file"));
+      reader.readAsDataURL(file);
+    });
+
+    // Upload to /tmp
+    const filename = file.name || `upload_${Date.now()}.png`;
+    const uploadRes = await fetch("/api/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image: base64, filename })
+    });
+    const uploadData = await uploadRes.json();
+    if (!uploadData.ok) {
+      throw new Error(uploadData.error || "Upload failed");
+    }
+
+    // Insert path into chat input
+    if (textInput) {
+      const currentVal = textInput.value;
+      textInput.value = uploadData.path + " " + currentVal;
+      textInput.focus();
+    }
+
+    showToast("Image ready: " + uploadData.path, "success");
+  } catch (err) {
+    showToast("Upload failed: " + err.message, "error");
+  }
+}
+
+// Set up chat image input listeners
+document.querySelectorAll('.chat-image-input').forEach(input => {
+  input.addEventListener('change', (e) => {
+    const file = e.target.files?.[0];
+    const sessionName = input.dataset.session;
+    if (file && sessionName) {
+      uploadImageToChat(sessionName, file);
+    }
+    e.target.value = '';
   });
 });
 
