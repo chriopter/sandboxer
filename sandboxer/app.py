@@ -760,11 +760,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     # Stop chat session if active
                     session_id = chat.stop_chat_session(session_name) or claude_session_id
 
-                    # Ensure tmux session exists
-                    existing = {s["name"] for s in sessions.get_tmux_sessions()}
-                    if session_name not in existing:
-                        subprocess.run(["tmux", "new-session", "-d", "-s", session_name, "-c", workdir], capture_output=True)
-                        subprocess.run(["tmux", "set", "-t", session_name, "mouse", "on"], capture_output=True)
+                    # Kill existing tmux session and create fresh one (clean slate)
+                    subprocess.run(["tmux", "kill-session", "-t", session_name], capture_output=True)
+                    subprocess.run(["tmux", "new-session", "-d", "-s", session_name, "-c", workdir], capture_output=True)
+                    subprocess.run(["tmux", "set", "-t", session_name, "mouse", "on"], capture_output=True)
 
                     # Resume Claude in terminal if we have a session_id
                     if session_id:

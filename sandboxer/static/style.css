@@ -1505,6 +1505,25 @@ body.chat-page {
   flex-shrink: 0;
 }
 
+/* Status line above input (thinking/streaming indicator) */
+.composer-status {
+  display: none;
+  padding: 0.5ch 2ch;
+  font-size: 0.85em;
+  color: var(--overlay1);
+}
+
+.composer-status.active {
+  display: block;
+  color: var(--mauve);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
 /* Touch bar for terminal mode - special keys row */
 .composer-touch-bar {
   display: none;

@@ -1,7 +1,8 @@
-/* Sandboxer - Chat Page JavaScript (Polling-based sync) */
+/* Sandboxer - Chat Page JavaScript (KISS: all from SQLite) */
 
 const sessionName = window.SANDBOXER_SESSION;
 const messagesContainer = document.getElementById("chat-messages");
+const composerStatus = document.getElementById("composer-status");
 const textarea = document.getElementById("chat-textarea");
 const sendBtn = document.getElementById("send-btn");
 const toggleBtn = document.getElementById("toggle-btn");
@@ -10,11 +11,8 @@ const imgBtn = document.getElementById("img-btn");
 const imgBtnMobile = document.getElementById("img-btn-mobile");
 const imageInput = document.getElementById("image-input");
 
-// Track rendered message IDs to avoid duplicates
-const renderedMessageIds = new Set();
-let latestMessageId = 0;
-let isPolling = false;
 let isSending = false;
+let lastRenderedHash = "";  // Simple hash to detect changes
 
 // Toast helper
 function showToast(message, type = "info") {
@@ -25,46 +23,42 @@ function showToast(message, type = "info") {
   setTimeout(() => toast.classList.remove("show"), 3000);
 }
 
-// Render a message from database (handles status: thinking/streaming/complete)
-function renderMessage(msg) {
-  const existingBubble = msg.id ? messagesContainer.querySelector(`[data-message-id="${msg.id}"]`) : null;
+// Simple hash of messages to detect changes
+function hashMessages(messages) {
+  return messages.map(m => `${m.id}:${m.status}:${m.content?.length || 0}`).join("|");
+}
 
-  // Update existing bubble if status/content changed
-  if (existingBubble) {
-    existingBubble.className = "chat-message " + msg.role;
-    if (msg.status === 'thinking') {
-      existingBubble.innerHTML = '<span is-="spinner" variant-="dots"></span> thinking';
-      existingBubble.classList.add('thinking');
-    } else if (msg.status === 'streaming') {
-      existingBubble.textContent = msg.content || '';
-      existingBubble.classList.add('streaming');
+// Render ALL messages from database (complete replace, KISS)
+function renderAllMessages(messages) {
+  // Clear and rebuild (simple, no incremental complexity)
+  messagesContainer.innerHTML = "";
+  let hasActiveMessage = false;
+  let activeStatus = null;
+
+  for (const msg of messages) {
+    // Only render COMPLETE messages in history
+    if (msg.status === 'complete') {
+      const bubble = document.createElement("div");
+      bubble.className = "chat-message " + msg.role;
+      bubble.textContent = msg.content || "";
+      messagesContainer.appendChild(bubble);
     } else {
-      existingBubble.textContent = msg.content;
+      // Track active (thinking/streaming) status for status line
+      hasActiveMessage = true;
+      activeStatus = msg.status;
     }
-    return existingBubble;
   }
 
-  // Skip if already rendered and complete
-  if (msg.id && renderedMessageIds.has(msg.id) && msg.status === 'complete') return null;
-  if (msg.id) renderedMessageIds.add(msg.id);
-
-  const bubble = document.createElement("div");
-  bubble.className = "chat-message " + msg.role;
-  if (msg.id) bubble.dataset.messageId = msg.id;
-
-  // Render based on status
-  if (msg.status === 'thinking') {
-    bubble.innerHTML = '<span is-="spinner" variant-="dots"></span> thinking';
-    bubble.classList.add('thinking');
-  } else if (msg.status === 'streaming') {
-    bubble.textContent = msg.content || '';
-    bubble.classList.add('streaming');
+  // Update status line above composer
+  if (hasActiveMessage && activeStatus) {
+    composerStatus.textContent = activeStatus === 'thinking' ? 'thinking…' : 'streaming…';
+    composerStatus.className = "composer-status active";
   } else {
-    bubble.textContent = msg.content;
+    composerStatus.textContent = "";
+    composerStatus.className = "composer-status";
   }
 
-  messagesContainer.appendChild(bubble);
-  return bubble;
+  return hasActiveMessage;
 }
 
 // Scroll to bottom
@@ -72,63 +66,29 @@ function scrollToBottom() {
   messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
 
-// Load initial history
-async function loadHistory() {
+// Load messages from SQLite (always fresh, no caching)
+async function loadMessages() {
   try {
-    const res = await fetch(`/api/chat-history?session=${encodeURIComponent(sessionName)}`);
+    const res = await fetch(`/api/chat-history?session=${encodeURIComponent(sessionName)}&limit=100`);
     const data = await res.json();
 
     if (data.messages) {
-      for (const msg of data.messages) {
-        renderMessage(msg);
-        if (msg.id > latestMessageId) latestMessageId = msg.id;
+      const newHash = hashMessages(data.messages);
+      if (newHash !== lastRenderedHash) {
+        const wasAtBottom = messagesContainer.scrollHeight - messagesContainer.scrollTop <= messagesContainer.clientHeight + 50;
+        const hasActive = renderAllMessages(data.messages);
+        lastRenderedHash = newHash;
+        if (wasAtBottom) scrollToBottom();
+        return hasActive;
       }
-      scrollToBottom();
     }
   } catch (err) {
-    console.error("Failed to load history:", err);
+    console.error("Failed to load messages:", err);
   }
+  return false;
 }
 
-// Poll for new messages (status: thinking/streaming/complete synced via DB)
-async function pollMessages() {
-  if (isPolling) return;
-  isPolling = true;
-
-  try {
-    const res = await fetch(`/api/chat-poll?session=${encodeURIComponent(sessionName)}&since=${latestMessageId}`);
-    const data = await res.json();
-
-    let hasNewMessages = false;
-    let hasActiveMessage = false;
-
-    if (data.messages && data.messages.length > 0) {
-      for (const msg of data.messages) {
-        renderMessage(msg);
-        if (msg.id > latestMessageId) {
-          latestMessageId = msg.id;
-          hasNewMessages = true;
-        }
-        // Check if there's an active (thinking/streaming) message
-        if (msg.status === 'thinking' || msg.status === 'streaming') {
-          hasActiveMessage = true;
-        }
-      }
-      if (hasNewMessages) scrollToBottom();
-    }
-
-    if (data.latest_id) latestMessageId = Math.max(latestMessageId, data.latest_id);
-
-    // Speed up polling when there's an active message
-    window._chatActive = hasActiveMessage;
-  } catch (err) {
-    console.error("Poll error:", err);
-  } finally {
-    isPolling = false;
-  }
-}
-
-// Send message to Claude - fire and forget, polling handles display
+// Send message to Claude
 async function sendMessage() {
   const message = textarea.value.trim();
   if (!message || isSending) return;
@@ -138,7 +98,6 @@ async function sendMessage() {
   textarea.style.height = "auto";
   sendBtn.disabled = true;
   sendBtn.textContent = "…";
-  scrollToBottom();
 
   try {
     // POST to start the request
@@ -148,7 +107,7 @@ async function sendMessage() {
       body: JSON.stringify({ session: sessionName, message }),
     });
 
-    // Re-enable button immediately after request starts
+    // Re-enable button immediately
     sendBtn.disabled = false;
     sendBtn.textContent = "→";
     isSending = false;
@@ -162,9 +121,7 @@ async function sendMessage() {
             const { done } = await reader.read();
             if (done) break;
           }
-        } catch (e) {
-          console.error("Stream read error:", e);
-        }
+        } catch (e) { /* ignore */ }
       })();
     }
   } catch (err) {
@@ -268,7 +225,6 @@ function autoResize() {
 // Event listeners
 if (sendBtn) {
   sendBtn.addEventListener("click", sendMessage);
-  // Also handle touch for mobile reliability
   sendBtn.addEventListener("touchend", (e) => {
     e.preventDefault();
     sendMessage();
@@ -315,17 +271,16 @@ document.addEventListener("paste", (e) => {
 
 // Initialize
 textarea.focus();
-loadHistory();
+loadMessages().then(scrollToBottom);
 
-// Poll with adaptive interval (faster when active messages)
-function schedulePoll() {
-  const interval = (window._chatActive || isSending) ? 500 : 1500;
-  setTimeout(async () => {
-    await pollMessages();
-    schedulePoll();
-  }, interval);
+// Poll with adaptive interval (faster when active)
+let pollActive = false;
+async function poll() {
+  const hasActive = await loadMessages();
+  pollActive = hasActive || isSending;
+  setTimeout(poll, pollActive ? 500 : 1500);
 }
-schedulePoll();
+poll();
 
 // ═══ iOS Safari keyboard handling ═══
 
