@@ -170,19 +170,19 @@ def build_single_card(s: dict, mode: str = "cli") -> str:
       <button size-="small" variant-="teal" onclick="event.stopPropagation(); copySSH('{escape(s['name'])}')">ssh</button>
       <button size-="small" class="img-btn" onclick="event.stopPropagation(); triggerImageUpload('{escape(s['name'])}')" ondblclick="event.stopPropagation(); triggerImageBrowse('{escape(s['name'])}')">↑</button>
       <input type="file" class="card-image-input" accept="image/*" style="display:none" data-session="{escape(s['name'])}">
-      <button size-="small" onclick="event.stopPropagation(); window.open('/terminal?session=' + encodeURIComponent('{escape(s['name'])}'), '_blank')">↗</button>
+      <button size-="small" class="fullscreen-header-btn" onclick="event.stopPropagation(); openFullscreen('{escape(s['name'])}')">⧉</button>
       <button size-="small" variant-="red" class="kill-btn" onclick="event.stopPropagation(); killSession(this, '{escape(s['name'])}')">×</button>
     </div>
   </header>
   <div class="terminal" style="display: {terminal_display}">
     <iframe src="{terminal_url}" scrolling="no" sandbox="allow-scripts allow-same-origin allow-forms allow-pointer-lock"></iframe>
-    <button class="fullscreen-btn" size-="small" onclick="window.open('/terminal?session=' + encodeURIComponent('{escape(s['name'])}'), '_blank')">⛶</button>
   </div>
   <div class="chat" style="display: {chat_display}">
     <div class="chat-messages"></div>
+    <div class="chat-status paused"><span is-="spinner" variant-="dots"></span><span class="status-text">idle</span></div>
     <div class="chat-input">
-      <textarea placeholder="Message Claude..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){{event.preventDefault();sendChat('{escape(s['name'])}')}}"></textarea>
-      <button variant-="green" onclick="sendChat('{escape(s['name'])}')">Send</button>
+      <input type="text" placeholder="Message..." onkeydown="if(event.key==='Enter'){{sendChat('{escape(s['name'])}')}}">
+      <button size-="small" variant-="green" onclick="sendChat('{escape(s['name'])}')">send</button>
     </div>
   </div>
 </article>"""
@@ -358,6 +358,25 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_redirect("/")
             return
 
+        if path == "/chat":
+            session_name = query.get("session", [""])[0]
+            if session_name:
+                # Initialize chat session if needed
+                if not chat.is_chat_session(session_name):
+                    meta = sessions.session_meta.get(session_name, {})
+                    workdir = meta.get("workdir", "/home/sandboxer")
+                    session_id = meta.get("claude_session_id", "")
+                    chat.init_chat_session(session_name, workdir, session_id)
+                    sessions.set_session_mode(session_name, "chat")
+                html = render_template(
+                    "chat.html",
+                    session_name=escape(session_name),
+                )
+                self.send_html(html)
+                return
+            self.send_redirect("/")
+            return
+
         if path == "/create":
             session_type = query.get("type", ["claude"])[0]
             workdir = query.get("dir", ["/home/sandboxer/git/sandboxer"])[0]
@@ -424,6 +443,45 @@ class Handler(http.server.BaseHTTPRequestHandler):
         # /api/chat-stream is deprecated - use /api/chat-send POST which returns SSE
         if path == "/api/chat-stream":
             self.send_json({"error": "Deprecated. Use POST /api/chat-send instead."}, 410)
+            return
+
+        # SSE endpoint for syncing chat across tabs
+        if path == "/api/chat-sync":
+            session_name = query.get("session", [""])[0]
+            if not session_name:
+                self.send_json({"error": "session required"}, 400)
+                return
+
+            # Send SSE headers
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Connection", "keep-alive")
+            self.send_header("X-Accel-Buffering", "no")
+            self.end_headers()
+
+            # Send history first
+            history = chat.get_history(session_name)
+            for msg in history:
+                self.wfile.write(f"data: {json.dumps(msg)}\n\n".encode())
+            self.wfile.flush()
+
+            # Subscribe to updates
+            q = chat.add_subscriber(session_name)
+            try:
+                while True:
+                    try:
+                        msg = q.get(timeout=30)  # 30s heartbeat
+                        self.wfile.write(f"data: {json.dumps(msg)}\n\n".encode())
+                        self.wfile.flush()
+                    except Exception:
+                        # Send heartbeat
+                        self.wfile.write(b": heartbeat\n\n")
+                        self.wfile.flush()
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+            finally:
+                chat.remove_subscriber(session_name, q)
             return
 
         if path == "/api/stats":
@@ -560,6 +618,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 if not chat.is_chat_session(session_name):
                     chat.init_chat_session(session_name, workdir, session_id)
 
+                # Store first message as title (KISS solution for chat titles)
+                if not meta.get("title"):
+                    title = message[:40].strip()
+                    if len(message) > 40:
+                        title += "..."
+                    sessions.session_meta[session_name]["title"] = title
+                    sessions._save_session_meta()
+
                 # Get response generator
                 response_gen, get_session_id = chat.send_message(
                     session_name, message, workdir, session_id
@@ -574,10 +640,21 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.end_headers()
 
                 try:
+                    # Broadcast user message first
+                    chat.broadcast_message(session_name, {
+                        "type": "user_message",
+                        "content": message
+                    })
+
                     for line in response_gen:
                         if line:
                             self.wfile.write(f"data: {line}\n\n".encode())
                             self.wfile.flush()
+                            # Broadcast to other subscribers
+                            try:
+                                chat.broadcast_message(session_name, json.loads(line))
+                            except json.JSONDecodeError:
+                                pass
                     self.wfile.write(b"event: end\ndata: {}\n\n")
                     self.wfile.flush()
 
