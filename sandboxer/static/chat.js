@@ -16,6 +16,7 @@ const renderedMessageIds = new Set();
 let latestMessageId = 0;
 let isPolling = false;
 let isSending = false;
+let remoteProcessing = false;  // Track if another tab is processing
 
 // Toast helper
 function showToast(message, type = "info") {
@@ -73,6 +74,10 @@ async function pollMessages() {
     const data = await res.json();
 
     if (data.messages && data.messages.length > 0) {
+      // Remove any remote-thinking indicator when real messages arrive
+      const remoteThinking = messagesContainer.querySelector(".remote-thinking");
+      if (remoteThinking) remoteThinking.remove();
+
       // Remove any pending/streaming bubbles when real messages arrive
       const pending = messagesContainer.querySelectorAll(".pending, .streaming, .thinking");
       pending.forEach(el => el.remove());
@@ -85,6 +90,20 @@ async function pollMessages() {
     }
 
     if (data.latest_id) latestMessageId = Math.max(latestMessageId, data.latest_id);
+
+    // Handle remote processing state (another tab is sending)
+    if (data.processing && !isSending && !remoteProcessing) {
+      remoteProcessing = true;
+      const thinkingEl = document.createElement("div");
+      thinkingEl.className = "chat-message assistant thinking remote-thinking";
+      thinkingEl.innerHTML = '<span is-="spinner" variant-="dots"></span> responding...';
+      messagesContainer.appendChild(thinkingEl);
+      scrollToBottom();
+    } else if (!data.processing && remoteProcessing) {
+      remoteProcessing = false;
+      const remoteThinking = messagesContainer.querySelector(".remote-thinking");
+      if (remoteThinking) remoteThinking.remove();
+    }
   } catch (err) {
     console.error("Poll error:", err);
   } finally {
@@ -357,8 +376,15 @@ document.addEventListener("paste", (e) => {
 textarea.focus();
 loadHistory();
 
-// Start polling (every 1.5s)
-setInterval(pollMessages, 1500);
+// Poll with adaptive interval
+function schedulePoll() {
+  const interval = (remoteProcessing || isSending) ? 500 : 1500;
+  setTimeout(async () => {
+    await pollMessages();
+    schedulePoll();
+  }, interval);
+}
+schedulePoll();
 
 // ═══ iOS Safari keyboard handling ═══
 

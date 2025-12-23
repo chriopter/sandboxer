@@ -157,10 +157,29 @@ def render_template(name: str, **context) -> str:
 
 
 def build_single_card(s: dict, mode: str = "cli") -> str:
-    port = sessions.get_ttyd_port(s["name"])
-    terminal_url = f"/t/{port}/" if port else ""
     display_name = s.get("title") or s["name"]
     workdir = s.get("workdir") or ""
+    session_type = s.get("type") or ""
+
+    # Handle ungit sessions (web app, not terminal)
+    if session_type == "ungit":
+        ungit_port = sessions.get_ungit_port(s["name"])
+        ungit_url = f"/u/{ungit_port}/" if ungit_port else ""
+        return f"""<article class="card" draggable="true" data-session="{escape(s['name'])}" data-workdir="{escape(workdir)}" data-mode="ungit">
+  <header>
+    <span class="card-title">{escape(display_name)}</span>
+    <div class="card-actions">
+      <button size-="small" class="fullscreen-header-btn" onclick="event.stopPropagation(); openFullscreen('{escape(s['name'])}')">⧉</button>
+      <button size-="small" variant-="red" class="kill-btn" onclick="event.stopPropagation(); killSession(this, '{escape(s['name'])}')">×</button>
+    </div>
+  </header>
+  <div class="terminal">
+    <iframe src="{ungit_url}" sandbox="allow-scripts allow-same-origin allow-forms allow-pointer-lock allow-popups"></iframe>
+  </div>
+</article>"""
+
+    port = sessions.get_ttyd_port(s["name"])
+    terminal_url = f"/t/{port}/" if port else ""
     session_mode = sessions.get_session_mode(s["name"]) or mode
     terminal_display = "none" if session_mode == "chat" else "block"
     chat_display = "flex" if session_mode == "chat" else "none"
@@ -335,7 +354,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
             all_sessions = sessions.get_all_sessions()
             ordered = sessions.get_ordered_sessions(all_sessions)
             for s in ordered:
-                if sessions.get_session_mode(s["name"]) != "chat":
+                session_type = s.get("type") or ""
+                if session_type == "ungit":
+                    # Start ungit for ungit sessions
+                    workdir = s.get("workdir") or "/home/sandboxer"
+                    sessions.start_ungit(s["name"], workdir)
+                elif sessions.get_session_mode(s["name"]) != "chat":
                     sessions.start_ttyd(s["name"])
             html = render_template(
                 "index.html",
@@ -424,13 +448,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
             sessions.create_session(name, session_type, workdir, resume_id)
             if session_type == "chat":
                 chat.init_chat_session(name, workdir, resume_id)
-                s = {"name": name, "title": name, "workdir": workdir}
+                s = {"name": name, "title": name, "workdir": workdir, "type": "chat"}
                 card_html = build_single_card(s, mode="chat")
+            elif session_type == "ungit":
+                # ungit is already started in create_session
+                s = {"name": name, "title": name, "workdir": workdir, "type": "ungit"}
+                card_html = build_single_card(s, mode="ungit")
             else:
                 sessions.start_ttyd(name)
                 s = {"name": name, "title": name, "workdir": workdir}
                 card_html = build_single_card(s, mode="cli")
-            self.send_json({"ok": True, "name": name, "html": card_html, "mode": session_type if session_type == "chat" else "cli"})
+            self.send_json({"ok": True, "name": name, "html": card_html, "mode": session_type if session_type in ("chat", "ungit") else "cli"})
             return
 
         if path == "/api/sessions":
@@ -477,7 +505,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
             messages = db.get_messages_since(session_name, since_id)
             latest_id = db.get_latest_message_id(session_name)
-            self.send_json({"messages": messages, "latest_id": latest_id})
+            is_processing = chat.is_processing(session_name)
+            self.send_json({
+                "messages": messages,
+                "latest_id": latest_id,
+                "processing": is_processing
+            })
             return
 
         # SSE endpoint for syncing chat across tabs
@@ -682,6 +715,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     session_name, message, workdir, session_id
                 )
 
+                # Mark as processing for cross-tab sync
+                chat.set_processing(session_name, True)
+
                 # Stream response as SSE
                 self.send_response(200)
                 self.send_header("Content-Type", "text/event-stream")
@@ -728,7 +764,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
                         sessions._save_session_meta()
                 except (BrokenPipeError, ConnectionResetError):
                     pass
+                finally:
+                    # Clear processing state
+                    chat.set_processing(session_name, False)
             except Exception as e:
+                chat.set_processing(session_name, False)
                 self.send_json({"error": str(e)}, 500)
             return
 

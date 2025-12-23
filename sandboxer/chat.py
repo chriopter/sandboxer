@@ -20,6 +20,22 @@ SYSTEM_PROMPT_PATH = "/home/sandboxer/git/sandboxer/system-prompt.txt"
 # Active chat sessions in memory: name -> (process, session_id)
 chat_sessions: dict[str, tuple] = {}
 
+# Track which sessions are currently processing (for cross-tab sync)
+processing_sessions: set[str] = set()
+
+
+def set_processing(name: str, is_processing: bool):
+    """Mark a session as processing or not."""
+    if is_processing:
+        processing_sessions.add(name)
+    else:
+        processing_sessions.discard(name)
+
+
+def is_processing(name: str) -> bool:
+    """Check if a session is currently processing."""
+    return name in processing_sessions
+
 
 def restore_chat_sessions():
     """Restore chat sessions from database on server restart."""

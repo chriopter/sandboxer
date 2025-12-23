@@ -9,6 +9,8 @@ import subprocess
 # Configuration
 TTYD_BASE_PORT = 7700
 TTYD_MAX_PORT = 7799  # Max 100 sessions
+UNGIT_BASE_PORT = 7800
+UNGIT_MAX_PORT = 7849  # Max 50 ungit sessions
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SYSTEM_PROMPT_PATH = os.path.join(BASE_DIR, "system-prompt.txt")
@@ -18,6 +20,7 @@ ORDER_FILE = "/etc/sandboxer/session_order.json"
 
 # RAM-only state
 ttyd_processes: dict[str, tuple[int, int]] = {}  # name -> (pid, port)
+ungit_processes: dict[str, tuple[int, int]] = {}  # name -> (pid, port)
 chat_processes: dict[str, tuple] = {}  # name -> (Popen, session_id, init_line)
 session_order: list[str] = []
 
@@ -203,10 +206,34 @@ def _cleanup_orphan_ttyd():
         pass
 
 
+def _cleanup_orphan_ungit():
+    """Kill any ungit processes not tracked by this session (orphans from crashes)."""
+    try:
+        result = subprocess.run(["pgrep", "-f", "ungit"], capture_output=True, text=True)
+        if result.returncode != 0:
+            return
+
+        pids = [int(p) for p in result.stdout.strip().split("\n") if p]
+        tracked_pids = {pid for pid, _ in ungit_processes.values()}
+
+        orphans = [p for p in pids if p not in tracked_pids]
+        for pid in orphans:
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except OSError:
+                pass
+
+        if orphans:
+            print(f"[sandboxer] Cleaned up {len(orphans)} orphan ungit processes")
+    except Exception:
+        pass
+
+
 # Initialize on module load
 _load_session_meta()
 _load_session_order()
 _cleanup_orphan_ttyd()
+_cleanup_orphan_ungit()
 
 
 def init_chat_sessions():
@@ -231,13 +258,30 @@ def get_chat_sessions() -> list[dict]:
     return chat_sessions
 
 
+def get_ungit_sessions() -> list[dict]:
+    """Get list of active ungit sessions (from session_meta, not tmux)."""
+    ungit_sessions = []
+    for name, meta in session_meta.items():
+        if meta.get("type") == "ungit":
+            ungit_sessions.append({
+                "name": name,
+                "title": meta.get("title", name),
+                "type": "ungit",
+            })
+    return ungit_sessions
+
+
 def get_all_sessions() -> list[dict]:
-    """Get all sessions - tmux + chat."""
+    """Get all sessions - tmux + chat + ungit."""
     tmux = get_tmux_sessions()
     chat = get_chat_sessions()
+    ungit = get_ungit_sessions()
     # Merge, avoiding duplicates
     tmux_names = {s["name"] for s in tmux}
     for s in chat:
+        if s["name"] not in tmux_names:
+            tmux.append(s)
+    for s in ungit:
         if s["name"] not in tmux_names:
             tmux.append(s)
     return tmux
@@ -308,6 +352,20 @@ def create_session(name: str, session_type: str = "claude", workdir: str = "/hom
         _save_workdirs()
         return
 
+    # Ungit type doesn't need tmux - it runs ungit web app directly
+    if session_type == "ungit":
+        # Add to order
+        if name not in session_order:
+            session_order.append(name)
+        # Track session metadata
+        session_meta[name] = {"workdir": workdir, "type": "ungit"}
+        _save_session_meta()
+        session_workdirs[name] = workdir
+        _save_workdirs()
+        # Start ungit immediately
+        start_ungit(name, workdir)
+        return
+
     subprocess.run(["tmux", "new-session", "-d", "-s", name, "-c", workdir], capture_output=True)
 
     # Enable mouse mode for scrolling
@@ -371,8 +429,9 @@ def rename_session(old_name: str, new_name: str) -> bool:
 
 
 def kill_session(name: str):
-    """Kill a tmux session and its ttyd/chat process."""
+    """Kill a tmux session and its ttyd/chat/ungit process."""
     stop_ttyd(name)
+    stop_ungit(name)
     stop_chat_claude(name)
     subprocess.run(["tmux", "kill-session", "-t", name], capture_output=True)
     if name in session_order:
@@ -452,6 +511,75 @@ def get_ttyd_port(session_name: str) -> int | None:
     """Get ttyd port for a session, or None if not running."""
     if session_name in ttyd_processes:
         return ttyd_processes[session_name][1]
+    return None
+
+
+# ═══ ungit Management ═══
+
+def find_free_ungit_port() -> int:
+    """Find a free port in range 7800-7849."""
+    used_ports = {port for _, (_, port) in ungit_processes.items()}
+    port = UNGIT_BASE_PORT
+
+    while port <= UNGIT_MAX_PORT:
+        if port not in used_ports:
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    s.bind(("127.0.0.1", port))
+                    return port
+            except OSError:
+                pass
+        port += 1
+
+    raise RuntimeError("Maximum ungit sessions reached (ports 7800-7849 exhausted)")
+
+
+def start_ungit(session_name: str, workdir: str) -> int:
+    """Start ungit for a session, return port."""
+    # Check if already running
+    if session_name in ungit_processes:
+        pid, port = ungit_processes[session_name]
+        try:
+            os.kill(pid, 0)  # Check if process exists
+            return port
+        except OSError:
+            del ungit_processes[session_name]
+
+    port = find_free_ungit_port()
+
+    # Start ungit with the workdir as root
+    proc = subprocess.Popen(
+        [
+            "ungit",
+            "--port", str(port),
+            "--rootPath", workdir,
+            "--no-b",  # Don't open browser
+            "--ungitBindIp", "127.0.0.1",
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        cwd=workdir,
+    )
+
+    ungit_processes[session_name] = (proc.pid, port)
+    return port
+
+
+def stop_ungit(session_name: str):
+    """Stop ungit for a session."""
+    if session_name in ungit_processes:
+        pid, _ = ungit_processes[session_name]
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except OSError:
+            pass
+        del ungit_processes[session_name]
+
+
+def get_ungit_port(session_name: str) -> int | None:
+    """Get ungit port for a session, or None if not running."""
+    if session_name in ungit_processes:
+        return ungit_processes[session_name][1]
     return None
 
 
