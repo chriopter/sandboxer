@@ -757,14 +757,15 @@ main {
   background: var(--crust);
   position: relative;
   overflow: hidden;
-  aspect-ratio: 900 / 600;
+  /* Aspect ratio matches iframe (extra width for scrollbar clipping) */
+  aspect-ratio: 830 / 450;
   width: 100%;
 }
 
 .terminal iframe {
-  /* 900x600, wide enough for full content */
-  width: 900px;
-  height: 600px;
+  /* Fixed size - extra width clips scrollbar */
+  width: 830px;
+  height: 450px;
   border: none;
   pointer-events: none;
   opacity: 0.9;
