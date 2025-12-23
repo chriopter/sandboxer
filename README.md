@@ -11,14 +11,11 @@
 
 ## Features
 
-- **Live previews** - See all sessions at a glance in a grid layout
-- **Session persistence** - tmux-backed sessions survive restarts; chat sessions persist via Claude's `--resume` with stored session UUIDs
+- **Live previews** - See all sessions at a glance in a scalable grid layout
+- **Web Chat UI** - Chat with Claude through a web interface with SQLite-backed message history and cross-tab sync
+- **Session persistence** - tmux-backed sessions survive restarts; Claude conversations resume via `--resume`
 - **SSH takeover** - `ssh -t sandboxer@host sandboxer-shell` to take over sessions (TAB for multi-select split view)
-- **Drag & drop** - Reorder sessions your way
-- **Resume sessions** - Pick up previous Claude conversations
-- **Multiple directories** - Run Claude in different project contexts
-- **Image paste** - Ctrl+V images directly into terminal
-- **Gemini CLI** - Claude can use Google's Gemini for second opinions
+- **Mobile-ready** - Full responsive UI with touch controls and collapsible sidebar
 
 <img width="500" alt="SSH takeover" src="https://github.com/user-attachments/assets/e748762f-077a-48ef-82de-fad7c351a863" />
 
