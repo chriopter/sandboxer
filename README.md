@@ -1,13 +1,13 @@
-<p align="center">
-  <img src="logo.png" width="120" />
-</p>
-
-<h1 align="center">Sandboxer</h1>
-
-<p align="center">
-  Web terminal manager for autonomous Claude Code sessions but Claude takes the wheel for the machine itself.<br>
-  Start Sessions in Web, take over via SSH, convert them to chat UI for perfect handling on mobile.
-</p>
+<table>
+<tr>
+<td><img src="logo.png" width="120" /></td>
+<td>
+<h1>Sandboxer</h1>
+Web terminal manager for autonomous Claude Code sessions but Claude takes the wheel for the machine itself.<br>
+Start Sessions in Web, take over via SSH, convert them to chat UI for perfect handling on mobile.
+</td>
+</tr>
+</table>
 
 ---
 
