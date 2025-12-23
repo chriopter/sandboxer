@@ -1548,8 +1548,22 @@ body.chat-page {
   font-size: 1em;
 }
 
-/* Attach/upload button - hidden on desktop */
-.composer-attach {
+/* Square icon buttons for composer */
+.composer-btn.square {
+  width: 2.5em;
+  height: 2.5em;
+  min-width: 2.5em;
+  padding: 0 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1em;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+/* Attach/upload button - hidden on desktop by default */
+#img-btn-mobile {
   display: none;
 }
 
@@ -1575,23 +1589,17 @@ body.chat-page {
     max-height: 120px;
   }
 
-  .composer-input button {
-    height: 48px !important;
+  /* Square buttons on mobile */
+  .composer-btn.square {
+    width: 48px;
+    height: 48px;
     min-width: 48px;
-    border-radius: 8px;
-    font-size: 1.1em;
-    padding: 0 16px !important;
+    font-size: 1.2em;
+    border-radius: 6px;
   }
 
-  .composer-attach {
-    display: flex !important;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .composer-send {
-    min-width: 64px;
-    font-weight: 600;
+  #img-btn-mobile {
+    display: flex;
   }
 }
 

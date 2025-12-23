@@ -542,6 +542,7 @@ function populateSidebar() {
     chat: { label: "claude chat", color: "lavender", sessions: [] },
     claude: { label: "claude", color: "mauve", sessions: [] },
     lazygit: { label: "lazygit", color: "peach", sessions: [] },
+    ungit: { label: "ungit", color: "yellow", sessions: [] },
     bash: { label: "bash", color: "green", sessions: [] },
     gemini: { label: "gemini", color: "blue", sessions: [] },
     other: { label: "other", color: "overlay1", sessions: [] },
@@ -552,10 +553,12 @@ function populateSidebar() {
 
     const name = card.dataset.session;
     const title = card.querySelector(".card-title")?.textContent || name;
+    const mode = card.dataset.mode;
 
-    // Detect session type - chat sessions first
+    // Detect session type - check mode first, then name patterns
     let type = "other";
-    if (name.includes("-chat-") || name.startsWith("chat")) type = "chat";
+    if (mode === "ungit" || name.includes("-ungit-") || name.startsWith("ungit")) type = "ungit";
+    else if (name.includes("-chat-") || name.startsWith("chat")) type = "chat";
     else if (name.includes("-claude-") || name.startsWith("claude")) type = "claude";
     else if (name.includes("-gemini-") || name.startsWith("gemini")) type = "gemini";
     else if (name.includes("-bash-") || name.startsWith("bash")) type = "bash";
@@ -568,7 +571,7 @@ function populateSidebar() {
   list.innerHTML = "";
 
   // Load expanded state from localStorage
-  const expandedGroups = JSON.parse(localStorage.getItem("sandboxer_expanded_groups") || '["claude","lazygit","bash","gemini","other"]');
+  const expandedGroups = JSON.parse(localStorage.getItem("sandboxer_expanded_groups") || '["claude","lazygit","ungit","bash","gemini","other"]');
 
   // Render each group with sessions
   Object.entries(groups).forEach(([type, group]) => {
@@ -604,11 +607,16 @@ function populateSidebar() {
       li.textContent = title;
       li.title = name;
       li.onclick = () => {
-        // Check if it's a chat session
         const card = document.querySelector('[data-session="' + name + '"]');
-        const isChat = card?.dataset.mode === "chat" || type === "chat";
-        if (isChat) {
+        const mode = card?.dataset.mode;
+        if (mode === "chat" || type === "chat") {
           window.open("/chat?session=" + encodeURIComponent(name), "_blank");
+        } else if (mode === "ungit" || type === "ungit") {
+          // For ungit, open the iframe URL directly
+          const iframe = card?.querySelector("iframe");
+          if (iframe && iframe.src) {
+            window.open(iframe.src, "_blank");
+          }
         } else {
           window.open("/terminal?session=" + encodeURIComponent(name), "_blank");
         }

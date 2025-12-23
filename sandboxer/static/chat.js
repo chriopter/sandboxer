@@ -369,8 +369,10 @@ document.addEventListener("paste", (e) => {
   if (!items) return;
   for (const item of items) {
     if (item.type.startsWith("image/")) {
+      e.preventDefault();
       const file = item.getAsFile();
       if (file) {
+        showToast("Pasting image...", "info");
         uploadImage(file);
         clearTimeout(pasteTimeout);
         return;
