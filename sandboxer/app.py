@@ -791,13 +791,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     sessions.set_session_mode(session_name, "chat")
 
                     # Add CLI context as a message so user sees what was happening
-                    if cli_context:
+                    if cli_context and len(cli_context.strip()) > 10:
                         # Truncate if too long, keep last part (most recent)
                         if len(cli_context) > 2000:
                             cli_context = "...\n" + cli_context[-2000:]
-                        db.add_message(session_name, 'system', f'--- CLI context ---\n{cli_context}', 'complete')
+                        db.add_message(session_name, 'system', f'[Switched from CLI - terminal context below]\n{cli_context}', 'complete')
                     else:
-                        db.add_message(session_name, 'system', '--- Continued from CLI mode ---', 'complete')
+                        db.add_message(session_name, 'system', '[Switched from CLI mode - conversation history preserved via session]', 'complete')
 
                     self.send_json({"ok": True, "mode": "chat"})
             except Exception as e:

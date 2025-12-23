@@ -1466,13 +1466,13 @@ body.chat-page {
 }
 
 .chat-fullscreen .chat-message.system {
-  align-self: center;
+  align-self: stretch;
   background: var(--surface0);
-  color: var(--overlay1);
+  border-left: 3px solid var(--mauve);
+  color: var(--subtext0);
   font-size: 0.8em;
   padding: 1ch 1.5ch;
-  border-radius: 4px;
-  max-width: 95%;
+  margin: 1ch 0;
   white-space: pre-wrap;
   font-family: monospace;
   max-height: 200px;
