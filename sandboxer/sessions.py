@@ -209,6 +209,32 @@ _load_session_order()
 _cleanup_orphan_ttyd()
 
 
+def get_chat_sessions() -> list[dict]:
+    """Get list of active chat sessions (not in tmux)."""
+    chat_sessions = []
+    for name, (proc, session_id, _) in chat_processes.items():
+        # Check if process is still running
+        if proc.poll() is None:
+            chat_sessions.append({
+                "name": name,
+                "title": name,
+                "type": "chat",
+            })
+    return chat_sessions
+
+
+def get_all_sessions() -> list[dict]:
+    """Get all sessions - tmux + chat."""
+    tmux = get_tmux_sessions()
+    chat = get_chat_sessions()
+    # Merge, avoiding duplicates
+    tmux_names = {s["name"] for s in tmux}
+    for s in chat:
+        if s["name"] not in tmux_names:
+            tmux.append(s)
+    return tmux
+
+
 # ═══ tmux Operations ═══
 
 def get_tmux_sessions() -> list[dict]:

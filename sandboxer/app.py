@@ -325,8 +325,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         if path == "/" or folder_from_url is not None:
             selected_folder = folder_from_url or get_selected_folder()
-            tmux_sessions = sessions.get_tmux_sessions()
-            ordered = sessions.get_ordered_sessions(tmux_sessions)
+            all_sessions = sessions.get_all_sessions()
+            ordered = sessions.get_ordered_sessions(all_sessions)
             for s in ordered:
                 if sessions.get_session_mode(s["name"]) != "chat":
                     sessions.start_ttyd(s["name"])
@@ -405,8 +405,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return
 
         if path == "/api/sessions":
-            tmux_sessions = sessions.get_tmux_sessions()
-            ordered = sessions.get_ordered_sessions(tmux_sessions)
+            all_sessions = sessions.get_all_sessions()
+            ordered = sessions.get_ordered_sessions(all_sessions)
             for s in ordered:
                 s["port"] = sessions.get_ttyd_port(s["name"])
             self.send_json(ordered)
