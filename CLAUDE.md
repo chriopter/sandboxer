@@ -108,7 +108,7 @@ Commit message here
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 
-Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+Co-Authored-By: Claude <noreply@anthropic.com>
 ```
 
 This ensures proper attribution in the git history. See [example commit](https://github.com/chriopter/sandboxer/commit/bd1727faddb59b281f788986d0e61a1bcc21685a).
