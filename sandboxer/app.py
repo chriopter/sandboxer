@@ -774,16 +774,31 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     sessions.set_session_mode(session_name, "cli")
                     self.send_json({"ok": True, "mode": "cli", "port": port, "terminal_url": f"/t/{port}/"})
                 else:
-                    # Switch to chat mode
+                    # Switch to chat mode - capture CLI context first
                     sessions.stop_ttyd(session_name)
                     subprocess.run(["tmux", "send-keys", "-t", session_name, "C-c"], capture_output=True)
-                    time.sleep(0.5)
+                    time.sleep(0.3)
+
+                    # Capture recent tmux scrollback for context (last 50 lines)
+                    capture_result = subprocess.run(
+                        ["tmux", "capture-pane", "-t", session_name, "-p", "-S", "-50"],
+                        capture_output=True, text=True
+                    )
+                    cli_context = capture_result.stdout.strip() if capture_result.returncode == 0 else ""
 
                     # Initialize chat session
                     chat.init_chat_session(session_name, workdir, claude_session_id)
                     sessions.set_session_mode(session_name, "chat")
-                    # Add "continued from CLI" message so user knows history is from CLI
-                    db.add_message(session_name, 'system', '--- Continued from CLI mode ---', 'complete')
+
+                    # Add CLI context as a message so user sees what was happening
+                    if cli_context:
+                        # Truncate if too long, keep last part (most recent)
+                        if len(cli_context) > 2000:
+                            cli_context = "...\n" + cli_context[-2000:]
+                        db.add_message(session_name, 'system', f'--- CLI context ---\n{cli_context}', 'complete')
+                    else:
+                        db.add_message(session_name, 'system', '--- Continued from CLI mode ---', 'complete')
+
                     self.send_json({"ok": True, "mode": "chat"})
             except Exception as e:
                 self.send_json({"error": str(e)}, 500)
