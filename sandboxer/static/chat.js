@@ -8,6 +8,7 @@ const toggleBtn = document.getElementById("toggle-btn");
 const killBtn = document.getElementById("kill-btn");
 const sshBtn = document.getElementById("ssh-btn");
 const imgBtn = document.getElementById("img-btn");
+const imgBtnMobile = document.getElementById("img-btn-mobile");
 const imageInput = document.getElementById("image-input");
 
 // Toast helper
@@ -303,6 +304,11 @@ sshBtn.addEventListener("click", copySSH);
 imgBtn.addEventListener("click", triggerImageUpload);
 imgBtn.addEventListener("dblclick", () => imageInput.click());
 
+// Mobile image button - direct file picker (always available beside send)
+if (imgBtnMobile) {
+  imgBtnMobile.addEventListener("click", () => imageInput.click());
+}
+
 imageInput.addEventListener("change", (e) => {
   const file = e.target.files?.[0];
   if (file) uploadImage(file);
@@ -384,3 +390,12 @@ function connectSync() {
 
 // Connect sync on load
 connectSync();
+
+// ═══ iOS Safari keyboard handling ═══
+// Scroll to bottom when keyboard appears (textarea focused)
+textarea.addEventListener("focus", () => {
+  // Small delay to let keyboard animation complete
+  setTimeout(() => {
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  }, 300);
+});
