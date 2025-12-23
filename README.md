@@ -41,6 +41,33 @@
 
 > **Warning**: This gives Claude complete control of a machine. Only use on a disposable VM without secrets.
 
+## Technical
+
+<details>
+<summary>Session Persistence</summary>
+
+CLI sessions use tmux for persistence. Chat sessions store Claude's session UUID for `--resume`. Both are tracked in `/etc/sandboxer/session_meta.json`:
+
+```json
+{
+  "sandboxer-claude-1": {
+    "workdir": "/home/sandboxer/git/myproject",
+    "type": "claude",
+    "mode": "cli"
+  },
+  "sandboxer-chat-1": {
+    "workdir": "/home/sandboxer/git/myproject",
+    "type": "chat",
+    "mode": "chat",
+    "claude_session_id": "abc123-def456-..."
+  }
+}
+```
+
+Chat message history is stored separately in `/etc/sandboxer/chat_history.json` and sent via SSE on page load.
+
+</details>
+
 ---
 
 Built with [webtui](https://github.com/webtui/webtui)
