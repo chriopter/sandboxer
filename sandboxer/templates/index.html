@@ -45,33 +45,20 @@
   <ul class="sidebar-list" id="sidebarList">
   </ul>
   <div class="sidebar-bottom">
-    <div class="sidebar-action-row">
-      <button variant-="teal" size-="small" onclick="copyTakeover()" title="Copy SSH command" class="sidebar-ssh">ssh</button>
-      <button variant-="mauve" size-="small" onclick="restartSandboxer()" title="Restart sandboxer" class="sidebar-restart">restart</button>
-      <button variant-="red" size-="small" onclick="closeAllSessions()" title="Close all sessions" class="sidebar-close-all">close</button>
+    <div class="sidebar-actions">
+      <button variant-="teal" onclick="copyTakeover()">ssh</button>
+      <button variant-="mauve" onclick="restartSandboxer()">restart</button>
+      <button variant-="red" onclick="closeAllSessions()">close all</button>
     </div>
-    <div class="sidebar-controls">
-      <span class="control-label">View</span>
-      <div class="view-modes" id="viewModes">
-        <button data-view="1" size-="small" title="1 col">◻</button>
-        <button data-view="2" size-="small" title="2 col">◻◻</button>
-        <button data-view="3" size-="small" title="3 col">◻◻◻</button>
-      </div>
-    </div>
-    <div class="sidebar-controls">
-      <span class="control-label">Zoom</span>
-      <div class="zoom-modes" id="zoomModes">
-        <button data-zoom="50" size-="small">S</button>
-        <button data-zoom="62" size-="small">M</button>
-        <button data-zoom="75" size-="small">L</button>
-        <button data-zoom="87" size-="small">XL</button>
-        <button data-zoom="100" size-="small">2X</button>
-      </div>
+    <div class="view-modes" id="viewModes">
+      <button data-view="1" title="1 column">1</button>
+      <button data-view="2" title="2 columns">2</button>
+      <button data-view="3" title="3 columns">3</button>
     </div>
     <div class="sidebar-stats">
-      <span class="stat" id="cpuStat">cpu <span>--%</span></span>
-      <span class="stat" id="memStat">mem <span>--%</span></span>
-      <span class="stat" id="diskStat">disk <span>--%</span></span>
+      <span class="stat" id="cpuStat"><span>--%</span>cpu</span>
+      <span class="stat" id="memStat"><span>--%</span>mem</span>
+      <span class="stat" id="diskStat"><span>--%</span>disk</span>
     </div>
   </div>
 </aside>

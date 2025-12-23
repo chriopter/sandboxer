@@ -119,25 +119,10 @@ body.sidebar-closed main {
 
 .sidebar-bottom {
   border-top: 1px solid var(--surface0);
-  padding: 0.5ch;
-}
-
-.sidebar-controls {
+  padding: 0.8ch;
   display: flex;
-  align-items: center;
-  gap: 0.5ch;
-  margin-bottom: 0.3ch;
-}
-
-.sidebar-controls:last-child {
-  margin-bottom: 0;
-}
-
-.control-label {
-  font-size: 0.7em;
-  color: var(--overlay0);
-  width: 3ch;
-  flex-shrink: 0;
+  flex-direction: column;
+  gap: 0.6ch;
 }
 
 .sidebar-list {
@@ -164,19 +149,20 @@ body.sidebar-closed main {
 
 .sidebar-list li:hover {
   background: var(--surface1);
-  transform: translateX(2px);
 }
 
-/* Session Type Icons */
+/* Ensure no prefix content */
 .sidebar-list li::before {
-  content: "› ";
-  color: var(--overlay0);
+  content: none;
 }
-.sidebar-list li.type-claude::before { content: "🤖 "; }
-.sidebar-list li.type-gemini::before { content: "✨ "; }
-.sidebar-list li.type-bash::before { content: ">_ "; color: var(--green); font-weight: bold; }
-.sidebar-list li.type-lazygit::before { content: "📦 "; }
-.sidebar-list li.type-resume::before { content: "↺ "; }
+
+/* Session type indicator - subtle left border */
+.sidebar-list li { border-left: 3px solid transparent; }
+.sidebar-list li.type-claude { border-left-color: var(--mauve); }
+.sidebar-list li.type-gemini { border-left-color: var(--blue); }
+.sidebar-list li.type-bash { border-left-color: var(--green); }
+.sidebar-list li.type-lazygit { border-left-color: var(--peach); }
+.sidebar-list li.type-resume { border-left-color: var(--teal); }
 
 .sidebar-toggle {
   position: absolute;
@@ -208,16 +194,17 @@ body.sidebar-closed main {
   font-size: 0.9rem;
 }
 
-.sidebar-action-row {
+.sidebar-actions {
   display: flex;
   flex-direction: column;
+  gap: 0.4ch;
 }
 
-.sidebar-ssh,
-.sidebar-close-all,
-.sidebar-restart {
+.sidebar-actions button {
   width: 100%;
-  margin-bottom: 0.5ch;
+  padding: 0.5em 1ch !important;
+  font-size: 0.85em;
+  text-align: left;
 }
 
 .sidebar-stats {
@@ -428,11 +415,6 @@ body.sidebar-closed main {
     flex-shrink: 0;
   }
 
-  /* Better session type indicators on mobile */
-  .sidebar-list li::before {
-    font-size: 1.1em;
-    margin-right: 2px;
-  }
 
   /* Bottom controls - cleaner layout */
   .sidebar-bottom {
@@ -444,30 +426,8 @@ body.sidebar-closed main {
     margin-top: auto;
   }
 
-  /* Action buttons - 3 equal columns */
-  .sidebar-action-row {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-  }
-
-  .sidebar-ssh,
-  .sidebar-close-all,
-  .sidebar-restart {
-    height: 48px;
-    font-size: 0.85em;
-    border-radius: 8px;
-    margin-bottom: 0;
-    width: 100%;
-  }
-
-  /* Hide view mode controls on mobile - use default */
-  .sidebar-controls:has(.view-modes) {
-    display: none;
-  }
-
-  /* Hide zoom controls on mobile */
-  .sidebar-controls:has(.zoom-modes) {
+  /* Hide controls row on mobile */
+  .sidebar-controls {
     display: none;
   }
 
@@ -484,11 +444,6 @@ body.sidebar-closed main {
     flex-direction: row;
     gap: 4px;
     font-size: 0.8em;
-  }
-
-  /* Hide emoji on mobile stats */
-  .sidebar-stats .stat::before {
-    display: none !important;
   }
 
   /* Fix card title truncation - allow 2 lines */
@@ -552,21 +507,20 @@ main {
 /* View mode buttons */
 .view-modes {
   display: flex;
-  flex: 1;
-  gap: 1px;
+  gap: 2px;
   background: var(--surface0);
-  border-radius: 3px;
-  padding: 2px;
+  border-radius: 4px;
+  padding: 3px;
 }
 
 .view-modes button {
   flex: 1;
-  padding: 0.2em 0 !important;
-  border-radius: 2px;
-  letter-spacing: -0.05em;
-  font-size: 0.7em;
+  padding: 0.4em 0 !important;
+  border-radius: 3px;
+  font-size: 0.8em;
   color: var(--overlay1) !important;
   background: transparent !important;
+  border: none !important;
 }
 
 .view-modes button:hover {
@@ -1079,22 +1033,17 @@ body.terminal-page {
 }
 
 .sidebar-stats .stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  font-size: 0.7em;
+  font-size: 0.8em;
+  color: var(--overlay1);
+  text-align: center;
 }
 
 .sidebar-stats .stat span {
+  color: var(--subtext0);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+  margin-right: 0.3ch;
 }
-
-/* Stats Icons */
-#cpuStat::before { content: "⚡ "; }
-#memStat::before { content: "🧠 "; }
-#diskStat::before { content: "💾 "; }
 
 /* Card Hover Polish */
 .card {
