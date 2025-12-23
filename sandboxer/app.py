@@ -49,10 +49,9 @@ def _load_sessions():
         try:
             with open(SESSIONS_FILE) as f:
                 data = json.load(f)
-            # Filter out expired sessions
             now = time.time()
             _auth_sessions = {k: v for k, v in data.items() if v > now}
-            _save_sessions()  # Save back without expired ones
+            _save_sessions()
         except (json.JSONDecodeError, IOError):
             _auth_sessions = {}
 
@@ -63,11 +62,10 @@ def _save_sessions():
         with open(SESSIONS_FILE, "w") as f:
             json.dump(_auth_sessions, f)
     except IOError:
-        pass  # Silent fail - sessions will work in-memory
+        pass
 
 
 def get_password_hash() -> str | None:
-    """Get stored password hash, or None if no password set."""
     if os.path.isfile(PASSWORD_FILE):
         with open(PASSWORD_FILE) as f:
             return f.read().strip()
@@ -75,11 +73,9 @@ def get_password_hash() -> str | None:
 
 
 def verify_password(password: str) -> bool:
-    """Verify password against stored hash."""
     stored = get_password_hash()
     if not stored:
-        return True  # No password = always valid
-    # Hash format: sha256:<hash>
+        return True
     if stored.startswith("sha256:"):
         expected = stored[7:]
         actual = hashlib.sha256(password.encode()).hexdigest()
@@ -88,7 +84,6 @@ def verify_password(password: str) -> bool:
 
 
 def create_session() -> str:
-    """Create a new auth session token valid for 30 days."""
     token = secrets.token_urlsafe(32)
     expiry = time.time() + SESSION_DURATION
     _auth_sessions[token] = expiry
@@ -97,11 +92,9 @@ def create_session() -> str:
 
 
 def is_valid_session(token: str) -> bool:
-    """Check if session token is valid and not expired."""
     if token not in _auth_sessions:
         return False
     if _auth_sessions[token] < time.time():
-        # Expired - clean up
         del _auth_sessions[token]
         _save_sessions()
         return False
@@ -109,14 +102,12 @@ def is_valid_session(token: str) -> bool:
 
 
 def destroy_session(token: str):
-    """Destroy an auth session."""
     if token in _auth_sessions:
         del _auth_sessions[token]
         _save_sessions()
 
 
 def get_selected_folder() -> str:
-    """Get the saved selected folder, or default."""
     if os.path.isfile(SELECTED_FOLDER_FILE):
         try:
             with open(SELECTED_FOLDER_FILE) as f:
@@ -127,7 +118,6 @@ def get_selected_folder() -> str:
 
 
 def save_selected_folder(folder: str):
-    """Save the selected folder."""
     try:
         with open(SELECTED_FOLDER_FILE, "w") as f:
             f.write(folder)
@@ -143,12 +133,10 @@ MIME_TYPES = {
     ".ico": "image/x-icon",
 }
 
-# Template cache
 _templates: dict[str, str] = {}
 
 
 def load_templates():
-    """Load all HTML templates into memory."""
     for filename in os.listdir(TEMPLATES_DIR):
         if filename.endswith(".html"):
             path = os.path.join(TEMPLATES_DIR, filename)
@@ -157,38 +145,47 @@ def load_templates():
 
 
 def render_template(name: str, **context) -> str:
-    """Render a template with variable substitution."""
     template = _templates.get(name, "")
     for key, value in context.items():
         template = template.replace("{{" + key + "}}", str(value))
     return template
 
 
-def build_single_card(s: dict) -> str:
-    """Build HTML for a single session card."""
+def build_single_card(s: dict, mode: str = "cli") -> str:
     port = sessions.get_ttyd_port(s["name"])
     terminal_url = f"/t/{port}/" if port else ""
     display_name = s.get("title") or s["name"]
     workdir = s.get("workdir") or ""
+    session_mode = sessions.get_session_mode(s["name"]) or mode
+    terminal_display = "none" if session_mode == "chat" else "block"
+    chat_display = "flex" if session_mode == "chat" else "none"
+    toggle_label = "CLI" if session_mode == "chat" else "Chat"
 
-    return f"""<article class="card" draggable="true" data-session="{escape(s['name'])}" data-workdir="{escape(workdir)}">
+    return f"""<article class="card" draggable="true" data-session="{escape(s['name'])}" data-workdir="{escape(workdir)}" data-mode="{session_mode}">
   <header>
     <span class="card-title" onclick="renameSession('{escape(s['name'])}')">{escape(display_name)}</span>
     <div class="card-actions">
+      <button size-="small" variant-="mauve" class="toggle-mode-btn" onclick="event.stopPropagation(); toggleMode('{escape(s['name'])}')">{toggle_label}</button>
       <button size-="small" onclick="event.stopPropagation(); window.open('/terminal?session=' + encodeURIComponent('{escape(s['name'])}'), '_blank')">↗</button>
       <button size-="small" variant-="teal" onclick="event.stopPropagation(); copySSH('{escape(s['name'])}')">ssh</button>
       <button size-="small" variant-="red" class="kill-btn" onclick="event.stopPropagation(); killSession(this, '{escape(s['name'])}')">×</button>
     </div>
   </header>
-  <div class="terminal">
+  <div class="terminal" style="display: {terminal_display}">
     <iframe src="{terminal_url}" scrolling="no" sandbox="allow-scripts allow-same-origin allow-forms allow-pointer-lock"></iframe>
     <button class="fullscreen-btn" size-="small" onclick="window.open('/terminal?session=' + encodeURIComponent('{escape(s['name'])}'), '_blank')">⛶</button>
+  </div>
+  <div class="chat" style="display: {chat_display}">
+    <div class="chat-messages"></div>
+    <div class="chat-input">
+      <textarea placeholder="Message Claude..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){{event.preventDefault();sendChat('{escape(s['name'])}')}}"></textarea>
+      <button variant-="green" onclick="sendChat('{escape(s['name'])}')">Send</button>
+    </div>
   </div>
 </article>"""
 
 
 def build_session_cards(sessions_list: list[dict]) -> str:
-    """Build HTML for session cards."""
     if not sessions_list:
         return """
 <div class="empty">
@@ -196,38 +193,44 @@ def build_session_cards(sessions_list: list[dict]) -> str:
   <p>no active sessions</p>
   <p class="hint">create one below</p>
 </div>"""
-
     return "".join(build_single_card(s) for s in sessions_list)
 
 
 def build_dir_options(selected_folder: str | None = None) -> str:
-    """Build HTML options for directory select."""
+    """Build HTML buttons for directory dropdown."""
     dirs = sessions.get_directories()
     selected = selected_folder or get_selected_folder()
-    options = []
+    buttons = []
     for d in dirs:
-        sel = ' selected' if d == selected else ''
-        options.append(f'<option value="{d}"{sel}>{d}</option>')
-    return "\n".join(options)
+        name = d.split("/")[-1] if d != "/" else "/"
+        aria = "true" if d == selected else "false"
+        buttons.append(f'<button data-value="{escape(d)}" size-="small" aria-selected="{aria}">{escape(name)}</button>')
+    return "\n          ".join(buttons)
+
+
+def get_folder_display_name(folder: str, max_len: int = 10) -> str:
+    """Get display name for a folder path, truncated if needed."""
+    if folder == "/":
+        return "/"
+    name = folder.split("/")[-1] or folder
+    if len(name) > max_len:
+        return name[:max_len-1] + "…"
+    return name
 
 
 def folder_name_to_path(name: str) -> str | None:
-    """Convert folder name like 'sandboxer' to full path, or None if not found."""
     if name == "/":
         return "/"
     dirs = sessions.get_directories()
-    # Try exact match with folder name
     for d in dirs:
         if d.rstrip("/").split("/")[-1] == name:
             return d
-    # Try if it's already a full path
     if name in dirs:
         return name
     return None
 
 
 def path_to_folder_name(path: str) -> str:
-    """Convert full path to folder name for URLs."""
     if path == "/":
         return ""
     return path.rstrip("/").split("/")[-1]
@@ -235,10 +238,9 @@ def path_to_folder_name(path: str) -> str:
 
 class Handler(http.server.BaseHTTPRequestHandler):
     def log_message(self, format, *args):
-        pass  # Suppress logging
+        pass
 
     def get_cookie(self, name: str) -> str | None:
-        """Get a cookie value."""
         cookie_header = self.headers.get("Cookie", "")
         cookies = http.cookies.SimpleCookie()
         cookies.load(cookie_header)
@@ -247,8 +249,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
         return None
 
     def is_authenticated(self) -> bool:
-        """Check if request is authenticated."""
-        # No password set = no auth required
         if not get_password_hash():
             return True
         token = self.get_cookie("sandboxer_session")
@@ -280,7 +280,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
         query = urllib.parse.parse_qs(parsed.query)
         path = parsed.path
 
-        # ─── Login Page (always accessible) ───
         if path == "/login":
             if self.is_authenticated():
                 self.send_redirect("/")
@@ -291,7 +290,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_html(html)
             return
 
-        # ─── Logout ───
         if path == "/logout":
             token = self.get_cookie("sandboxer_session")
             if token:
@@ -299,12 +297,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_redirect("/login", {"Set-Cookie": "sandboxer_session=; Path=/; Max-Age=0"})
             return
 
-        # ─── Auth Check (except static files) ───
         if not path.startswith("/static/") and not self.is_authenticated():
             self.send_redirect("/login")
             return
 
-        # ─── Static Files ───
         if path.startswith("/static/"):
             filename = path[8:]
             filepath = os.path.join(STATIC_DIR, filename)
@@ -320,38 +316,31 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        # ─── Main Page (with optional folder in URL) ───
-        # Handle paths like /, /sandboxer, /valiido
         folder_from_url = None
         if path == "/":
-            folder_from_url = None  # Use saved folder
+            folder_from_url = None
         elif path.startswith("/") and "/" not in path[1:]:
-            # Single path component like /sandboxer
-            folder_name = path[1:]  # Remove leading /
+            folder_name = path[1:]
             folder_from_url = folder_name_to_path(folder_name)
-            if folder_from_url is None:
-                # Not a valid folder, might be another route
-                pass
 
         if path == "/" or folder_from_url is not None:
             selected_folder = folder_from_url or get_selected_folder()
             tmux_sessions = sessions.get_tmux_sessions()
             ordered = sessions.get_ordered_sessions(tmux_sessions)
-
-            # Start ttyd for each session
             for s in ordered:
-                sessions.start_ttyd(s["name"])
-
+                if sessions.get_session_mode(s["name"]) != "chat":
+                    sessions.start_ttyd(s["name"])
             html = render_template(
                 "index.html",
                 cards=build_session_cards(ordered),
                 dir_options=build_dir_options(selected_folder),
+                selected_folder=selected_folder,
+                selected_folder_name=get_folder_display_name(selected_folder),
                 system_prompt_path=sessions.SYSTEM_PROMPT_PATH,
             )
             self.send_html(html)
             return
 
-        # ─── Terminal Page ───
         if path == "/terminal":
             session_name = query.get("session", [""])[0]
             if session_name:
@@ -366,7 +355,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_redirect("/")
             return
 
-        # ─── Create Session ───
         if path == "/create":
             session_type = query.get("type", ["claude"])[0]
             workdir = query.get("dir", ["/home/sandboxer/git/sandboxer"])[0]
@@ -376,7 +364,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_redirect("/")
             return
 
-        # ─── Rename Session ───
         if path == "/rename":
             old = query.get("old", [""])[0]
             new = query.get("new", [""])[0]
@@ -385,7 +372,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_redirect("/")
             return
 
-        # ─── Kill Session ───
         if path == "/kill":
             name = query.get("session", [""])[0]
             if name:
@@ -393,7 +379,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_redirect("/")
             return
 
-        # ─── Restart Service ───
         if path == "/restart":
             self.send_html(
                 "<html><body style='background:#000;color:#0f0;font-family:monospace;padding:20px'>"
@@ -402,22 +387,23 @@ class Handler(http.server.BaseHTTPRequestHandler):
             subprocess.Popen(["systemctl", "restart", "sandboxer"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             return
 
-        # ─── API: Create Session (returns card HTML) ───
         if path == "/api/create":
             session_type = query.get("type", ["claude"])[0]
             workdir = query.get("dir", ["/home/sandboxer/git/sandboxer"])[0]
             resume_id = query.get("resume_id", [None])[0]
             name = sessions.generate_session_name(session_type, workdir)
             sessions.create_session(name, session_type, workdir, resume_id)
-
-            # Build card HTML for the new session
-            sessions.start_ttyd(name)
-            s = {"name": name, "title": name, "workdir": workdir}
-            card_html = build_single_card(s)
-            self.send_json({"ok": True, "name": name, "html": card_html})
+            if session_type == "chat":
+                sessions.start_chat_claude(name, workdir, resume_id)
+                s = {"name": name, "title": name, "workdir": workdir}
+                card_html = build_single_card(s, mode="chat")
+            else:
+                sessions.start_ttyd(name)
+                s = {"name": name, "title": name, "workdir": workdir}
+                card_html = build_single_card(s, mode="cli")
+            self.send_json({"ok": True, "name": name, "html": card_html, "mode": session_type if session_type == "chat" else "cli"})
             return
 
-        # ─── API: Sessions ───
         if path == "/api/sessions":
             tmux_sessions = sessions.get_tmux_sessions()
             ordered = sessions.get_ordered_sessions(tmux_sessions)
@@ -426,43 +412,73 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_json(ordered)
             return
 
-        # ─── API: Resume Sessions ───
         if path == "/api/resume-sessions":
             workdir = query.get("dir", ["/home/sandboxer/git/sandboxer"])[0]
             resumable = sessions.get_resumable_sessions(workdir)
             self.send_json(resumable)
             return
 
-        # ─── API: System Stats ───
+        if path == "/api/chat-stream":
+            session_name = query.get("session", [""])[0]
+            if not session_name:
+                self.send_json({"error": "session required"}, 400)
+                return
+            proc_info = sessions.get_chat_process(session_name)
+            if not proc_info:
+                self.send_json({"error": "No chat process for session"}, 404)
+                return
+            proc, _, init_line = proc_info
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Connection", "keep-alive")
+            self.send_header("X-Accel-Buffering", "no")
+            self.end_headers()
+            try:
+                if init_line:
+                    data = init_line.decode().strip()
+                    if data:
+                        self.wfile.write(f"data: {data}\n\n".encode())
+                        self.wfile.flush()
+                while True:
+                    if proc.poll() is not None:
+                        self.wfile.write(b"event: end\ndata: {}\n\n")
+                        self.wfile.flush()
+                        break
+                    line = proc.stdout.readline()
+                    if not line:
+                        time.sleep(0.01)
+                        continue
+                    data = line.decode().strip()
+                    if data:
+                        self.wfile.write(f"data: {data}\n\n".encode())
+                        self.wfile.flush()
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+            return
+
         if path == "/api/stats":
             try:
-                # CPU usage
                 with open("/proc/stat") as f:
                     cpu_line = f.readline()
                 cpu_parts = cpu_line.split()[1:5]
                 idle = int(cpu_parts[3])
                 total = sum(int(x) for x in cpu_parts)
                 cpu_pct = 100 - (idle * 100 // total) if total else 0
-
-                # Memory usage
                 with open("/proc/meminfo") as f:
                     lines = f.readlines()
                 mem_total = int(lines[0].split()[1])
                 mem_avail = int(lines[2].split()[1])
                 mem_pct = 100 - (mem_avail * 100 // mem_total) if mem_total else 0
-
-                # Disk usage
                 stat = os.statvfs("/")
                 disk_total = stat.f_blocks * stat.f_frsize
                 disk_free = stat.f_bavail * stat.f_frsize
                 disk_pct = 100 - (disk_free * 100 // disk_total) if disk_total else 0
-
                 self.send_json({"cpu": cpu_pct, "mem": mem_pct, "disk": disk_pct})
             except Exception:
                 self.send_json({"cpu": 0, "mem": 0, "disk": 0})
             return
 
-        # ─── 404 ───
         self.send_response(404)
         self.end_headers()
 
@@ -472,24 +488,20 @@ class Handler(http.server.BaseHTTPRequestHandler):
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
 
-        # ─── Login ───
         if path == "/login":
             form = urllib.parse.parse_qs(body.decode())
             password = form.get("password", [""])[0]
             if verify_password(password):
                 token = create_session()
-                # Cookie expires in 30 days (matches session duration)
                 self.send_redirect("/", {"Set-Cookie": f"sandboxer_session={token}; Path=/; HttpOnly; SameSite=Strict; Max-Age={SESSION_DURATION}"})
             else:
                 self.send_redirect("/login?error=1")
             return
 
-        # ─── Auth Check for all other POST endpoints ───
         if not self.is_authenticated():
             self.send_json({"error": "unauthorized"}, 401)
             return
 
-        # ─── API: Set Order ───
         if path == "/api/order":
             try:
                 data = json.loads(body)
@@ -503,7 +515,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.send_json({"error": str(e)}, 500)
             return
 
-        # ─── API: Set Selected Folder ───
         if path == "/api/selected-folder":
             try:
                 data = json.loads(body)
@@ -517,113 +528,125 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.send_json({"error": str(e)}, 500)
             return
 
-        # ─── API: Upload Image ───
         if path == "/api/upload":
             try:
                 data = json.loads(body)
                 image_b64 = data.get("image", "")
                 filename = data.get("filename", f"clipboard_{int(time.time())}.png")
-
-                # Sanitize filename
                 filename = os.path.basename(filename)
                 if not filename:
                     filename = f"clipboard_{int(time.time())}.png"
-
                 filepath = os.path.join(UPLOADS_DIR, filename)
-
-                # Decode and save
                 image_data = base64.b64decode(image_b64)
                 with open(filepath, "wb") as f:
                     f.write(image_data)
-
                 self.send_json({"ok": True, "path": filepath})
             except Exception as e:
                 self.send_json({"error": str(e)}, 500)
             return
 
-        # ─── API: Inject Text to Session ───
         if path == "/api/inject":
             try:
                 data = json.loads(body)
                 session_name = data.get("session", "")
                 text = data.get("text", "")
-
                 if not session_name or not text:
                     self.send_json({"error": "session and text required"}, 400)
                     return
-
-                # Send text to tmux session
-                subprocess.run(
-                    ["tmux", "send-keys", "-t", session_name, "-l", text],
-                    capture_output=True
-                )
+                subprocess.run(["tmux", "send-keys", "-t", session_name, "-l", text], capture_output=True)
                 self.send_json({"ok": True})
             except Exception as e:
                 self.send_json({"error": str(e)}, 500)
             return
 
-        # ─── API: Send Key to Session (for special keys) ───
         if path == "/api/send-key":
             try:
                 data = json.loads(body)
                 session_name = data.get("session", "")
                 key = data.get("key", "")
-
                 if not session_name or not key:
                     self.send_json({"error": "session and key required"}, 400)
                     return
-
-                # Send key to tmux session (without -l, interprets key names)
-                subprocess.run(
-                    ["tmux", "send-keys", "-t", session_name, key],
-                    capture_output=True
-                )
+                subprocess.run(["tmux", "send-keys", "-t", session_name, key], capture_output=True)
                 self.send_json({"ok": True})
             except Exception as e:
                 self.send_json({"error": str(e)}, 500)
             return
 
-        # ─── API: Tmux Scroll (for mobile touch scrolling) ───
-        # IMPORTANT: This endpoint enables mobile scrolling on iOS Safari.
-        # xterm.js touch scroll doesn't work, so terminal.js sends swipe
-        # gestures here to scroll via tmux copy-mode. DO NOT DELETE.
+        if path == "/api/chat-send":
+            try:
+                data = json.loads(body)
+                session_name = data.get("session", "")
+                message = data.get("message", "")
+                if not session_name or not message:
+                    self.send_json({"error": "session and message required"}, 400)
+                    return
+                success = sessions.send_chat_message(session_name, message)
+                if success:
+                    self.send_json({"ok": True})
+                else:
+                    self.send_json({"error": "Failed to send message"}, 500)
+            except Exception as e:
+                self.send_json({"error": str(e)}, 500)
+            return
+
+        if path == "/api/chat-toggle":
+            try:
+                data = json.loads(body)
+                session_name = data.get("session", "")
+                target_mode = data.get("target_mode", "")
+                if not session_name or target_mode not in ("cli", "chat"):
+                    self.send_json({"error": "session and target_mode (cli/chat) required"}, 400)
+                    return
+                meta = sessions.session_meta.get(session_name, {})
+                workdir = meta.get("workdir", "/home/sandboxer")
+                claude_session_id = meta.get("claude_session_id", "")
+                if target_mode == "cli":
+                    session_id = sessions.stop_chat_claude(session_name)
+                    existing = {s["name"] for s in sessions.get_tmux_sessions()}
+                    if session_name not in existing:
+                        subprocess.run(["tmux", "new-session", "-d", "-s", session_name, "-c", workdir], capture_output=True)
+                        subprocess.run(["tmux", "set", "-t", session_name, "mouse", "on"], capture_output=True)
+                    if session_id or claude_session_id:
+                        resume_id = session_id or claude_session_id
+                        cmd = f"IS_SANDBOX=1 claude --dangerously-skip-permissions --resume {resume_id} --system-prompt {sessions.SYSTEM_PROMPT_PATH}"
+                        subprocess.run(["tmux", "send-keys", "-t", session_name, cmd, "Enter"], capture_output=True)
+                    port = sessions.start_ttyd(session_name)
+                    sessions.set_session_mode(session_name, "cli")
+                    self.send_json({"ok": True, "mode": "cli", "port": port, "terminal_url": f"/t/{port}/"})
+                else:
+                    sessions.stop_ttyd(session_name)
+                    subprocess.run(["tmux", "send-keys", "-t", session_name, "C-c"], capture_output=True)
+                    time.sleep(0.5)
+                    proc, session_id, init_line = sessions.start_chat_claude(session_name, workdir, claude_session_id)
+                    sessions.set_session_mode(session_name, "chat")
+                    self.send_json({"ok": True, "mode": "chat", "init": init_line.decode() if init_line else ""})
+            except Exception as e:
+                self.send_json({"error": str(e)}, 500)
+            return
+
         if path == "/api/tmux-scroll":
             try:
                 data = json.loads(body)
                 session_name = data.get("session", "")
                 direction = data.get("direction", "up")
-
                 if not session_name:
                     self.send_json({"error": "session required"}, 400)
                     return
-
-                # Check if already in copy mode
                 result = subprocess.run(
                     ["tmux", "display-message", "-t", session_name, "-p", "#{pane_in_mode}"],
                     capture_output=True, text=True
                 )
                 in_copy_mode = result.stdout.strip() == "1"
-
                 if not in_copy_mode:
-                    # Enter copy mode first
-                    subprocess.run(
-                        ["tmux", "copy-mode", "-t", session_name],
-                        capture_output=True
-                    )
-
-                # Send scroll command
+                    subprocess.run(["tmux", "copy-mode", "-t", session_name], capture_output=True)
                 scroll_cmd = "scroll-up" if direction == "up" else "scroll-down"
-                subprocess.run(
-                    ["tmux", "send-keys", "-t", session_name, "-X", "-N", "3", scroll_cmd],
-                    capture_output=True
-                )
-
+                subprocess.run(["tmux", "send-keys", "-t", session_name, "-X", "-N", "3", scroll_cmd], capture_output=True)
                 self.send_json({"ok": True})
             except Exception as e:
                 self.send_json({"error": str(e)}, 500)
             return
 
-        # ─── 404 ───
         self.send_response(404)
         self.end_headers()
 
@@ -634,12 +657,10 @@ def cleanup(sig, frame):
 
 
 class ThreadedHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
-    """Handle requests in separate threads."""
     daemon_threads = True
 
 
 def sd_notify(state: str):
-    """Send notification to systemd."""
     addr = os.environ.get("NOTIFY_SOCKET")
     if not addr:
         return
@@ -655,7 +676,6 @@ def sd_notify(state: str):
 
 
 def watchdog_thread(interval: float):
-    """Periodically ping systemd watchdog."""
     while True:
         time.sleep(interval)
         sd_notify("WATCHDOG=1")
@@ -664,25 +684,17 @@ def watchdog_thread(interval: float):
 def main():
     signal.signal(signal.SIGTERM, cleanup)
     signal.signal(signal.SIGINT, cleanup)
-
-    _load_sessions()  # Load persisted auth sessions from disk
+    _load_sessions()
     load_templates()
-
-    # Restore tmux sessions after reboot
     restored = sessions.restore_sessions()
     if restored:
         print(f"restored {restored} session(s) from last run")
-
-    # Start watchdog thread if systemd watchdog is enabled
     watchdog_usec = os.environ.get("WATCHDOG_USEC")
     if watchdog_usec:
-        interval = int(watchdog_usec) / 1_000_000 / 2  # Ping at half the interval
+        interval = int(watchdog_usec) / 1_000_000 / 2
         t = threading.Thread(target=watchdog_thread, args=(interval,), daemon=True)
         t.start()
-
-    # Notify systemd we're ready
     sd_notify("READY=1")
-
     print(f"sandboxer http://127.0.0.1:{PORT}")
     server = ThreadedHTTPServer(("127.0.0.1", PORT), Handler)
     server.serve_forever()

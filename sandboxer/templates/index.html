@@ -21,27 +21,40 @@
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-header">
-    <select id="dir" class="dir-select" onchange="onDirOrTypeChange()">
-      {{dir_options}}
-    </select>
-    <button class="sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">≡</button>
-  </div>
-  <div class="sidebar-new">
-    <select id="type" onchange="onDirOrTypeChange()">
-      <option value="claude">claude</option>
-      <option value="gemini">gemini</option>
-      <option value="resume">resume</option>
-      <option value="lazygit">lazygit</option>
-      <option value="bash">bash</option>
-    </select>
+    <button variant-="green" size-="small" class="sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">≡</button>
+    <select-dropdown id="dirSelect" data-value="{{selected_folder}}">
+      <details is-="popover" position-="bottom">
+        <summary tabindex="0" is-="button" size-="small">{{selected_folder_name}}</summary>
+        <column id="dirOptions">
+          {{dir_options}}
+        </column>
+      </details>
+    </select-dropdown>
+    <select-dropdown id="typeSelect" data-value="claude">
+      <details is-="popover" position-="bottom">
+        <summary tabindex="0" is-="button" size-="small">claude</summary>
+        <column id="typeOptions">
+          <button data-value="claude" size-="small" aria-selected="true">claude</button>
+          <button data-value="chat" size-="small" aria-selected="false">chat</button>
+          <button data-value="gemini" size-="small" aria-selected="false">gemini</button>
+          <button data-value="resume" size-="small" aria-selected="false">resume</button>
+          <button data-value="lazygit" size-="small" aria-selected="false">lazygit</button>
+          <button data-value="bash" size-="small" aria-selected="false">bash</button>
+        </column>
+      </details>
+    </select-dropdown>
     <span id="resumeWrap" class="resume-wrap">
-      <select id="resumeSession">
-        <option value="">...</option>
-      </select>
+      <select-dropdown id="resumeSelect" data-value="">
+        <details is-="popover" position-="bottom">
+          <summary tabindex="0" is-="button" size-="small">...</summary>
+          <column id="resumeOptions">
+          </column>
+        </details>
+      </select-dropdown>
     </span>
-    <button variant-="green" size-="small" onclick="createSession()" class="new-btn">+ new</button>
+    <button variant-="green" size-="small" onclick="createSession()" class="new-btn">+</button>
   </div>
-  <button variant-="green" class="sidebar-new-collapsed" onclick="createSession()" title="New claude session">+</button>
+  <button variant-="green" size-="small" class="sidebar-new-collapsed" onclick="createSession()" title="New session">+</button>
   <ul class="sidebar-list" id="sidebarList">
   </ul>
   <div class="sidebar-bottom">

@@ -2,12 +2,82 @@
 
 let resumeSessionsCache = {};
 
+// ═══ WebTUI Select Dropdown Custom Element ═══
+
+class SelectDropdown extends HTMLElement {
+  connectedCallback() {
+    const self = this;
+    const details = this.querySelector("details");
+    const summary = this.querySelector("summary");
+    const buttons = Array.from(this.querySelectorAll("column > button"));
+
+    buttons.forEach(btn => {
+      btn.addEventListener("click", () => {
+        // Update aria-selected on all buttons
+        buttons.forEach(b => b.setAttribute("aria-selected", "false"));
+        btn.setAttribute("aria-selected", "true");
+
+        // Update data-value on the select-dropdown element
+        const value = btn.getAttribute("data-value");
+        self.setAttribute("data-value", value);
+
+        // Update summary text
+        if (summary) {
+          summary.textContent = btn.textContent.trim();
+        }
+
+        // Close the dropdown
+        if (details) details.removeAttribute("open");
+
+        // Dispatch change event
+        self.dispatchEvent(new CustomEvent("change", { detail: { value } }));
+      });
+    });
+  }
+
+  get value() {
+    return this.getAttribute("data-value") || "";
+  }
+
+  set value(v) {
+    this.setAttribute("data-value", v);
+    const summary = this.querySelector("summary");
+    const btn = this.querySelector(`column > button[data-value="${v}"]`);
+    if (summary && btn) {
+      summary.textContent = btn.textContent.trim();
+      // Update aria-selected
+      this.querySelectorAll("column > button").forEach(b =>
+        b.setAttribute("aria-selected", b === btn ? "true" : "false")
+      );
+    }
+  }
+}
+
+customElements.define("select-dropdown", SelectDropdown);
+
+// ═══ Dropdown Helpers ═══
+
+function getSelectedDir() {
+  const el = document.getElementById("dirSelect");
+  return el?.value || "/";
+}
+
+function getSelectedType() {
+  const el = document.getElementById("typeSelect");
+  return el?.value || "claude";
+}
+
+function getSelectedResume() {
+  const el = document.getElementById("resumeSelect");
+  return el?.value || "";
+}
+
 // ═══ Session Management ═══
 
 async function createSession(forceType) {
-  const type = forceType || document.getElementById("type").value;
-  const dir = document.getElementById("dir").value;
-  const resumeId = document.getElementById("resumeSession").value;
+  const type = forceType || getSelectedType();
+  const dir = getSelectedDir();
+  const resumeId = getSelectedResume();
 
   if (!forceType) localStorage.setItem("sandboxer_type", type);
 
@@ -92,7 +162,7 @@ async function closeAllSessions() {
     return;
   }
 
-  const dir = document.getElementById("dir").value;
+  const dir = getSelectedDir();
   const folderName = dir === "/" ? "all folders" : dir.split("/").pop() || dir;
 
   if (!confirm(`Close ${visibleSessions.length} session(s) in "${folderName}"?`)) {
@@ -135,7 +205,7 @@ async function copySSH(sessionName) {
 
 async function copyTakeover() {
   const host = window.location.hostname;
-  const dir = document.getElementById("dir").value;
+  const dir = getSelectedDir();
 
   // Include folder context in SSH command
   let cmd;
@@ -198,8 +268,15 @@ function formatTimeAgo(mtime) {
 }
 
 async function loadResumeSessions(dir) {
-  const select = document.getElementById("resumeSession");
-  select.innerHTML = '<option value="">loading...</option>';
+  const resumeSelect = document.getElementById("resumeSelect");
+  const optionsCol = document.getElementById("resumeOptions");
+  const summary = resumeSelect?.querySelector("summary");
+
+  if (!optionsCol) return;
+
+  optionsCol.innerHTML = '<span style="padding:0.5em;color:var(--overlay0)">loading...</span>';
+  if (summary) summary.textContent = "...";
+  if (resumeSelect) resumeSelect.setAttribute("data-value", "");
 
   try {
     const res = await fetch("/api/resume-sessions?dir=" + encodeURIComponent(dir));
@@ -207,26 +284,39 @@ async function loadResumeSessions(dir) {
     resumeSessionsCache[dir] = sessions;
 
     if (sessions.length === 0) {
-      select.innerHTML = '<option value="">(no sessions to resume)</option>';
+      optionsCol.innerHTML = '<span style="padding:0.5em;color:var(--overlay0)">(no sessions)</span>';
     } else {
-      select.innerHTML = sessions
+      optionsCol.innerHTML = sessions
         .map((s) => {
           const timeAgo = formatTimeAgo(s.mtime);
-          const msgs = s.message_count || 0;
-          const branch = s.branch || "-";
-          const label = s.summary.length > 40 ? s.summary.slice(0, 40) + "\u2026" : s.summary;
-          return `<option value="${s.id}">${label} \u00B7 ${timeAgo} \u00B7 ${msgs} msgs \u00B7 ${branch}</option>`;
+          const label = s.summary.length > 25 ? s.summary.slice(0, 25) + "\u2026" : s.summary;
+          return `<button data-value="${s.id}" size-="small" aria-selected="false">${label} <span style="color:var(--overlay0)">${timeAgo}</span></button>`;
         })
         .join("");
+
+      // Set up click handlers for dynamically added buttons
+      optionsCol.querySelectorAll("button").forEach(btn => {
+        btn.addEventListener("click", () => {
+          optionsCol.querySelectorAll("button").forEach(b => b.setAttribute("aria-selected", "false"));
+          btn.setAttribute("aria-selected", "true");
+          const value = btn.getAttribute("data-value");
+          const label = btn.childNodes[0]?.textContent?.trim() || "...";
+          if (resumeSelect) {
+            resumeSelect.setAttribute("data-value", value);
+            if (summary) summary.textContent = label;
+            resumeSelect.querySelector("details")?.removeAttribute("open");
+          }
+        });
+      });
     }
   } catch (err) {
-    select.innerHTML = '<option value="">(error loading sessions)</option>';
+    optionsCol.innerHTML = '<span style="padding:0.5em;color:var(--red)">(error)</span>';
   }
 }
 
 function onDirOrTypeChange() {
-  const type = document.getElementById("type").value;
-  const dir = document.getElementById("dir").value;
+  const type = getSelectedType();
+  const dir = getSelectedDir();
   const resumeWrap = document.getElementById("resumeWrap");
 
   if (type === "resume") {
@@ -615,23 +705,31 @@ function initDirDropdown() {
 // ═══ Initialization ═══
 
 (function init() {
-  // Restore type preference (folder is server-side via selected attribute)
-  const savedType = localStorage.getItem("sandboxer_type");
-  if (savedType) document.getElementById("type").value = savedType;
+  // Set up change listeners for custom dropdowns
+  const dirSelect = document.getElementById("dirSelect");
+  const typeSelect = document.getElementById("typeSelect");
 
-  // Apply initial folder filter (folder already selected by server)
-  const currentDir = document.getElementById("dir").value;
-  filterSessionsByFolder(currentDir);
-
-  // Trigger change handler to show resume dropdown if needed
-  const type = document.getElementById("type").value;
-  if (type === "resume") {
-    document.getElementById("resumeWrap").classList.add("show");
-    loadResumeSessions(currentDir);
+  if (dirSelect) {
+    dirSelect.addEventListener("change", onDirOrTypeChange);
   }
 
-  // Initialize dir dropdown (short/full path toggle)
-  initDirDropdown();
+  if (typeSelect) {
+    // Restore type preference
+    const savedType = localStorage.getItem("sandboxer_type");
+    if (savedType) {
+      typeSelect.value = savedType;
+    }
+    typeSelect.addEventListener("change", onDirOrTypeChange);
+  }
+
+  // Apply initial folder filter
+  filterSessionsByFolder(getSelectedDir());
+
+  // Trigger change handler to show resume dropdown if needed
+  if (getSelectedType() === "resume") {
+    document.getElementById("resumeWrap").classList.add("show");
+    loadResumeSessions(getSelectedDir());
+  }
 
   // Initialize drag and drop
   initDragAndDrop();
@@ -685,3 +783,216 @@ function initDirDropdown() {
     return undefined;
   });
 })();
+
+// ═══ Chat Mode ═══
+
+const chatConnections = {};  // session -> EventSource
+
+function connectChat(sessionName) {
+  if (chatConnections[sessionName]) {
+    return;  // Already connected
+  }
+
+  const card = document.querySelector('[data-session="' + sessionName + '"]');
+  if (!card) return;
+
+  const messagesContainer = card.querySelector(".chat-messages");
+  if (!messagesContainer) return;
+
+  const es = new EventSource("/api/chat-stream?session=" + encodeURIComponent(sessionName));
+  chatConnections[sessionName] = es;
+
+  let currentAssistantBubble = null;
+  let currentAssistantText = "";
+
+  es.onmessage = function(e) {
+    try {
+      const event = JSON.parse(e.data);
+      handleChatEvent(sessionName, event, messagesContainer, {
+        getCurrentBubble: function() { return currentAssistantBubble; },
+        setCurrentBubble: function(b) { currentAssistantBubble = b; },
+        getCurrentText: function() { return currentAssistantText; },
+        setCurrentText: function(t) { currentAssistantText = t; },
+      });
+    } catch (err) {
+      console.error("Failed to parse chat event:", err);
+    }
+  };
+
+  es.addEventListener("end", function() {
+    disconnectChat(sessionName);
+  });
+
+  es.onerror = function() {
+    disconnectChat(sessionName);
+  };
+}
+
+function disconnectChat(sessionName) {
+  if (chatConnections[sessionName]) {
+    chatConnections[sessionName].close();
+    delete chatConnections[sessionName];
+  }
+}
+
+function handleChatEvent(session, event, container, state) {
+  // Handle different event types from Claude JSON stream
+  if (event.type === "assistant") {
+    // Full assistant message
+    const content = event.message && event.message.content;
+    if (content && Array.isArray(content)) {
+      for (let i = 0; i < content.length; i++) {
+        const block = content[i];
+        if (block.type === "text") {
+          renderChatMessage(container, "assistant", block.text);
+        }
+      }
+    }
+    state.setCurrentBubble(null);
+    state.setCurrentText("");
+  } else if (event.type === "content_block_start") {
+    // Start of a new content block
+    if (event.content_block && event.content_block.type === "text") {
+      const bubble = document.createElement("div");
+      bubble.className = "chat-message assistant streaming";
+      container.appendChild(bubble);
+      state.setCurrentBubble(bubble);
+      state.setCurrentText("");
+      container.scrollTop = container.scrollHeight;
+    }
+  } else if (event.type === "content_block_delta") {
+    // Streaming text delta
+    const delta = event.delta && event.delta.text;
+    if (delta && state.getCurrentBubble()) {
+      state.setCurrentText(state.getCurrentText() + delta);
+      state.getCurrentBubble().textContent = state.getCurrentText();
+      container.scrollTop = container.scrollHeight;
+    }
+  } else if (event.type === "content_block_stop") {
+    // End of content block - remove streaming class
+    if (state.getCurrentBubble()) {
+      state.getCurrentBubble().classList.remove("streaming");
+    }
+    state.setCurrentBubble(null);
+  } else if (event.type === "result") {
+    // Completion result
+    state.setCurrentBubble(null);
+    state.setCurrentText("");
+  }
+}
+
+function renderChatMessage(container, role, content) {
+  const bubble = document.createElement("div");
+  bubble.className = "chat-message " + role;
+  bubble.textContent = content;
+  container.appendChild(bubble);
+  container.scrollTop = container.scrollHeight;
+}
+
+async function sendChat(sessionName) {
+  const card = document.querySelector('[data-session="' + sessionName + '"]');
+  if (!card) return;
+
+  const textarea = card.querySelector(".chat-input textarea");
+  const messagesContainer = card.querySelector(".chat-messages");
+  if (!textarea || !messagesContainer) return;
+
+  const message = textarea.value.trim();
+  if (!message) return;
+
+  // Render user message
+  renderChatMessage(messagesContainer, "user", message);
+  textarea.value = "";
+
+  // Send to server
+  try {
+    const res = await fetch("/api/chat-send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session: sessionName, message: message }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      showToast("Failed to send: " + (err.error || "Unknown error"), "error");
+    }
+  } catch (err) {
+    showToast("Failed to send message", "error");
+  }
+}
+
+async function toggleMode(sessionName) {
+  const card = document.querySelector('[data-session="' + sessionName + '"]');
+  if (!card) return;
+
+  const currentMode = card.dataset.mode || "cli";
+  const targetMode = currentMode === "chat" ? "cli" : "chat";
+
+  // Show loading state
+  const toggleBtn = card.querySelector(".toggle-mode-btn");
+  if (toggleBtn) {
+    toggleBtn.textContent = "...";
+    toggleBtn.disabled = true;
+  }
+
+  try {
+    // Disconnect existing chat connection if switching away from chat
+    if (currentMode === "chat") {
+      disconnectChat(sessionName);
+    }
+
+    const res = await fetch("/api/chat-toggle", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session: sessionName, target_mode: targetMode }),
+    });
+
+    const data = await res.json();
+    if (!data.ok) {
+      throw new Error(data.error || "Toggle failed");
+    }
+
+    // Update card UI
+    card.dataset.mode = targetMode;
+    const terminalDiv = card.querySelector(".terminal");
+    const chatDiv = card.querySelector(".chat");
+
+    if (targetMode === "chat") {
+      if (terminalDiv) terminalDiv.style.display = "none";
+      if (chatDiv) chatDiv.style.display = "flex";
+      if (toggleBtn) toggleBtn.textContent = "CLI";
+      // Connect to chat stream
+      connectChat(sessionName);
+    } else {
+      if (terminalDiv) {
+        terminalDiv.style.display = "block";
+        // Update iframe src if we got a new terminal URL
+        if (data.terminal_url) {
+          const iframe = terminalDiv.querySelector("iframe");
+          if (iframe) iframe.src = data.terminal_url;
+        }
+      }
+      if (chatDiv) chatDiv.style.display = "none";
+      if (toggleBtn) toggleBtn.textContent = "Chat";
+    }
+
+    // Recalculate terminal scales
+    setTimeout(updateTerminalScales, 100);
+
+  } catch (err) {
+    showToast("Failed to toggle mode: " + err.message, "error");
+    // Restore button state
+    if (toggleBtn) {
+      toggleBtn.textContent = currentMode === "chat" ? "CLI" : "Chat";
+    }
+  } finally {
+    if (toggleBtn) toggleBtn.disabled = false;
+  }
+}
+
+// Connect chat sessions on page load
+document.querySelectorAll('.card[data-mode="chat"]').forEach(function(card) {
+  const sessionName = card.dataset.session;
+  if (sessionName) {
+    connectChat(sessionName);
+  }
+});
