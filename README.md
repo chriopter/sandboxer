@@ -11,11 +11,11 @@
 
 ## Features
 
-- **Live previews** - See all sessions at a glance in a scalable grid layout
-- **Web Chat UI** - Chat with Claude through a web interface with SQLite-backed message history and cross-tab sync
-- **Session persistence** - tmux-backed sessions survive restarts; Claude conversations resume via `--resume`
-- **SSH takeover** - `ssh -t sandboxer@host sandboxer-shell` to take over sessions (TAB for multi-select split view)
-- **Mobile-ready** - Full responsive UI with touch controls and collapsible sidebar
+- **Live previews** - See all Claude sessions at a glance in a scalable grid layout
+- **CLI ↔ Chat toggle** - Switch any session between terminal and chat UI; context preserved via `--resume`
+- **Mobile chat** - Full chat interface on mobile with real-time sync across devices
+- **SSH takeover** - `ssh -t sandboxer@host sandboxer-shell` to take over any session from terminal
+- **Session persistence** - All sessions survive restarts; chat history stored in SQLite
 
 <img width="500" alt="SSH takeover" src="https://github.com/user-attachments/assets/e748762f-077a-48ef-82de-fad7c351a863" />
 
