@@ -452,8 +452,8 @@ def start_chat_claude(name: str, workdir: str, resume_id: str = None):
     init_line = b""
     session_id = ""
 
-    # Wait up to 10 seconds for init message
-    ready, _, _ = select.select([proc.stdout], [], [], 10)
+    # Wait up to 2 seconds for init message (don't block UI too long)
+    ready, _, _ = select.select([proc.stdout], [], [], 2)
     if ready:
         init_line = proc.stdout.readline()
         if init_line:
