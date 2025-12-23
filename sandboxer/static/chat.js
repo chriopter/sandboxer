@@ -6,7 +6,6 @@ const textarea = document.getElementById("chat-textarea");
 const sendBtn = document.getElementById("send-btn");
 const toggleBtn = document.getElementById("toggle-btn");
 const killBtn = document.getElementById("kill-btn");
-const sshBtn = document.getElementById("ssh-btn");
 const imgBtn = document.getElementById("img-btn");
 const imgBtnMobile = document.getElementById("img-btn-mobile");
 const imageInput = document.getElementById("image-input");
@@ -132,7 +131,7 @@ async function pollMessages() {
   }
 }
 
-// Send message to Claude
+// Send message to Claude - fire and forget, polling handles display
 async function sendMessage() {
   const message = textarea.value.trim();
   if (!message || isSending) return;
@@ -141,107 +140,27 @@ async function sendMessage() {
   textarea.value = "";
   textarea.style.height = "auto";
   sendBtn.disabled = true;
-  sendBtn.textContent = "...";
-
-  // Show local pending elements (will be replaced by DB messages via poll)
-  const userBubble = document.createElement("div");
-  userBubble.className = "chat-message user local-pending";
-  userBubble.textContent = message;
-  messagesContainer.appendChild(userBubble);
-
-  const thinkingEl = document.createElement("div");
-  thinkingEl.className = "chat-message assistant thinking local-pending";
-  thinkingEl.innerHTML = '<span is-="spinner" variant-="dots"></span> thinking';
-  messagesContainer.appendChild(thinkingEl);
+  sendBtn.textContent = "…";
   scrollToBottom();
 
-  // Streaming state
-  let streamBubble = null;
-  let streamText = "";
-
   try {
-    const res = await fetch("/api/chat-send", {
+    // Just POST, don't wait for response stream - polling will show everything
+    fetch("/api/chat-send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ session: sessionName, message }),
+    }).catch(err => {
+      console.error("Send error:", err);
+      showToast("Failed to send", "error");
     });
 
-    if (!res.ok) {
-      showToast("Failed to send message", "error");
-      return;
-    }
+    // Poll immediately to show user message + thinking state from DB
+    await pollMessages();
 
-    // Read SSE stream
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() || "";
-
-      for (const line of lines) {
-        if (!line.startsWith("data: ")) continue;
-        const data = line.slice(6);
-        if (!data || data === "{}") continue;
-
-        try {
-          const event = JSON.parse(data);
-
-          // Title update
-          if (event.type === "title_update" && event.title) {
-            document.title = event.title + " - Sandboxer";
-            const titleEl = document.querySelector(".chat-title");
-            if (titleEl) titleEl.textContent = event.title;
-          }
-
-          // Start streaming response
-          if (event.type === "content_block_start" && event.content_block?.type === "text") {
-            thinkingEl.remove();
-            streamBubble = document.createElement("div");
-            streamBubble.className = "chat-message assistant streaming";
-            messagesContainer.appendChild(streamBubble);
-            streamText = "";
-            scrollToBottom();
-          }
-
-          // Stream delta
-          if (event.type === "content_block_delta" && event.delta?.text) {
-            streamText += event.delta.text;
-            if (streamBubble) {
-              streamBubble.textContent = streamText;
-              scrollToBottom();
-            }
-          }
-
-          // Stream complete
-          if (event.type === "content_block_stop" || event.type === "result") {
-            if (streamBubble) streamBubble.classList.remove("streaming");
-          }
-        } catch (e) {
-          // Ignore parse errors
-        }
-      }
-    }
-  } catch (err) {
-    console.error("Send error:", err);
-    showToast("Failed to send message", "error");
   } finally {
-    // Clean up pending states
-    if (thinkingEl.parentNode) thinkingEl.remove();
-    userBubble.classList.remove("pending");
-    if (streamBubble) streamBubble.classList.remove("streaming");
-
     sendBtn.disabled = false;
-    sendBtn.textContent = "Send";
+    sendBtn.textContent = "➤";
     isSending = false;
-
-    // Poll to get actual message IDs from DB
-    setTimeout(pollMessages, 500);
   }
 }
 
@@ -280,24 +199,6 @@ async function killSession() {
     setTimeout(() => window.location.href = "/", 500);
   } catch (err) {
     showToast("Failed to kill session", "error");
-  }
-}
-
-// Copy SSH command
-async function copySSH() {
-  const host = window.location.hostname;
-  const cmd = `ssh -t sandboxer@${host} "sudo tmux attach -t '${sessionName}'"`;
-  try {
-    await navigator.clipboard.writeText(cmd);
-    showToast("Copied: " + cmd, "success");
-  } catch (err) {
-    const ta = document.createElement("textarea");
-    ta.value = cmd;
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand("copy");
-    document.body.removeChild(ta);
-    showToast("Copied: " + cmd, "success");
   }
 }
 
@@ -373,7 +274,6 @@ textarea.addEventListener("keydown", (e) => {
 textarea.addEventListener("input", autoResize);
 toggleBtn.addEventListener("click", toggleToCLI);
 killBtn.addEventListener("click", killSession);
-sshBtn.addEventListener("click", copySSH);
 imgBtn.addEventListener("click", triggerImageUpload);
 imgBtn.addEventListener("dblclick", () => imageInput.click());
 if (imgBtnMobile) imgBtnMobile.addEventListener("click", () => imageInput.click());
