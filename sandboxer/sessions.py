@@ -404,8 +404,10 @@ def start_chat_claude(name: str, workdir: str, resume_id: str = None):
     """Start Claude in JSON streaming mode for chat interface.
     Returns (proc, session_id, init_line) tuple.
     """
+    # Use full path since systemd service may not have ~/.local/bin in PATH
+    claude_path = "/root/.local/bin/claude"
     cmd = [
-        "claude", "-p",
+        claude_path, "-p",
         "--output-format", "stream-json",
         "--verbose",
         "--dangerously-skip-permissions",
