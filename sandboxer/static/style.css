@@ -762,9 +762,8 @@ main {
 }
 
 .terminal iframe {
-  /* Fixed size for stable rendering - scaled to fit container */
-  /* Extra width clips scrollbar when scaled down */
-  width: 860px;
+  /* 800x450 content + 12px for scrollbar clipping */
+  width: 812px;
   height: 450px;
   border: none;
   pointer-events: none;
@@ -1552,16 +1551,9 @@ body.chat-page {
   font-size: 1em;
 }
 
-/* Mobile image upload button (beside send) - hidden by default */
+/* Mobile image upload button (beside send) - hidden by default on desktop */
 .img-btn-mobile {
   display: none;
-  flex-shrink: 0;
-  padding: 0.8ch 1.2ch !important;
-  font-size: 1em;
-  background: var(--surface1);
-  color: var(--text);
-  border: 1px solid var(--surface2);
-  border-radius: 6px;
 }
 
 @media (max-width: 600px) {
@@ -1574,26 +1566,51 @@ body.chat-page {
     font-size: 0.9em;
   }
 
-  /* Input row: [↑] [textarea] [Send] */
+  /* Input row: [↑] [textarea] [Send] - consistent flex layout */
   .chat-input-full {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-end;
+    gap: 0.5ch;
     padding: 0.5ch;
     padding-block-end: calc(0.5ch + env(safe-area-inset-bottom, 0px));
-    gap: 0.5ch;
     border-top: none;
     background: var(--mantle);
-    align-items: flex-end;
   }
 
   .chat-input-full textarea {
-    min-height: 1.8em;
+    flex: 1;
+    min-width: 0;
+    min-height: 2.4em;
     max-height: 8em;
-    padding: 0.4em 0.8em;
+    padding: 0.5em 0.8em;
     font-size: 1em;
     line-height: 1.4;
+    border-radius: 6px;
+  }
+
+  /* Both buttons same size and style */
+  .chat-input-full button {
+    flex-shrink: 0;
+    height: 2.4em;
+    min-width: 3.5em;
+    padding: 0 0.8em !important;
+    font-size: 1em;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .img-btn-mobile {
-    display: block !important;
+    display: flex !important;
+    background: var(--surface1) !important;
+    color: var(--text) !important;
+    border: 1px solid var(--surface2) !important;
+  }
+
+  #send-btn {
+    min-width: 4.5em;
   }
 
   .chat-bar .img-btn {
