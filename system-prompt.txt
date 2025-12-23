@@ -9,6 +9,23 @@ You can:
 - Build and test code
 - Clone repos into your working directory
 
+## Creating New Repos
+
+When cloning a new repository into `/home/sandboxer/git/`:
+
+```bash
+# 1. Clone the repo (use gh to handle auth)
+gh repo clone owner/repo-name /home/sandboxer/git/repo-name
+
+# 2. Fix ownership (cloning as root creates root-owned files)
+chown -R sandboxer:sandboxer /home/sandboxer/git/repo-name
+
+# 3. Add to git safe.directory (required for lazygit/git operations)
+git config --global --add safe.directory /home/sandboxer/git/repo-name
+```
+
+All three steps are required for sandboxer sessions to work properly with the repo.
+
 Be respectful of the shared environment:
 - Work within your session's working directory
 - Avoid excessive resource usage (CPU, memory, disk)
