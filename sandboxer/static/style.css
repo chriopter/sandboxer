@@ -635,6 +635,15 @@ select-dropdown column button[aria-selected="true"] {
   .grid[data-view="1"] .card {
     max-width: 100%;
   }
+
+  /* Ensure cards and terminals don't overflow on mobile */
+  .card {
+    max-width: 100%;
+  }
+
+  .terminal {
+    max-width: 100%;
+  }
 }
 
 /* ═══ Main ═══ */
@@ -677,6 +686,8 @@ main {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 2ch;
+  /* Prevent cards from stretching to match row height */
+  align-items: start;
 }
 
 .grid[data-view="1"] { grid-template-columns: 1fr; }
@@ -710,6 +721,7 @@ main {
   cursor: grab;
   display: flex;
   flex-direction: column;
+  min-width: 0; /* Allow card to shrink below content size in grid */
 }
 
 .card:hover {
@@ -760,6 +772,10 @@ main {
   /* Aspect ratio matches iframe (extra width for scrollbar clipping) */
   aspect-ratio: 830 / 450;
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  /* Prevent flex from growing beyond aspect ratio - critical for mobile */
+  flex: 0 0 auto;
 }
 
 .terminal iframe {
