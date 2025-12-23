@@ -64,7 +64,7 @@ CLI sessions use tmux for persistence. Chat sessions store Claude's session UUID
 }
 ```
 
-Chat message history is stored separately in `/etc/sandboxer/chat_history.json` and sent via SSE on page load.
+Chat history is NOT stored locally—Claude's `--resume` handles conversation persistence internally.
 
 </details>
 
