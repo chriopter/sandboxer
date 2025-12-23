@@ -19,6 +19,7 @@ import urllib.parse
 from html import escape
 
 from . import sessions
+from . import chat
 
 PORT = 8081
 
@@ -167,7 +168,7 @@ def build_single_card(s: dict, mode: str = "cli") -> str:
     <div class="card-actions">
       <button size-="small" variant-="mauve" class="toggle-mode-btn" onclick="event.stopPropagation(); toggleMode('{escape(s['name'])}')">{toggle_label}</button>
       <button size-="small" variant-="teal" onclick="event.stopPropagation(); copySSH('{escape(s['name'])}')">ssh</button>
-      <button size-="small" class="img-btn" onclick="event.stopPropagation(); triggerImageUpload('{escape(s['name'])}')">[img]</button>
+      <button size-="small" class="img-btn" onclick="event.stopPropagation(); triggerImageUpload('{escape(s['name'])}')" ondblclick="event.stopPropagation(); triggerImageBrowse('{escape(s['name'])}')">↑</button>
       <input type="file" class="card-image-input" accept="image/*" style="display:none" data-session="{escape(s['name'])}">
       <button size-="small" onclick="event.stopPropagation(); window.open('/terminal?session=' + encodeURIComponent('{escape(s['name'])}'), '_blank')">↗</button>
       <button size-="small" variant-="red" class="kill-btn" onclick="event.stopPropagation(); killSession(this, '{escape(s['name'])}')">×</button>
@@ -396,7 +397,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             name = sessions.generate_session_name(session_type, workdir)
             sessions.create_session(name, session_type, workdir, resume_id)
             if session_type == "chat":
-                sessions.start_chat_claude(name, workdir, resume_id)
+                chat.init_chat_session(name, workdir, resume_id)
                 s = {"name": name, "title": name, "workdir": workdir}
                 card_html = build_single_card(s, mode="chat")
             else:
@@ -420,43 +421,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_json(resumable)
             return
 
+        # /api/chat-stream is deprecated - use /api/chat-send POST which returns SSE
         if path == "/api/chat-stream":
-            session_name = query.get("session", [""])[0]
-            if not session_name:
-                self.send_json({"error": "session required"}, 400)
-                return
-            proc_info = sessions.get_chat_process(session_name)
-            if not proc_info:
-                self.send_json({"error": "No chat process for session"}, 404)
-                return
-            proc, _, init_line = proc_info
-            self.send_response(200)
-            self.send_header("Content-Type", "text/event-stream")
-            self.send_header("Cache-Control", "no-cache")
-            self.send_header("Connection", "keep-alive")
-            self.send_header("X-Accel-Buffering", "no")
-            self.end_headers()
-            try:
-                if init_line:
-                    data = init_line.decode().strip()
-                    if data:
-                        self.wfile.write(f"data: {data}\n\n".encode())
-                        self.wfile.flush()
-                while True:
-                    if proc.poll() is not None:
-                        self.wfile.write(b"event: end\ndata: {}\n\n")
-                        self.wfile.flush()
-                        break
-                    line = proc.stdout.readline()
-                    if not line:
-                        time.sleep(0.01)
-                        continue
-                    data = line.decode().strip()
-                    if data:
-                        self.wfile.write(f"data: {data}\n\n".encode())
-                        self.wfile.flush()
-            except (BrokenPipeError, ConnectionResetError):
-                pass
+            self.send_json({"error": "Deprecated. Use POST /api/chat-send instead."}, 410)
             return
 
         if path == "/api/stats":
@@ -583,11 +550,44 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 if not session_name or not message:
                     self.send_json({"error": "session and message required"}, 400)
                     return
-                success = sessions.send_chat_message(session_name, message)
-                if success:
-                    self.send_json({"ok": True})
-                else:
-                    self.send_json({"error": "Failed to send message"}, 500)
+
+                # Get session metadata
+                meta = sessions.session_meta.get(session_name, {})
+                workdir = meta.get("workdir", "/home/sandboxer")
+                session_id = meta.get("claude_session_id", "")
+
+                # Initialize chat session if needed
+                if not chat.is_chat_session(session_name):
+                    chat.init_chat_session(session_name, workdir, session_id)
+
+                # Get response generator
+                response_gen, get_session_id = chat.send_message(
+                    session_name, message, workdir, session_id
+                )
+
+                # Stream response as SSE
+                self.send_response(200)
+                self.send_header("Content-Type", "text/event-stream")
+                self.send_header("Cache-Control", "no-cache")
+                self.send_header("Connection", "keep-alive")
+                self.send_header("X-Accel-Buffering", "no")
+                self.end_headers()
+
+                try:
+                    for line in response_gen:
+                        if line:
+                            self.wfile.write(f"data: {line}\n\n".encode())
+                            self.wfile.flush()
+                    self.wfile.write(b"event: end\ndata: {}\n\n")
+                    self.wfile.flush()
+
+                    # Update session metadata with new session_id
+                    new_session_id = get_session_id()
+                    if new_session_id and session_name in sessions.session_meta:
+                        sessions.session_meta[session_name]["claude_session_id"] = new_session_id
+                        sessions._save_session_meta()
+                except (BrokenPipeError, ConnectionResetError):
+                    pass
             except Exception as e:
                 self.send_json({"error": str(e)}, 500)
             return
@@ -603,26 +603,35 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 meta = sessions.session_meta.get(session_name, {})
                 workdir = meta.get("workdir", "/home/sandboxer")
                 claude_session_id = meta.get("claude_session_id", "")
+
                 if target_mode == "cli":
-                    session_id = sessions.stop_chat_claude(session_name)
+                    # Stop chat session if active
+                    session_id = chat.stop_chat_session(session_name) or claude_session_id
+
+                    # Ensure tmux session exists
                     existing = {s["name"] for s in sessions.get_tmux_sessions()}
                     if session_name not in existing:
                         subprocess.run(["tmux", "new-session", "-d", "-s", session_name, "-c", workdir], capture_output=True)
                         subprocess.run(["tmux", "set", "-t", session_name, "mouse", "on"], capture_output=True)
-                    if session_id or claude_session_id:
-                        resume_id = session_id or claude_session_id
-                        cmd = f"IS_SANDBOX=1 claude --dangerously-skip-permissions --resume {resume_id} --system-prompt {sessions.SYSTEM_PROMPT_PATH}"
+
+                    # Resume Claude in terminal if we have a session_id
+                    if session_id:
+                        cmd = f"IS_SANDBOX=1 claude --dangerously-skip-permissions --resume {session_id} --system-prompt {sessions.SYSTEM_PROMPT_PATH}"
                         subprocess.run(["tmux", "send-keys", "-t", session_name, cmd, "Enter"], capture_output=True)
+
                     port = sessions.start_ttyd(session_name)
                     sessions.set_session_mode(session_name, "cli")
                     self.send_json({"ok": True, "mode": "cli", "port": port, "terminal_url": f"/t/{port}/"})
                 else:
+                    # Switch to chat mode
                     sessions.stop_ttyd(session_name)
                     subprocess.run(["tmux", "send-keys", "-t", session_name, "C-c"], capture_output=True)
                     time.sleep(0.5)
-                    proc, session_id, init_line = sessions.start_chat_claude(session_name, workdir, claude_session_id)
+
+                    # Initialize chat session
+                    chat.init_chat_session(session_name, workdir, claude_session_id)
                     sessions.set_session_mode(session_name, "chat")
-                    self.send_json({"ok": True, "mode": "chat", "init": init_line.decode() if init_line else ""})
+                    self.send_json({"ok": True, "mode": "chat"})
             except Exception as e:
                 self.send_json({"error": str(e)}, 500)
             return

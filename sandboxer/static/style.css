@@ -96,41 +96,71 @@ body.sidebar-closed main {
 /* WebTUI Select Dropdown */
 select-dropdown {
   position: relative;
+  display: block;
 }
 
-select-dropdown details {
+select-dropdown details[is-="popover"] {
   position: relative;
 }
 
-select-dropdown summary {
+select-dropdown details[is-="popover"] summary {
   cursor: pointer;
   list-style: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-select-dropdown summary::-webkit-details-marker {
+select-dropdown details[is-="popover"] summary::-webkit-details-marker {
   display: none;
 }
 
-select-dropdown column {
+select-dropdown details[is-="popover"] summary::marker {
+  content: "";
+  display: none;
+}
+
+/* Backdrop when open */
+select-dropdown details[is-="popover"][open] summary::before {
+  content: "";
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 999;
+}
+
+/* Dropdown content */
+select-dropdown details[is-="popover"] column {
+  display: none;
+}
+
+select-dropdown details[is-="popover"][open] column {
+  display: flex;
+  flex-direction: column;
   position: absolute;
-  top: 100%;
   left: 0;
   min-width: 100%;
   width: max-content;
-  display: flex;
-  flex-direction: column;
   background: var(--surface0);
   border: 1px solid var(--surface1);
-  border-radius: 0 0 4px 4px;
   max-height: 250px;
   overflow-y: auto;
   z-index: 1000;
 }
 
+/* Default: open downward */
+select-dropdown details[is-="popover"][open] column {
+  top: 100%;
+  border-radius: 0 0 4px 4px;
+}
+
 /* Upward-opening dropdowns */
-select-dropdown details[position-="top"] column {
-  top: auto;
-  bottom: 100%;
+select-dropdown details[is-="popover"][open][position-="top"] column {
+  top: 0;
+  transform: translateY(-100%);
   border-radius: 4px 4px 0 0;
 }
 
@@ -279,7 +309,7 @@ select-dropdown column button[aria-selected="true"] {
   margin-bottom: 0.5ch;
 }
 
-.sidebar-new-row select-dropdown {
+.sidebar-new-row > select-dropdown:first-child {
   flex: 1;
   min-width: 0;
 }
@@ -292,38 +322,40 @@ select-dropdown column button[aria-selected="true"] {
   display: flex;
   flex-direction: row;
   gap: 0.5ch;
+  margin-top: 0.5ch;
+  padding-top: 0.5ch;
+  border-top: 1px solid var(--surface0);
 }
 
 .sidebar-actions button {
   flex: 1;
 }
 
-/* Sidebar controls - compact labeled groups */
+/* Sidebar controls - side by side dropdowns */
 .sidebar-controls {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 0.5ch;
   padding-top: 0.6ch;
   border-top: 1px solid var(--surface0);
 }
 
-.control-row {
-  display: flex;
-  align-items: center;
-  gap: 0.8ch;
+.sidebar-controls select-dropdown {
+  flex: 1;
+  min-width: 0;
 }
 
-.control-label {
-  font-size: 0.75em;
-  color: var(--overlay0);
-  min-width: 3.5ch;
-  text-transform: lowercase;
+/* Dropdown indicator - like WebTUI */
+.dropdown-indicator {
+  color: var(--subtext0);
+  margin-left: auto;
+  padding-left: 0.5ch;
 }
 
 .sidebar-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.5ch;
+  display: flex;
+  flex-direction: row;
+  gap: 1ch;
   padding-top: 0.6ch;
   margin-top: 0.5ch;
   border-top: 1px solid var(--surface0);
@@ -634,51 +666,6 @@ main {
   font-variant-numeric: tabular-nums;
 }
 
-/* TUI-style view/zoom mode buttons - minimal, character-focused */
-.view-modes,
-.zoom-modes {
-  display: flex;
-  gap: 0;
-  flex: 1;
-}
-
-.view-modes button,
-.zoom-modes button {
-  flex: 1;
-  padding: 0.3em 0 !important;
-  font-size: 0.8em;
-  color: var(--overlay1) !important;
-  background: transparent !important;
-  border: none !important;
-  border-radius: 0 !important;
-  min-width: 2ch;
-  position: relative;
-  transition: color 0.1s;
-}
-
-.view-modes button:hover,
-.zoom-modes button:hover {
-  color: var(--text) !important;
-  background: var(--surface0) !important;
-}
-
-.view-modes button.active,
-.zoom-modes button.active {
-  color: var(--mauve) !important;
-  background: transparent !important;
-}
-
-/* Subtle underline for active state - TUI style */
-.view-modes button.active::after,
-.zoom-modes button.active::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 10%;
-  right: 10%;
-  height: 1px;
-  background: var(--mauve);
-}
 
 /* ═══ Grid ═══ */
 
@@ -1137,26 +1124,42 @@ body.terminal-page {
   background: var(--surface2);
 }
 
-/* TUI-style stats - stacked, compact */
+/* TUI-style stats - side by side with text inside progress */
 .sidebar-stats .stat {
+  flex: 1;
+}
+
+.sidebar-stats .progress-bar {
+  position: relative;
+  height: 1.4em;
+  background: var(--surface0);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.sidebar-stats .progress-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 0%;
+  background: var(--mauve);
+  transition: width 0.3s ease;
+}
+
+.sidebar-stats .progress-text {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  font-size: 0.75em;
-  gap: 0.2ch;
-}
-
-.sidebar-stats .stat span {
+  justify-content: center;
+  font-size: 0.7em;
+  font-weight: 500;
   color: var(--text);
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  font-size: 1.1em;
-}
-
-.sidebar-stats .stat label {
-  color: var(--overlay0);
-  font-size: 0.9em;
-  text-transform: lowercase;
+  mix-blend-mode: difference;
 }
 
 /* Card Hover Polish */
@@ -1183,6 +1186,20 @@ button:active {
   height: 100%;
   aspect-ratio: 16/9;
   background: var(--crust);
+  position: relative;
+}
+
+.chat .fullscreen-btn {
+  position: absolute;
+  bottom: 0.8ch;
+  right: 1ch;
+  opacity: 0;
+  z-index: 10;
+  background: var(--surface0) !important;
+}
+
+.chat:hover .fullscreen-btn {
+  opacity: 1;
 }
 
 .card[data-mode="chat"] .chat {
@@ -1269,3 +1286,132 @@ button:active {
 }
 
 /* Toggle mode button - same style as ssh button */
+
+/* ═══ Fullscreen Chat Page ═══ */
+
+body.chat-page {
+  height: var(--vh, 100dvh);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 100vw;
+  margin: 0;
+  padding: 0;
+}
+
+.chat-bar {
+  background: var(--mantle);
+  border-bottom: 1px solid var(--surface0);
+  padding: 0.3lh 1.5ch;
+  display: flex;
+  align-items: center;
+  gap: 1ch;
+  flex-shrink: 0;
+}
+
+.chat-title {
+  color: var(--lavender);
+  font-weight: 500;
+}
+
+.chat-spacer {
+  flex: 1;
+}
+
+.chat-bar [is-="separator"] {
+  height: 1.5lh;
+}
+
+.chat-fullscreen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--crust);
+}
+
+.chat-fullscreen .chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 2ch;
+  display: flex;
+  flex-direction: column;
+  gap: 1ch;
+}
+
+.chat-fullscreen .chat-message {
+  max-width: 75%;
+  padding: 1ch 1.5ch;
+  border-radius: 8px;
+  font-size: 0.95em;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.chat-fullscreen .chat-message.user {
+  align-self: flex-end;
+  background: var(--mauve);
+  color: var(--crust);
+}
+
+.chat-fullscreen .chat-message.assistant {
+  align-self: flex-start;
+  background: var(--surface0);
+  color: var(--text);
+}
+
+.chat-fullscreen .chat-message.streaming::after {
+  content: "▋";
+  animation: blink 1s steps(1) infinite;
+}
+
+.chat-input-full {
+  display: flex;
+  gap: 1ch;
+  padding: 1ch 2ch;
+  border-top: 1px solid var(--surface0);
+  background: var(--mantle);
+}
+
+.chat-input-full textarea {
+  flex: 1;
+  resize: none;
+  min-height: 2.5em;
+  max-height: 200px;
+  font-size: 1em;
+  padding: 0.8ch 1ch;
+  background: var(--surface0);
+  color: var(--text);
+  border: 1px solid var(--surface1);
+  border-radius: 6px;
+  font-family: inherit;
+}
+
+.chat-input-full textarea:focus {
+  outline: none;
+  border-color: var(--mauve);
+}
+
+.chat-input-full button {
+  flex-shrink: 0;
+  padding: 0.8ch 2ch !important;
+  font-size: 1em;
+}
+
+@media (max-width: 600px) {
+  .chat-fullscreen .chat-messages {
+    padding: 1ch;
+  }
+
+  .chat-fullscreen .chat-message {
+    max-width: 90%;
+    font-size: 0.9em;
+  }
+
+  .chat-input-full {
+    padding: 0.8ch 1ch;
+    padding-bottom: calc(0.8ch + env(safe-area-inset-bottom));
+  }
+}

@@ -213,8 +213,8 @@ def get_chat_sessions() -> list[dict]:
     """Get list of active chat sessions (not in tmux)."""
     chat_sessions = []
     for name, (proc, session_id, _) in chat_processes.items():
-        # Check if process is still running
-        if proc.poll() is None:
+        # Check if process exists and is still running
+        if proc is not None and proc.poll() is None:
             chat_sessions.append({
                 "name": name,
                 "title": name,
@@ -451,53 +451,22 @@ def get_ttyd_port(session_name: str) -> int | None:
 # Enables web chat UI with real-time streaming via SSE
 
 def start_chat_claude(name: str, workdir: str, resume_id: str = None):
-    """Start Claude in JSON streaming mode for chat interface.
-    Returns (proc, session_id, init_line) tuple.
+    """Initialize chat session metadata. Actual Claude calls happen per-message.
+    Returns (None, session_id, b"") tuple for compatibility.
     """
-    # Use full path since systemd service may not have ~/.local/bin in PATH
-    claude_path = "/root/.local/bin/claude"
-    cmd = [
-        claude_path, "-p",
-        "--output-format", "stream-json",
-        "--verbose",
-        "--dangerously-skip-permissions",
-    ]
-    if resume_id:
-        cmd.extend(["--resume", resume_id])
+    session_id = resume_id or ""
 
-    proc = subprocess.Popen(
-        cmd,
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        cwd=workdir,
-    )
-
-    # Read init message to get session_id (with timeout to avoid blocking server)
-    import select
-    init_line = b""
-    session_id = ""
-
-    # Wait up to 2 seconds for init message (don't block UI too long)
-    ready, _, _ = select.select([proc.stdout], [], [], 2)
-    if ready:
-        init_line = proc.stdout.readline()
-        if init_line:
-            try:
-                init_data = json.loads(init_line.decode())
-                session_id = init_data.get("session_id", "")
-            except json.JSONDecodeError:
-                pass
-
-    chat_processes[name] = (proc, session_id, init_line)
+    # Store as None process - messages will spawn one-shot processes
+    chat_processes[name] = (None, session_id, b"")
 
     # Update metadata
-    if name in session_meta:
-        session_meta[name]["claude_session_id"] = session_id
-        session_meta[name]["mode"] = "chat"
-        _save_session_meta()
+    if name not in session_meta:
+        session_meta[name] = {"workdir": workdir, "type": "chat"}
+    session_meta[name]["claude_session_id"] = session_id
+    session_meta[name]["mode"] = "chat"
+    _save_session_meta()
 
-    return proc, session_id, init_line
+    return None, session_id, b""
 
 
 def stop_chat_claude(name: str) -> str:
@@ -529,22 +498,76 @@ def get_chat_process(name: str):
     return chat_processes.get(name)
 
 
-def send_chat_message(name: str, message: str) -> bool:
-    """Send a message to a chat Claude process."""
+def send_chat_message(name: str, message: str):
+    """Send a message and return a generator that yields response lines.
+    Each message spawns a new Claude process (one-shot mode).
+    """
     if name not in chat_processes:
-        return False
+        return None
 
-    proc, _, _ = chat_processes[name]
-    if proc.poll() is not None:
-        return False
+    _, session_id, _ = chat_processes[name]
+    meta = session_meta.get(name, {})
+    workdir = meta.get("workdir", "/home/sandboxer")
 
-    try:
-        # Simple format: just send the text, Claude handles it
-        proc.stdin.write(f"{message}\n".encode())
-        proc.stdin.flush()
-        return True
-    except Exception:
-        return False
+    # Build command
+    claude_path = "/root/.local/bin/claude"
+    cmd = [
+        claude_path, "-p",
+        "--output-format", "stream-json",
+        "--verbose",
+        "--dangerously-skip-permissions",
+    ]
+    if session_id:
+        cmd.extend(["--resume", session_id])
+
+    # Add the message as argument
+    cmd.append(message)
+
+    # Spawn process
+    proc = subprocess.Popen(
+        cmd,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        cwd=workdir,
+    )
+
+    # Close stdin immediately to let Claude process
+    proc.stdin.close()
+
+    # Generator that yields response lines
+    def response_generator():
+        import select
+        new_session_id = None
+        while True:
+            if proc.poll() is not None:
+                break
+            ready, _, _ = select.select([proc.stdout], [], [], 0.1)
+            if not ready:
+                continue
+            line = proc.stdout.readline()
+            if not line:
+                break
+            try:
+                data = json.loads(line.decode())
+                # Capture session_id for future messages
+                if data.get("type") == "system" and data.get("subtype") == "init":
+                    new_session_id = data.get("session_id", "")
+                    if new_session_id and name in chat_processes:
+                        chat_processes[name] = (None, new_session_id, b"")
+                        if name in session_meta:
+                            session_meta[name]["claude_session_id"] = new_session_id
+                            _save_session_meta()
+                yield line.decode().strip()
+            except json.JSONDecodeError:
+                pass
+
+        # Update session_id if we got one
+        if new_session_id and name in session_meta:
+            session_meta[name]["claude_session_id"] = new_session_id
+            _save_session_meta()
+
+    return response_generator()
 
 
 def get_session_mode(name: str) -> str:

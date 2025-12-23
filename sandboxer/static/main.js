@@ -21,9 +21,18 @@ class SelectDropdown extends HTMLElement {
         const value = btn.getAttribute("data-value");
         self.setAttribute("data-value", value);
 
-        // Update summary text
+        // Update summary text with indicator
         if (summary) {
-          summary.textContent = btn.textContent.trim();
+          const indicator = summary.querySelector(".dropdown-indicator");
+          summary.textContent = btn.textContent.trim() + " ";
+          if (indicator) {
+            summary.appendChild(indicator);
+          } else {
+            const span = document.createElement("span");
+            span.className = "dropdown-indicator";
+            span.textContent = "˅";
+            summary.appendChild(span);
+          }
         }
 
         // Close the dropdown
@@ -111,6 +120,11 @@ async function createSession(forceType) {
 
       // Update terminal scales for new card
       setTimeout(updateTerminalScales, 50);
+
+      // Add demo messages for chat sessions
+      if (data.mode === "chat") {
+        setTimeout(() => addDemoMessages(data.name), 100);
+      }
 
       // Update sidebar
       populateSidebar();
@@ -525,6 +539,7 @@ function populateSidebar() {
 
   // Group sessions by type
   const groups = {
+    chat: { label: "claude chat", color: "lavender", sessions: [] },
     claude: { label: "claude", color: "mauve", sessions: [] },
     lazygit: { label: "lazygit", color: "peach", sessions: [] },
     bash: { label: "bash", color: "green", sessions: [] },
@@ -538,9 +553,10 @@ function populateSidebar() {
     const name = card.dataset.session;
     const title = card.querySelector(".card-title")?.textContent || name;
 
-    // Detect session type
+    // Detect session type - chat sessions first
     let type = "other";
-    if (name.includes("-claude-") || name.startsWith("claude")) type = "claude";
+    if (name.includes("-chat-") || name.startsWith("chat")) type = "chat";
+    else if (name.includes("-claude-") || name.startsWith("claude")) type = "claude";
     else if (name.includes("-gemini-") || name.startsWith("gemini")) type = "gemini";
     else if (name.includes("-bash-") || name.startsWith("bash")) type = "bash";
     else if (name.includes("-lazygit-") || name.startsWith("lazygit")) type = "lazygit";
@@ -588,7 +604,14 @@ function populateSidebar() {
       li.textContent = title;
       li.title = name;
       li.onclick = () => {
-        window.open("/terminal?session=" + encodeURIComponent(name), "_blank");
+        // Check if it's a chat session
+        const card = document.querySelector('[data-session="' + name + '"]');
+        const isChat = card?.dataset.mode === "chat" || type === "chat";
+        if (isChat) {
+          window.open("/chat?session=" + encodeURIComponent(name), "_blank");
+        } else {
+          window.open("/terminal?session=" + encodeURIComponent(name), "_blank");
+        }
         toggleSidebar();
       };
       ul.appendChild(li);
@@ -622,9 +645,22 @@ async function updateStats() {
   try {
     const res = await fetch("/api/stats");
     const data = await res.json();
-    document.querySelector("#cpuStat span").textContent = data.cpu;
-    document.querySelector("#memStat span").textContent = data.mem;
-    document.querySelector("#diskStat span").textContent = data.disk;
+
+    // Parse values
+    const cpuVal = parseInt(data.cpu) || 0;
+    const memVal = parseInt(data.mem) || 0;
+
+    // Update CPU progress bar
+    const cpuFill = document.querySelector("#cpuStat .progress-fill");
+    const cpuText = document.querySelector("#cpuStat .progress-text");
+    if (cpuFill) cpuFill.style.width = cpuVal + "%";
+    if (cpuText) cpuText.textContent = "cpu " + cpuVal + "%";
+
+    // Update MEM progress bar
+    const memFill = document.querySelector("#memStat .progress-fill");
+    const memText = document.querySelector("#memStat .progress-text");
+    if (memFill) memFill.style.width = memVal + "%";
+    if (memText) memText.textContent = "mem " + memVal + "%";
   } catch (e) {
     // ignore
   }
@@ -664,50 +700,59 @@ function observeCardResize(card) {
   cardResizeObserver.observe(card);
 }
 
-// ═══ Preview Zoom ═══
+// ═══ View & Zoom Dropdowns ═══
+
+function setViewMode(mode) {
+  const grid = document.querySelector(".grid");
+  if (grid) {
+    grid.dataset.view = mode;
+  }
+  localStorage.setItem("sandboxer_view_mode", mode);
+
+  // Update dropdown summary text
+  const viewSelect = document.getElementById("viewSelect");
+  if (viewSelect) {
+    const summary = viewSelect.querySelector("summary");
+    const indicator = summary?.querySelector(".dropdown-indicator");
+    if (summary) {
+      summary.textContent = "view: " + mode + " ";
+      if (indicator) summary.appendChild(indicator);
+      else {
+        const span = document.createElement("span");
+        span.className = "dropdown-indicator";
+        span.textContent = "˅";
+        summary.appendChild(span);
+      }
+    }
+  }
+
+  // Recalculate terminal scales after layout change
+  setTimeout(updateTerminalScales, 50);
+}
 
 function setZoomMode(value) {
   localStorage.setItem("sandboxer_zoom", value);
 
-  // Update button active state
-  document.querySelectorAll(".zoom-modes button").forEach(btn => {
-    btn.classList.toggle("active", btn.dataset.zoom === String(value));
-  });
+  // Update dropdown summary text
+  const zoomSelect = document.getElementById("zoomSelect");
+  if (zoomSelect) {
+    const labels = { "50": "S", "75": "M", "100": "L" };
+    const summary = zoomSelect.querySelector("summary");
+    const indicator = summary?.querySelector(".dropdown-indicator");
+    if (summary) {
+      summary.textContent = "zoom: " + (labels[value] || value) + " ";
+      if (indicator) summary.appendChild(indicator);
+      else {
+        const span = document.createElement("span");
+        span.className = "dropdown-indicator";
+        span.textContent = "˅";
+        summary.appendChild(span);
+      }
+    }
+  }
 
   // Recalculate scales with new zoom level
   updateTerminalScales();
-}
-
-function initZoomModes() {
-  const saved = localStorage.getItem("sandboxer_zoom") || "75";
-  setZoomMode(saved);
-
-  // Button click handlers
-  document.querySelectorAll(".zoom-modes button").forEach(btn => {
-    btn.addEventListener("click", () => {
-      setZoomMode(btn.dataset.zoom);
-    });
-  });
-}
-
-// ═══ View Modes ═══
-
-function setViewMode(mode) {
-  const grid = document.querySelector(".grid");
-  const buttons = document.querySelectorAll(".view-modes button");
-
-  if (grid) {
-    grid.dataset.view = mode;
-  }
-
-  buttons.forEach(btn => {
-    btn.classList.toggle("active", btn.dataset.view === mode);
-  });
-
-  localStorage.setItem("sandboxer_view_mode", mode);
-
-  // Recalculate terminal scales after layout change
-  setTimeout(updateTerminalScales, 50);
 }
 
 function getDefaultViewMode() {
@@ -718,18 +763,31 @@ function getDefaultViewMode() {
   return "2";
 }
 
-function initViewModes() {
-  const saved = localStorage.getItem("sandboxer_view_mode");
-  const mode = saved || getDefaultViewMode();
+function initViewZoomDropdowns() {
+  const viewSelect = document.getElementById("viewSelect");
+  const zoomSelect = document.getElementById("zoomSelect");
 
-  setViewMode(mode);
+  // Restore saved values
+  const savedView = localStorage.getItem("sandboxer_view_mode") || getDefaultViewMode();
+  const savedZoom = localStorage.getItem("sandboxer_zoom") || "75";
 
-  // Button click handlers
-  document.querySelectorAll(".view-modes button").forEach(btn => {
-    btn.addEventListener("click", () => {
-      setViewMode(btn.dataset.view);
+  // Set initial values
+  setViewMode(savedView);
+  setZoomMode(savedZoom);
+
+  // View dropdown change handler
+  if (viewSelect) {
+    viewSelect.addEventListener("change", (e) => {
+      setViewMode(e.detail.value);
     });
-  });
+  }
+
+  // Zoom dropdown change handler
+  if (zoomSelect) {
+    zoomSelect.addEventListener("change", (e) => {
+      setZoomMode(e.detail.value);
+    });
+  }
 }
 
 
@@ -801,9 +859,8 @@ function initDirDropdown() {
     });
   });
 
-  // Initialize view modes and zoom
-  initViewModes();
-  initZoomModes();
+  // Initialize view and zoom dropdowns
+  initViewZoomDropdowns();
 
   // Initialize terminal scaling - call multiple times to catch late-rendering cards
   updateTerminalScales();
@@ -828,12 +885,25 @@ function initDirDropdown() {
     delete e.returnValue;
     return undefined;
   });
+
+  // Chat sessions no longer need persistent SSE connections
+  // Each message POST returns its own SSE stream
 })();
 
 // ═══ Chat Mode ═══
 // Web chat interface with SSE streaming from Claude JSON output
 
 const chatConnections = {};  // session -> EventSource
+
+function openFullscreen(sessionName) {
+  const card = document.querySelector('[data-session="' + sessionName + '"]');
+  const mode = card?.dataset.mode || "cli";
+  if (mode === "chat") {
+    window.open("/chat?session=" + encodeURIComponent(sessionName), "_blank");
+  } else {
+    window.open("/terminal?session=" + encodeURIComponent(sessionName), "_blank");
+  }
+}
 
 function connectChat(sessionName) {
   if (chatConnections[sessionName]) {
@@ -951,19 +1021,98 @@ async function sendChat(sessionName) {
   renderChatMessage(messagesContainer, "user", message);
   textarea.value = "";
 
-  // Send to server
+  // Disable send button while processing
+  const sendBtn = card.querySelector(".chat-input button");
+  if (sendBtn) sendBtn.disabled = true;
+
+  // State for streaming response
+  let currentBubble = null;
+  let currentText = "";
+
   try {
     const res = await fetch("/api/chat-send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ session: sessionName, message: message }),
     });
+
     if (!res.ok) {
-      const err = await res.json();
-      showToast("Failed to send: " + (err.error || "Unknown error"), "error");
+      showToast("Failed to send message", "error");
+      return;
+    }
+
+    // Read SSE stream from POST response
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";  // Keep incomplete line in buffer
+
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          const data = line.slice(6);
+          if (!data || data === "{}") continue;
+
+          try {
+            const event = JSON.parse(data);
+            // Handle different event types
+            if (event.type === "assistant") {
+              const content = event.message && event.message.content;
+              if (content && Array.isArray(content)) {
+                for (const block of content) {
+                  if (block.type === "text" && block.text) {
+                    if (!currentBubble) {
+                      currentBubble = document.createElement("div");
+                      currentBubble.className = "chat-message assistant";
+                      messagesContainer.appendChild(currentBubble);
+                    }
+                    currentBubble.textContent = block.text;
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                  }
+                }
+              }
+            } else if (event.type === "content_block_start") {
+              if (event.content_block && event.content_block.type === "text") {
+                currentBubble = document.createElement("div");
+                currentBubble.className = "chat-message assistant streaming";
+                messagesContainer.appendChild(currentBubble);
+                currentText = "";
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+              }
+            } else if (event.type === "content_block_delta") {
+              const delta = event.delta && event.delta.text;
+              if (delta && currentBubble) {
+                currentText += delta;
+                currentBubble.textContent = currentText;
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+              }
+            } else if (event.type === "content_block_stop") {
+              if (currentBubble) {
+                currentBubble.classList.remove("streaming");
+              }
+            } else if (event.type === "result") {
+              // Response complete
+              if (currentBubble) {
+                currentBubble.classList.remove("streaming");
+              }
+            }
+          } catch (e) {
+            console.error("Failed to parse SSE data:", e);
+          }
+        }
+      }
     }
   } catch (err) {
+    console.error("Chat error:", err);
     showToast("Failed to send message", "error");
+  } finally {
+    if (sendBtn) sendBtn.disabled = false;
   }
 }
 
@@ -982,11 +1131,6 @@ async function toggleMode(sessionName) {
   }
 
   try {
-    // Disconnect existing chat connection if switching away from chat
-    if (currentMode === "chat") {
-      disconnectChat(sessionName);
-    }
-
     const res = await fetch("/api/chat-toggle", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1007,8 +1151,6 @@ async function toggleMode(sessionName) {
       if (terminalDiv) terminalDiv.style.display = "none";
       if (chatDiv) chatDiv.style.display = "flex";
       if (toggleBtn) toggleBtn.textContent = "cli";
-      // Connect to chat stream
-      connectChat(sessionName);
     } else {
       if (terminalDiv) {
         terminalDiv.style.display = "block";
@@ -1025,6 +1167,9 @@ async function toggleMode(sessionName) {
     // Recalculate terminal scales
     setTimeout(updateTerminalScales, 100);
 
+    // Update sidebar to reflect new mode
+    populateSidebar();
+
   } catch (err) {
     showToast("Failed to toggle mode: " + err.message, "error");
     // Restore button state
@@ -1038,10 +1183,75 @@ async function toggleMode(sessionName) {
 
 // ═══ Image Upload from Mini Views ═══
 
+// Hidden paste target for clipboard images
+let cardPasteTarget = null;
+let cardPasteSession = null;
+let cardPasteTimeout = null;
+
+function setupCardPasteTarget() {
+  if (cardPasteTarget) return;
+
+  cardPasteTarget = document.createElement("textarea");
+  cardPasteTarget.style.cssText = "position:fixed;left:-9999px;top:0;opacity:0;";
+  cardPasteTarget.setAttribute("aria-hidden", "true");
+  document.body.appendChild(cardPasteTarget);
+
+  cardPasteTarget.addEventListener("paste", (e) => {
+    const items = e.clipboardData?.items;
+    if (!items || !cardPasteSession) return;
+
+    for (const item of items) {
+      if (item.type.startsWith("image/")) {
+        const file = item.getAsFile();
+        if (file) {
+          uploadImageToSession(cardPasteSession, file);
+          cardPasteSession = null;
+          clearTimeout(cardPasteTimeout);
+          return;
+        }
+      }
+    }
+
+    showToast("No image in clipboard - double-click to browse", "info");
+    cardPasteSession = null;
+    clearTimeout(cardPasteTimeout);
+  });
+
+  cardPasteTarget.addEventListener("blur", () => {
+    cardPasteSession = null;
+  });
+}
+
 function triggerImageUpload(sessionName) {
+  setupCardPasteTarget();
+
+  // Check if mobile
+  const isMobile = window.matchMedia("(pointer: coarse)").matches;
+
+  if (isMobile) {
+    // Mobile: directly open file picker
+    const card = document.querySelector(`[data-session="${sessionName}"]`);
+    const input = card?.querySelector('.card-image-input');
+    if (input) input.click();
+  } else {
+    // Desktop: enable paste mode
+    cardPasteSession = sessionName;
+    cardPasteTarget.focus();
+    showToast("Ctrl+V to paste, or double-click to browse", "info");
+
+    clearTimeout(cardPasteTimeout);
+    cardPasteTimeout = setTimeout(() => {
+      if (cardPasteSession === sessionName) {
+        cardPasteSession = null;
+        showToast("Paste timed out", "info");
+      }
+    }, 10000);
+  }
+}
+
+function triggerImageBrowse(sessionName) {
   const card = document.querySelector(`[data-session="${sessionName}"]`);
-  if (!card) return;
-  const input = card.querySelector('.card-image-input');
+  const input = card?.querySelector('.card-image-input');
   if (input) input.click();
 }
 
@@ -1103,10 +1313,31 @@ document.querySelectorAll('.card-image-input').forEach(input => {
   });
 });
 
-// Connect chat sessions on page load
+// Demo messages for new chat sessions
+const DEMO_MESSAGES = [
+  { role: "user", content: "Hello! Can you help me with this codebase?" },
+  { role: "assistant", content: "Of course! I'm happy to help. What would you like to know about the codebase?" },
+  { role: "user", content: "How is the session management implemented?" },
+  { role: "assistant", content: "The session management is handled in sessions.py. It uses tmux for persistent terminal sessions and ttyd for web-based access. Each session has metadata stored in /etc/sandboxer/session_meta.json." },
+  { role: "user", content: "Thanks! That's helpful." },
+];
+
+function addDemoMessages(sessionName) {
+  const card = document.querySelector('[data-session="' + sessionName + '"]');
+  if (!card) return;
+
+  const messagesContainer = card.querySelector(".chat-messages");
+  if (!messagesContainer || messagesContainer.children.length > 0) return;
+
+  DEMO_MESSAGES.forEach(msg => {
+    renderChatMessage(messagesContainer, msg.role, msg.content);
+  });
+}
+
+// Initialize chat sessions on page load - add demo messages if empty
 document.querySelectorAll('.card[data-mode="chat"]').forEach(function(card) {
   const sessionName = card.dataset.session;
   if (sessionName) {
-    connectChat(sessionName);
+    addDemoMessages(sessionName);
   }
 });
