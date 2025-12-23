@@ -673,15 +673,12 @@ function updateTerminalScales() {
   const zoomMultiplier = zoomPercent / 100;
 
   document.querySelectorAll(".terminal").forEach(terminal => {
-    const card = terminal.closest(".card");
-    if (!card) return;
+    // Get terminal container width (not card - card may have padding)
+    const terminalWidth = terminal.offsetWidth;
+    if (terminalWidth === 0) return; // Not visible
 
-    // Get card width
-    const cardWidth = card.offsetWidth;
-    if (cardWidth === 0) return; // Not visible
-
-    // Visible area is 800x450 (16:9), iframe is 860px to clip scrollbar
-    const baseScale = cardWidth / 800;
+    // Visible area is 800x450 (16:9), extra width clips scrollbar
+    const baseScale = terminalWidth / 800;
     const scale = baseScale * zoomMultiplier;
     terminal.style.setProperty("--terminal-scale", scale);
   });
