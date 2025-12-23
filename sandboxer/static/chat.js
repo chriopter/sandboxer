@@ -16,7 +16,6 @@ const renderedMessageIds = new Set();
 let latestMessageId = 0;
 let isPolling = false;
 let isSending = false;
-let remoteProcessing = false;  // Track if another tab is processing
 
 // Toast helper
 function showToast(message, type = "info") {
@@ -27,16 +26,44 @@ function showToast(message, type = "info") {
   setTimeout(() => toast.classList.remove("show"), 3000);
 }
 
-// Render a message from database
+// Render a message from database (handles status: thinking/streaming/complete)
 function renderMessage(msg) {
-  // Skip if already rendered
-  if (msg.id && renderedMessageIds.has(msg.id)) return null;
+  const existingBubble = msg.id ? messagesContainer.querySelector(`[data-message-id="${msg.id}"]`) : null;
+
+  // Update existing bubble if status/content changed
+  if (existingBubble) {
+    existingBubble.className = "chat-message " + msg.role;
+    if (msg.status === 'thinking') {
+      existingBubble.innerHTML = '<span is-="spinner" variant-="dots"></span> thinking';
+      existingBubble.classList.add('thinking');
+    } else if (msg.status === 'streaming') {
+      existingBubble.textContent = msg.content || '';
+      existingBubble.classList.add('streaming');
+    } else {
+      existingBubble.textContent = msg.content;
+    }
+    return existingBubble;
+  }
+
+  // Skip if already rendered and complete
+  if (msg.id && renderedMessageIds.has(msg.id) && msg.status === 'complete') return null;
   if (msg.id) renderedMessageIds.add(msg.id);
 
   const bubble = document.createElement("div");
   bubble.className = "chat-message " + msg.role;
   if (msg.id) bubble.dataset.messageId = msg.id;
-  bubble.textContent = msg.content;
+
+  // Render based on status
+  if (msg.status === 'thinking') {
+    bubble.innerHTML = '<span is-="spinner" variant-="dots"></span> thinking';
+    bubble.classList.add('thinking');
+  } else if (msg.status === 'streaming') {
+    bubble.textContent = msg.content || '';
+    bubble.classList.add('streaming');
+  } else {
+    bubble.textContent = msg.content;
+  }
+
   messagesContainer.appendChild(bubble);
   return bubble;
 }
@@ -64,7 +91,7 @@ async function loadHistory() {
   }
 }
 
-// Poll for new messages
+// Poll for new messages (status: thinking/streaming/complete synced via DB)
 async function pollMessages() {
   if (isPolling) return;
   isPolling = true;
@@ -73,37 +100,31 @@ async function pollMessages() {
     const res = await fetch(`/api/chat-poll?session=${encodeURIComponent(sessionName)}&since=${latestMessageId}`);
     const data = await res.json();
 
-    if (data.messages && data.messages.length > 0) {
-      // Remove any remote-thinking indicator when real messages arrive
-      const remoteThinking = messagesContainer.querySelector(".remote-thinking");
-      if (remoteThinking) remoteThinking.remove();
+    let hasNewMessages = false;
+    let hasActiveMessage = false;
 
-      // Remove any pending/streaming bubbles when real messages arrive
-      const pending = messagesContainer.querySelectorAll(".pending, .streaming, .thinking");
-      pending.forEach(el => el.remove());
+    if (data.messages && data.messages.length > 0) {
+      // Remove local pending elements when DB messages arrive
+      document.querySelectorAll('.local-pending').forEach(el => el.remove());
 
       for (const msg of data.messages) {
         renderMessage(msg);
-        if (msg.id > latestMessageId) latestMessageId = msg.id;
+        if (msg.id > latestMessageId) {
+          latestMessageId = msg.id;
+          hasNewMessages = true;
+        }
+        // Check if there's an active (thinking/streaming) message
+        if (msg.status === 'thinking' || msg.status === 'streaming') {
+          hasActiveMessage = true;
+        }
       }
-      scrollToBottom();
+      if (hasNewMessages) scrollToBottom();
     }
 
     if (data.latest_id) latestMessageId = Math.max(latestMessageId, data.latest_id);
 
-    // Handle remote processing state (another tab is sending)
-    if (data.processing && !isSending && !remoteProcessing) {
-      remoteProcessing = true;
-      const thinkingEl = document.createElement("div");
-      thinkingEl.className = "chat-message assistant thinking remote-thinking";
-      thinkingEl.innerHTML = '<span is-="spinner" variant-="dots"></span> responding...';
-      messagesContainer.appendChild(thinkingEl);
-      scrollToBottom();
-    } else if (!data.processing && remoteProcessing) {
-      remoteProcessing = false;
-      const remoteThinking = messagesContainer.querySelector(".remote-thinking");
-      if (remoteThinking) remoteThinking.remove();
-    }
+    // Speed up polling when there's an active message
+    window._chatActive = hasActiveMessage;
   } catch (err) {
     console.error("Poll error:", err);
   } finally {
@@ -122,15 +143,14 @@ async function sendMessage() {
   sendBtn.disabled = true;
   sendBtn.textContent = "...";
 
-  // Show pending user message
+  // Show local pending elements (will be replaced by DB messages via poll)
   const userBubble = document.createElement("div");
-  userBubble.className = "chat-message user pending";
+  userBubble.className = "chat-message user local-pending";
   userBubble.textContent = message;
   messagesContainer.appendChild(userBubble);
 
-  // Show thinking indicator
   const thinkingEl = document.createElement("div");
-  thinkingEl.className = "chat-message assistant thinking";
+  thinkingEl.className = "chat-message assistant thinking local-pending";
   thinkingEl.innerHTML = '<span is-="spinner" variant-="dots"></span> thinking';
   messagesContainer.appendChild(thinkingEl);
   scrollToBottom();
@@ -385,9 +405,9 @@ document.addEventListener("paste", (e) => {
 textarea.focus();
 loadHistory();
 
-// Poll with adaptive interval
+// Poll with adaptive interval (faster when active messages)
 function schedulePoll() {
-  const interval = (remoteProcessing || isSending) ? 500 : 1500;
+  const interval = (window._chatActive || isSending) ? 500 : 1500;
   setTimeout(async () => {
     await pollMessages();
     schedulePoll();

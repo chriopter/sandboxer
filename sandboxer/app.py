@@ -505,11 +505,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
             messages = db.get_messages_since(session_name, since_id)
             latest_id = db.get_latest_message_id(session_name)
-            is_processing = chat.is_processing(session_name)
+            # Status (thinking/streaming/complete) is now in each message
             self.send_json({
                 "messages": messages,
-                "latest_id": latest_id,
-                "processing": is_processing
+                "latest_id": latest_id
             })
             return
 
@@ -710,13 +709,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     db.update_session_field(session_name, 'title', title)
                     title_update = title
 
-                # Get response generator
+                # Get response generator (also creates thinking message in DB)
                 response_gen, get_session_id = chat.send_message(
                     session_name, message, workdir, session_id
                 )
-
-                # Mark as processing for cross-tab sync
-                chat.set_processing(session_name, True)
 
                 # Stream response as SSE
                 self.send_response(200)
@@ -764,11 +760,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                         sessions._save_session_meta()
                 except (BrokenPipeError, ConnectionResetError):
                     pass
-                finally:
-                    # Clear processing state
-                    chat.set_processing(session_name, False)
             except Exception as e:
-                chat.set_processing(session_name, False)
                 self.send_json({"error": str(e)}, 500)
             return
 

@@ -551,11 +551,13 @@ def start_ungit(session_name: str, workdir: str) -> int:
     port = find_free_ungit_port()
 
     # Start ungit with the workdir as root
+    # Use --urlBase so it works when proxied at /u/{port}/
     proc = subprocess.Popen(
         [
             "ungit",
             "--port", str(port),
             "--rootPath", workdir,
+            "--urlBase", f"/u/{port}",
             "--no-b",  # Don't open browser
             "--ungitBindIp", "127.0.0.1",
         ],

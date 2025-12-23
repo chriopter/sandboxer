@@ -20,22 +20,6 @@ SYSTEM_PROMPT_PATH = "/home/sandboxer/git/sandboxer/system-prompt.txt"
 # Active chat sessions in memory: name -> (process, session_id)
 chat_sessions: dict[str, tuple] = {}
 
-# Track which sessions are currently processing (for cross-tab sync)
-processing_sessions: set[str] = set()
-
-
-def set_processing(name: str, is_processing: bool):
-    """Mark a session as processing or not."""
-    if is_processing:
-        processing_sessions.add(name)
-    else:
-        processing_sessions.discard(name)
-
-
-def is_processing(name: str) -> bool:
-    """Check if a session is currently processing."""
-    return name in processing_sessions
-
 
 def restore_chat_sessions():
     """Restore chat sessions from database on server restart."""
@@ -118,9 +102,9 @@ def get_history(name: str, limit: int = 100, offset: int = 0) -> list[dict]:
     return db.get_messages(name, limit=limit, offset=offset)
 
 
-def save_message(name: str, role: str, content: str, metadata: dict = None):
-    """Save a message to the database."""
-    db.add_message(name, role, content, metadata)
+def save_message(name: str, role: str, content: str, status: str = 'complete', metadata: dict = None) -> int:
+    """Save a message to the database. Returns message ID."""
+    return db.add_message(name, role, content, status, metadata)
 
 
 def send_message(name: str, message: str, workdir: str, session_id: str = None):
@@ -129,9 +113,17 @@ def send_message(name: str, message: str, workdir: str, session_id: str = None):
     Each message spawns a new Claude process (one-shot mode).
     Claude requires stdin to be closed before it outputs, so we can't maintain
     a persistent process for bidirectional communication.
+
+    Messages are saved to SQLite with status for cross-tab sync:
+    - User message: status='complete'
+    - Assistant: status='thinking' → 'streaming' → 'complete'
     """
     # Save user message to database
-    save_message(name, 'user', message)
+    save_message(name, 'user', message, 'complete')
+
+    # Create assistant message with 'thinking' status immediately
+    # This syncs the thinking state to all tabs via polling
+    assistant_msg_id = save_message(name, 'assistant', '', 'thinking')
 
     # Build command - same params as CLI sessions
     cmd = [
@@ -197,6 +189,7 @@ def send_message(name: str, message: str, workdir: str, session_id: str = None):
         import time
         new_session_id = None
         assistant_text = []  # Collect assistant response text
+        started_streaming = False
 
         # Wait a moment for process to start outputting
         time.sleep(0.5)
@@ -225,20 +218,31 @@ def send_message(name: str, message: str, workdir: str, session_id: str = None):
                             if block.get("type") == "text":
                                 assistant_text.append(block.get("text", ""))
 
-                    # Also collect streaming deltas
+                    # Update to streaming status when content starts
+                    if data.get("type") == "content_block_start" and not started_streaming:
+                        started_streaming = True
+                        db.update_message(assistant_msg_id, status='streaming')
+
+                    # Collect streaming deltas and periodically update DB
                     if data.get("type") == "content_block_delta":
                         delta = data.get("delta", {}).get("text", "")
                         if delta:
                             assistant_text.append(delta)
+                            # Update content in DB every ~20 chars for sync
+                            if len(assistant_text) % 5 == 0:
+                                db.update_message(assistant_msg_id, content="".join(assistant_text))
 
                     yield line.decode().strip()
                 except json.JSONDecodeError:
                     pass
         finally:
-            # Save assistant response to database
+            # Finalize assistant response in database
             full_response = "".join(assistant_text)
             if full_response:
-                save_message(name, 'assistant', full_response)
+                db.update_message(assistant_msg_id, content=full_response, status='complete')
+            else:
+                # No response - remove the thinking message
+                db.update_message(assistant_msg_id, content='(no response)', status='complete')
 
             # Update stored session_id
             if new_session_id:

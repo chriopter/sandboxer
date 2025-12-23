@@ -54,6 +54,7 @@ def init_db():
                 session_name TEXT NOT NULL,
                 role TEXT NOT NULL,  -- 'user', 'assistant', 'system'
                 content TEXT NOT NULL,
+                status TEXT DEFAULT 'complete',  -- 'complete', 'thinking', 'streaming'
                 metadata TEXT,  -- JSON for extra data (tool_use, etc.)
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (session_name) REFERENCES sessions(name) ON DELETE CASCADE
@@ -62,6 +63,12 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_name);
             CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(session_name, created_at);
         """)
+
+        # Migration: add status column if missing
+        try:
+            conn.execute("ALTER TABLE messages ADD COLUMN status TEXT DEFAULT 'complete'")
+        except:
+            pass  # Column already exists
 
 
 # ═══ Session Operations ═══
@@ -133,18 +140,34 @@ def delete_session(name: str):
 
 # ═══ Message Operations ═══
 
-def add_message(session_name: str, role: str, content: str, metadata: dict = None):
-    """Add a message to a session."""
+def add_message(session_name: str, role: str, content: str, status: str = 'complete', metadata: dict = None) -> int:
+    """Add a message to a session. Returns the message ID."""
     with get_db() as conn:
-        conn.execute("""
-            INSERT INTO messages (session_name, role, content, metadata)
-            VALUES (?, ?, ?, ?)
-        """, (session_name, role, content, json.dumps(metadata) if metadata else None))
+        cursor = conn.execute("""
+            INSERT INTO messages (session_name, role, content, status, metadata)
+            VALUES (?, ?, ?, ?, ?)
+        """, (session_name, role, content, status, json.dumps(metadata) if metadata else None))
 
         # Update session timestamp
         conn.execute("""
             UPDATE sessions SET updated_at = CURRENT_TIMESTAMP WHERE name = ?
         """, (session_name,))
+
+        return cursor.lastrowid
+
+
+def update_message(message_id: int, content: str = None, status: str = None):
+    """Update a message's content and/or status."""
+    with get_db() as conn:
+        if content is not None and status is not None:
+            conn.execute("UPDATE messages SET content = ?, status = ? WHERE id = ?",
+                        (content, status, message_id))
+        elif content is not None:
+            conn.execute("UPDATE messages SET content = ? WHERE id = ?",
+                        (content, message_id))
+        elif status is not None:
+            conn.execute("UPDATE messages SET status = ? WHERE id = ?",
+                        (status, message_id))
 
 
 def get_messages(session_name: str, limit: int = 100, offset: int = 0) -> list[dict]:
