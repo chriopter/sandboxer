@@ -199,11 +199,15 @@ def get_message_count(session_name: str) -> int:
 
 
 def get_messages_since(session_name: str, since_id: int) -> list[dict]:
-    """Get messages newer than since_id for polling."""
+    """Get messages for polling - new messages OR active OR the last seen (for status updates)."""
     with get_db() as conn:
+        # Return:
+        # - New messages (id > since_id)
+        # - Active messages (status != 'complete') for real-time updates
+        # - The last seen message (id = since_id) so client sees when it becomes complete
         rows = conn.execute("""
             SELECT * FROM messages
-            WHERE session_name = ? AND id > ?
+            WHERE session_name = ? AND (id >= ? OR status != 'complete')
             ORDER BY id ASC
         """, (session_name, since_id)).fetchall()
 

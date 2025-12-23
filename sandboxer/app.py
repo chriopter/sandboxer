@@ -166,12 +166,13 @@ def build_single_card(s: dict, mode: str = "cli") -> str:
     chat_display = "flex" if session_mode == "chat" else "none"
     toggle_label = "cli" if session_mode == "chat" else "chat"
 
+    ssh_display = "none" if session_mode == "chat" else "inline-block"
     return f"""<article class="card" draggable="true" data-session="{escape(s['name'])}" data-workdir="{escape(workdir)}" data-mode="{session_mode}">
   <header>
     <span class="card-title" onclick="renameSession('{escape(s['name'])}')">{escape(display_name)}</span>
     <div class="card-actions">
       <button size-="small" variant-="mauve" class="toggle-mode-btn" onclick="event.stopPropagation(); toggleMode('{escape(s['name'])}')">{toggle_label}</button>
-      <button size-="small" variant-="teal" onclick="event.stopPropagation(); copySSH('{escape(s['name'])}')">ssh</button>
+      <button size-="small" variant-="teal" class="ssh-btn" style="display: {ssh_display}" onclick="event.stopPropagation(); copySSH('{escape(s['name'])}')">ssh</button>
       <button size-="small" class="img-btn" onclick="event.stopPropagation(); triggerImageUpload('{escape(s['name'])}')" ondblclick="event.stopPropagation(); triggerImageBrowse('{escape(s['name'])}')">↑</button>
       <input type="file" class="card-image-input" accept="image/*" style="display:none" data-session="{escape(s['name'])}">
       <button size-="small" class="fullscreen-header-btn" onclick="event.stopPropagation(); openFullscreen('{escape(s['name'])}')">⧉</button>

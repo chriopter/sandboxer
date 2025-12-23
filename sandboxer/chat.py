@@ -193,6 +193,7 @@ def send_message(name: str, message: str, workdir: str, session_id: str = None):
 
         # Wait a moment for process to start outputting
         time.sleep(0.5)
+        lines_received = 0
         try:
             while True:
                 poll_result = proc.poll()
@@ -204,35 +205,66 @@ def send_message(name: str, message: str, workdir: str, session_id: str = None):
                 line = proc.stdout.readline()
                 if not line:
                     break
+                lines_received += 1
+                line_str = line.decode().strip()
                 try:
-                    data = json.loads(line.decode())
+                    data = json.loads(line_str)
 
                     # Capture session_id for future messages
                     if data.get("type") == "system" and data.get("subtype") == "init":
                         new_session_id = data.get("session_id", "")
 
-                    # Collect assistant text for database storage
+                    # Collect assistant text from final assistant message
                     if data.get("type") == "assistant":
                         content = data.get("message", {}).get("content", [])
                         for block in content:
                             if block.get("type") == "text":
-                                assistant_text.append(block.get("text", ""))
+                                text = block.get("text", "")
+                                if text:
+                                    assistant_text.append(text)
+                                    # Update DB immediately when we get text
+                                    db.update_message(assistant_msg_id, content="".join(assistant_text), status='streaming')
 
-                    # Update to streaming status when content starts
+                    # Update to streaming status when any content starts (text or tool)
                     if data.get("type") == "content_block_start" and not started_streaming:
                         started_streaming = True
-                        db.update_message(assistant_msg_id, status='streaming')
+                        block_type = data.get("content_block", {}).get("type", "")
+                        block_name = data.get("content_block", {}).get("name", "")
+                        # For tools, show tool name in content while working
+                        if block_type == "tool_use" and block_name:
+                            db.update_message(assistant_msg_id, content=f"[{block_name}]", status='streaming')
+                        else:
+                            db.update_message(assistant_msg_id, status='streaming')
 
-                    # Collect streaming deltas and periodically update DB
+                    # Show each new tool being used
+                    if data.get("type") == "content_block_start":
+                        block_type = data.get("content_block", {}).get("type", "")
+                        block_name = data.get("content_block", {}).get("name", "")
+                        if block_type == "tool_use" and block_name:
+                            # Append tool to content for visibility
+                            current = "".join(assistant_text)
+                            if current:
+                                db.update_message(assistant_msg_id, content=current + f"\n[{block_name}]")
+                            else:
+                                db.update_message(assistant_msg_id, content=f"[{block_name}]")
+
+                    # Collect streaming deltas and update DB frequently
                     if data.get("type") == "content_block_delta":
                         delta = data.get("delta", {}).get("text", "")
                         if delta:
                             assistant_text.append(delta)
-                            # Update content in DB every ~20 chars for sync
-                            if len(assistant_text) % 5 == 0:
-                                db.update_message(assistant_msg_id, content="".join(assistant_text))
+                            # Update content in DB frequently for sync
+                            db.update_message(assistant_msg_id, content="".join(assistant_text))
 
-                    yield line.decode().strip()
+                    # Also capture result message (has final text)
+                    if data.get("type") == "result" and data.get("result"):
+                        result_text = data.get("result", "")
+                        if result_text and not assistant_text:
+                            # Use result if we didn't get text from assistant messages
+                            assistant_text.append(result_text)
+                            db.update_message(assistant_msg_id, content=result_text, status='streaming')
+
+                    yield line_str
                 except json.JSONDecodeError:
                     pass
         finally:
@@ -254,5 +286,11 @@ def send_message(name: str, message: str, workdir: str, session_id: str = None):
             # Ensure process is cleaned up
             if proc.poll() is None:
                 proc.terminate()
+
+            # Check stderr for errors (only log if there's content)
+            stderr = proc.stderr.read() if proc.stderr else b''
+            if stderr:
+                import sys
+                print(f"[chat] Claude stderr: {stderr.decode()[:500]}", flush=True, file=sys.stderr)
 
     return response_generator(), lambda: chat_sessions.get(name, (None, ""))[1]

@@ -673,15 +673,12 @@ function updateTerminalScales() {
   const zoomMultiplier = zoomPercent / 100;
 
   document.querySelectorAll(".terminal").forEach(terminal => {
-    const card = terminal.closest(".card");
-    if (!card) return;
+    // Use terminal container's own width for more accurate scaling
+    const terminalWidth = terminal.offsetWidth || terminal.getBoundingClientRect().width;
+    if (terminalWidth === 0) return; // Not visible
 
-    // Get card width
-    const cardWidth = card.offsetWidth;
-    if (cardWidth === 0) return; // Not visible
-
-    // Iframe is 830px wide (extra for scrollbar clipping), scale to fit card
-    const baseScale = cardWidth / 830;
+    // Iframe is 830px wide (extra for scrollbar clipping), scale to fit terminal container
+    const baseScale = terminalWidth / 830;
     const scale = baseScale * zoomMultiplier;
     terminal.style.setProperty("--terminal-scale", scale);
   });
@@ -694,10 +691,15 @@ function debouncedUpdateScales() {
   scaleTimeout = setTimeout(updateTerminalScales, 100);
 }
 
-// Use ResizeObserver to detect when cards resize
+// Use ResizeObserver to detect when cards/terminals resize
 const cardResizeObserver = new ResizeObserver(debouncedUpdateScales);
 function observeCardResize(card) {
   cardResizeObserver.observe(card);
+  // Also observe the terminal container directly
+  const terminal = card.querySelector('.terminal');
+  if (terminal) {
+    cardResizeObserver.observe(terminal);
+  }
 }
 
 // ═══ View & Zoom Dropdowns ═══
@@ -1215,6 +1217,10 @@ async function sendChat(sessionName) {
                     currentBubble.textContent = block.text;
                     messagesContainer.scrollTop = messagesContainer.scrollHeight;
                   } else if (block.type === "tool_use") {
+                    // Hide assistant text bubble when tools start (avoid ghost text)
+                    if (currentBubble) {
+                      currentBubble.remove();
+                    }
                     // Show tool being used with spinner
                     setChatStatus(card, "working", block.name + "...");
                     currentToolBubble = renderToolUse(messagesContainer, block.name, block.input?.command || block.input?.description || "");
@@ -1255,6 +1261,18 @@ async function sendChat(sessionName) {
                 messagesContainer.appendChild(currentBubble);
                 currentText = "";
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
+              } else if (event.content_block && event.content_block.type === "tool_use") {
+                // Tool use from streaming - remove thinking and text, show tool
+                if (!removedThinking) {
+                  thinkingEl.remove();
+                  removedThinking = true;
+                }
+                if (currentBubble) {
+                  currentBubble.remove();
+                  currentBubble = null;
+                }
+                setChatStatus(card, "working", (event.content_block.name || "tool") + "...");
+                currentToolBubble = renderToolUse(messagesContainer, event.content_block.name || "tool", "");
               }
             } else if (event.type === "content_block_delta") {
               const delta = event.delta && event.delta.text;
@@ -1334,10 +1352,13 @@ async function toggleMode(sessionName) {
     const terminalDiv = card.querySelector(".terminal");
     const chatDiv = card.querySelector(".chat");
 
+    const sshBtn = card.querySelector(".ssh-btn");
+
     if (targetMode === "chat") {
       if (terminalDiv) terminalDiv.style.display = "none";
       if (chatDiv) chatDiv.style.display = "flex";
       if (toggleBtn) toggleBtn.textContent = "cli";
+      if (sshBtn) sshBtn.style.display = "none";
     } else {
       if (terminalDiv) {
         terminalDiv.style.display = "block";
@@ -1349,6 +1370,7 @@ async function toggleMode(sessionName) {
       }
       if (chatDiv) chatDiv.style.display = "none";
       if (toggleBtn) toggleBtn.textContent = "chat";
+      if (sshBtn) sshBtn.style.display = "inline-block";
     }
 
     // Recalculate terminal scales

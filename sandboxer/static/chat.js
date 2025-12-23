@@ -103,9 +103,6 @@ async function pollMessages() {
     let hasActiveMessage = false;
 
     if (data.messages && data.messages.length > 0) {
-      // Remove local pending elements when DB messages arrive
-      document.querySelectorAll('.local-pending').forEach(el => el.remove());
-
       for (const msg of data.messages) {
         renderMessage(msg);
         if (msg.id > latestMessageId) {
@@ -144,22 +141,37 @@ async function sendMessage() {
   scrollToBottom();
 
   try {
-    // Just POST, don't wait for response stream - polling will show everything
-    fetch("/api/chat-send", {
+    // POST to start the request
+    const res = await fetch("/api/chat-send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ session: sessionName, message }),
-    }).catch(err => {
-      console.error("Send error:", err);
-      showToast("Failed to send", "error");
     });
 
-    // Poll immediately to show user message + thinking state from DB
-    await pollMessages();
-
-  } finally {
+    // Re-enable button immediately after request starts
     sendBtn.disabled = false;
-    sendBtn.textContent = "➤";
+    sendBtn.textContent = "→";
+    isSending = false;
+
+    // Consume response in background (so backend generator runs)
+    const reader = res.body?.getReader();
+    if (reader) {
+      (async () => {
+        try {
+          while (true) {
+            const { done } = await reader.read();
+            if (done) break;
+          }
+        } catch (e) {
+          console.error("Stream read error:", e);
+        }
+      })();
+    }
+  } catch (err) {
+    console.error("Send error:", err);
+    showToast("Failed to send", "error");
+    sendBtn.disabled = false;
+    sendBtn.textContent = "→";
     isSending = false;
   }
 }
