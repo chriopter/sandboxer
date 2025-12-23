@@ -30,38 +30,40 @@
         </column>
       </details>
     </select-dropdown>
-    <select-dropdown id="typeSelect" data-value="claude">
-      <details is-="popover" position-="bottom">
-        <summary tabindex="0" is-="button" size-="small">claude</summary>
-        <column id="typeOptions">
-          <button data-value="claude" size-="small" aria-selected="true">claude</button>
-          <button data-value="chat" size-="small" aria-selected="false">claude chat</button>
-          <button data-value="resume" size-="small" aria-selected="false">claude resume</button>
-          <button data-value="lazygit" size-="small" aria-selected="false">lazygit</button>
-          <button data-value="bash" size-="small" aria-selected="false">bash</button>
-          <button data-value="gemini" size-="small" aria-selected="false">gemini</button>
-        </column>
-      </details>
-    </select-dropdown>
-    <span id="resumeWrap" class="resume-wrap">
-      <select-dropdown id="resumeSelect" data-value="">
-        <details is-="popover" position-="bottom">
-          <summary tabindex="0" is-="button" size-="small">...</summary>
-          <column id="resumeOptions">
-          </column>
-        </details>
-      </select-dropdown>
-    </span>
-    <button variant-="green" size-="small" onclick="createSession()" class="new-btn">+</button>
   </div>
   <button variant-="green" size-="small" class="sidebar-new-collapsed" onclick="createSession()" title="New session">+</button>
   <ul class="sidebar-list" id="sidebarList">
   </ul>
   <div class="sidebar-bottom">
+    <div class="sidebar-new-row">
+      <select-dropdown id="typeSelect" data-value="claude">
+        <details is-="popover" position-="top">
+          <summary tabindex="0" is-="button" size-="small">claude</summary>
+          <column id="typeOptions">
+            <button data-value="claude" size-="small" aria-selected="true">claude</button>
+            <button data-value="chat" size-="small" aria-selected="false">claude chat</button>
+            <button data-value="resume" size-="small" aria-selected="false">claude resume</button>
+            <button data-value="lazygit" size-="small" aria-selected="false">lazygit</button>
+            <button data-value="bash" size-="small" aria-selected="false">bash</button>
+            <button data-value="gemini" size-="small" aria-selected="false">gemini</button>
+          </column>
+        </details>
+      </select-dropdown>
+      <span id="resumeWrap" class="resume-wrap">
+        <select-dropdown id="resumeSelect" data-value="">
+          <details is-="popover" position-="top">
+            <summary tabindex="0" is-="button" size-="small">...</summary>
+            <column id="resumeOptions">
+            </column>
+          </details>
+        </select-dropdown>
+      </span>
+      <button variant-="green" size-="small" onclick="createSession()" class="new-btn">+</button>
+    </div>
     <div class="sidebar-actions">
-      <button class="tui-action" onclick="copyTakeover()" title="SSH to current folder"><span class="hotkey">s</span>ssh</button>
-      <button class="tui-action" onclick="restartSandboxer()" title="Restart sandboxer service"><span class="hotkey">r</span>restart</button>
-      <button class="tui-action" onclick="closeAllSessions()" title="Close all visible sessions"><span class="hotkey">x</span>close all</button>
+      <button variant-="teal" size-="small" onclick="copyTakeover()" title="SSH to current folder">ssh</button>
+      <button variant-="mauve" size-="small" onclick="restartSandboxer()" title="Restart sandboxer service">restart</button>
+      <button variant-="red" size-="small" onclick="closeAllSessions()" title="Close all visible sessions">close all</button>
     </div>
     <div class="sidebar-controls">
       <div class="control-row">

@@ -166,8 +166,10 @@ def build_single_card(s: dict, mode: str = "cli") -> str:
     <span class="card-title" onclick="renameSession('{escape(s['name'])}')">{escape(display_name)}</span>
     <div class="card-actions">
       <button size-="small" variant-="mauve" class="toggle-mode-btn" onclick="event.stopPropagation(); toggleMode('{escape(s['name'])}')">{toggle_label}</button>
-      <button size-="small" onclick="event.stopPropagation(); window.open('/terminal?session=' + encodeURIComponent('{escape(s['name'])}'), '_blank')">↗</button>
       <button size-="small" variant-="teal" onclick="event.stopPropagation(); copySSH('{escape(s['name'])}')">ssh</button>
+      <button size-="small" class="img-btn" onclick="event.stopPropagation(); triggerImageUpload('{escape(s['name'])}')">[img]</button>
+      <input type="file" class="card-image-input" accept="image/*" style="display:none" data-session="{escape(s['name'])}">
+      <button size-="small" onclick="event.stopPropagation(); window.open('/terminal?session=' + encodeURIComponent('{escape(s['name'])}'), '_blank')">↗</button>
       <button size-="small" variant-="red" class="kill-btn" onclick="event.stopPropagation(); killSession(this, '{escape(s['name'])}')">×</button>
     </div>
   </header>

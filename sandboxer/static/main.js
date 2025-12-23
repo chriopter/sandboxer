@@ -1036,6 +1036,73 @@ async function toggleMode(sessionName) {
   }
 }
 
+// ═══ Image Upload from Mini Views ═══
+
+function triggerImageUpload(sessionName) {
+  const card = document.querySelector(`[data-session="${sessionName}"]`);
+  if (!card) return;
+  const input = card.querySelector('.card-image-input');
+  if (input) input.click();
+}
+
+async function uploadImageToSession(sessionName, file) {
+  if (!file || !file.type.startsWith("image/")) {
+    showToast("Not an image", "error");
+    return;
+  }
+
+  showToast("Uploading...", "info");
+
+  try {
+    // Convert to base64
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result;
+        const base64Data = result.split(",")[1];
+        resolve(base64Data);
+      };
+      reader.onerror = () => reject(new Error("Failed to read file"));
+      reader.readAsDataURL(file);
+    });
+
+    // Upload
+    const filename = file.name || `upload_${Date.now()}.png`;
+    const uploadRes = await fetch("/api/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image: base64, filename })
+    });
+    const uploadData = await uploadRes.json();
+    if (!uploadData.ok) {
+      throw new Error(uploadData.error || "Upload failed");
+    }
+
+    // Inject path into session
+    await fetch("/api/inject", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session: sessionName, text: uploadData.path + " " })
+    });
+
+    showToast(uploadData.path, "success");
+  } catch (err) {
+    showToast("Upload failed: " + err.message, "error");
+  }
+}
+
+// Set up file input listeners for all cards
+document.querySelectorAll('.card-image-input').forEach(input => {
+  input.addEventListener('change', (e) => {
+    const file = e.target.files?.[0];
+    const sessionName = input.dataset.session;
+    if (file && sessionName) {
+      uploadImageToSession(sessionName, file);
+    }
+    e.target.value = ''; // Reset for next upload
+  });
+});
+
 // Connect chat sessions on page load
 document.querySelectorAll('.card[data-mode="chat"]').forEach(function(card) {
   const sessionName = card.dataset.session;

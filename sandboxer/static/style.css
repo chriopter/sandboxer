@@ -3,7 +3,7 @@
 /* ═══ Base ═══ */
 
 body {
-  font-family: "Berkeley Mono", "IBM Plex Mono", "JetBrains Mono", ui-monospace, monospace;
+  font-family: monospace;
   background: var(--crust, var(--background0));
   color: var(--text, var(--foreground0));
   min-height: 100vh;
@@ -127,6 +127,13 @@ select-dropdown column {
   z-index: 1000;
 }
 
+/* Upward-opening dropdowns */
+select-dropdown details[position-="top"] column {
+  top: auto;
+  bottom: 100%;
+  border-radius: 4px 4px 0 0;
+}
+
 select-dropdown column button {
   text-align: left;
   border: none !important;
@@ -172,30 +179,37 @@ select-dropdown column button[aria-selected="true"] {
   overflow-y: auto;
   list-style: none;
   margin: 0;
-  padding: 1ch;
+  padding: 1lh 1ch;
 }
 
 /* Grouped sidebar navigation - WebTUI docs style */
 .sidebar-group {
-  margin-bottom: 1.2em;
+  margin-top: 1lh;
+}
+
+.sidebar-group:first-child {
+  margin-top: 0;
 }
 
 .sidebar-group summary {
   display: block;
   cursor: pointer;
-  font-size: 1em;
-  font-weight: 500;
   list-style: none;
   user-select: none;
-  line-height: 1.6;
+  line-height: 1lh;
+  color: var(--subtext0);
 }
 
 .sidebar-group summary::-webkit-details-marker {
   display: none;
 }
 
+.sidebar-group summary::marker {
+  content: "";
+}
+
 .sidebar-group summary::before {
-  content: "∨ ";
+  content: "v ";
   color: var(--overlay1);
 }
 
@@ -210,22 +224,17 @@ select-dropdown column button[aria-selected="true"] {
 }
 
 .group-sessions li {
-  padding: 0;
   cursor: pointer;
   color: var(--subtext0);
-  font-size: 1em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  line-height: 1.6;
-  transition: color 0.1s, background 0.1s;
-  border-radius: 2px;
-  padding-right: 0.5ch;
+  line-height: 1lh;
 }
 
 .group-sessions li::before {
   content: "├ ";
-  color: var(--surface2);
+  color: var(--overlay1);
 }
 
 .group-sessions li:last-child::before {
@@ -237,11 +246,16 @@ select-dropdown column button[aria-selected="true"] {
   background: var(--surface0);
 }
 
+.group-sessions li.active {
+  color: var(--text);
+  text-decoration: underline;
+  font-weight: 600;
+}
+
 .sidebar-empty {
-  padding: 2ch 1ch;
+  padding: 1lh 1ch;
   text-align: center;
   color: var(--overlay0);
-  font-size: 1em;
 }
 
 .sidebar-toggle {
@@ -258,39 +272,30 @@ select-dropdown column button[aria-selected="true"] {
   display: none !important;
 }
 
+.sidebar-new-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5ch;
+  margin-bottom: 0.5ch;
+}
+
+.sidebar-new-row select-dropdown {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar-new-row .new-btn {
+  flex-shrink: 0;
+}
+
 .sidebar-actions {
   display: flex;
-  flex-direction: column;
-  gap: 1px;
+  flex-direction: row;
+  gap: 0.5ch;
 }
 
-/* TUI-style action buttons - minimal, text-focused */
-.tui-action {
-  width: 100%;
-  padding: 0.4em 1ch !important;
-  font-size: 0.85em;
-  text-align: left;
-  background: transparent !important;
-  border: none !important;
-  color: var(--subtext0) !important;
-  transition: background 0.1s, color 0.1s;
-  border-radius: 0 !important;
-}
-
-.tui-action:hover {
-  background: var(--surface0) !important;
-  color: var(--text) !important;
-}
-
-.tui-action .hotkey {
-  display: inline-block;
-  width: 1.5ch;
-  color: var(--overlay0);
-  margin-right: 0.5ch;
-}
-
-.tui-action:hover .hotkey {
-  color: var(--mauve);
+.sidebar-actions button {
+  flex: 1;
 }
 
 /* Sidebar controls - compact labeled groups */
@@ -493,7 +498,7 @@ select-dropdown column button[aria-selected="true"] {
 
   /* Compact session list */
   .sidebar-list {
-    padding: 10px;
+    padding: 0 10px;
     margin: 0;
     flex: 1;
     overflow-y: auto;
@@ -501,17 +506,15 @@ select-dropdown column button[aria-selected="true"] {
 
   /* Mobile grouped navigation */
   .sidebar-group {
-    margin-bottom: 1em;
+    margin-top: 1.2lh;
   }
 
   .sidebar-group summary {
-    font-size: 1em;
-    line-height: 1.8;
+    line-height: 1.2lh;
   }
 
   .group-sessions li {
-    font-size: 0.95em;
-    line-height: 1.8;
+    line-height: 1.2lh;
   }
 
   /* Compact bottom section */

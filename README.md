@@ -5,8 +5,8 @@
 <h1 align="center">Sandboxer</h1>
 
 <p align="center">
-  Web terminal manager for autonomous Claude Code sessions.<br>
-  Run multiple Claude instances with <code>--dangerously-skip-permissions</code> on a disposable machine.
+  Web terminal manager for autonomous Claude Code sessions but Claude takes the wheel for the machine itself.<br>
+  Start Sessions in Web, take over via SSH, convert them to chat UI for perfect handling on mobile.
 </p>
 
 ---
