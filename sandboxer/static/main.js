@@ -677,8 +677,8 @@ function updateTerminalScales() {
     const terminalWidth = terminal.offsetWidth;
     if (terminalWidth === 0) return; // Not visible
 
-    // Scale to fit terminal container (808x460 iframe)
-    const baseScale = terminalWidth / 808;
+    // Scale to fit terminal container (900x600 iframe)
+    const baseScale = terminalWidth / 900;
     const scale = baseScale * zoomMultiplier;
     terminal.style.setProperty("--terminal-scale", scale);
   });
