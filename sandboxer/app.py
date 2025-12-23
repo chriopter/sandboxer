@@ -159,7 +159,7 @@ def build_single_card(s: dict, mode: str = "cli") -> str:
     session_mode = sessions.get_session_mode(s["name"]) or mode
     terminal_display = "none" if session_mode == "chat" else "block"
     chat_display = "flex" if session_mode == "chat" else "none"
-    toggle_label = "CLI" if session_mode == "chat" else "Chat"
+    toggle_label = "cli" if session_mode == "chat" else "chat"
 
     return f"""<article class="card" draggable="true" data-session="{escape(s['name'])}" data-workdir="{escape(workdir)}" data-mode="{session_mode}">
   <header>

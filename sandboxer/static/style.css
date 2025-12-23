@@ -172,24 +172,22 @@ select-dropdown column button[aria-selected="true"] {
   overflow-y: auto;
   list-style: none;
   margin: 0;
-  padding: 0.5ch;
+  padding: 1ch;
 }
 
-/* Grouped sidebar navigation */
+/* Grouped sidebar navigation - WebTUI docs style */
 .sidebar-group {
-  margin-bottom: 0.3ch;
+  margin-bottom: 1.5em;
 }
 
 .sidebar-group summary {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0.5em 0.8ch;
+  gap: 0.5ch;
+  padding: 0.3em 0;
   cursor: pointer;
-  color: var(--subtext0);
-  font-size: 0.85em;
+  font-size: 1em;
   font-weight: 500;
-  border-radius: 4px;
   list-style: none;
   user-select: none;
 }
@@ -199,71 +197,58 @@ select-dropdown column button[aria-selected="true"] {
 }
 
 .sidebar-group summary::before {
-  content: "›";
+  content: "∨";
   display: inline-block;
-  width: 1.2ch;
-  margin-right: 0.3ch;
-  color: var(--overlay0);
+  font-size: 0.8em;
+  color: var(--overlay1);
   transition: transform 0.15s ease;
 }
 
-.sidebar-group[open] summary::before {
-  transform: rotate(90deg);
-}
-
-.sidebar-group summary:hover {
-  background: var(--surface0);
+.sidebar-group:not([open]) summary::before {
+  transform: rotate(-90deg);
 }
 
 .sidebar-group .group-label {
   flex: 1;
 }
 
-.sidebar-group .group-count {
-  font-size: 0.8em;
-  color: var(--overlay0);
-  background: var(--surface0);
-  padding: 0.1em 0.5ch;
-  border-radius: 3px;
-  min-width: 1.5ch;
-  text-align: center;
-}
-
 .group-sessions {
   list-style: none;
-  margin: 0;
-  padding: 0 0 0 1.2ch;
+  margin: 0.3em 0 0 0;
+  padding: 0;
 }
 
 .group-sessions li {
-  padding: 0.4em 0.8ch;
+  padding: 0.4em 0 0.4em 0.5ch;
   cursor: pointer;
-  color: var(--text);
-  font-size: 0.8em;
+  color: var(--subtext0);
+  font-size: 1em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition: color 0.1s, background 0.1s;
   border-radius: 3px;
-  margin: 1px 0;
-  transition: background 0.1s, color 0.1s;
-  border-left: 2px solid var(--surface1);
-}
-
-.group-sessions li:hover {
-  background: var(--surface0);
-  border-left-color: var(--mauve);
-  color: var(--text);
 }
 
 .group-sessions li::before {
-  content: none;
+  content: "├ ";
+  color: var(--surface2);
+}
+
+.group-sessions li:last-child::before {
+  content: "└ ";
+}
+
+.group-sessions li:hover {
+  color: var(--text);
+  background: var(--surface0);
 }
 
 .sidebar-empty {
   padding: 2ch 1ch;
   text-align: center;
   color: var(--overlay0);
-  font-size: 0.85em;
+  font-size: 1em;
 }
 
 .sidebar-toggle {
@@ -515,33 +500,25 @@ select-dropdown column button[aria-selected="true"] {
 
   /* Compact session list */
   .sidebar-list {
-    padding: 4px;
+    padding: 10px;
     margin: 0;
-    gap: 1px;
     flex: 1;
     overflow-y: auto;
   }
 
   /* Mobile grouped navigation */
   .sidebar-group {
-    margin-bottom: 2px;
+    margin-bottom: 1.2em;
   }
 
   .sidebar-group summary {
-    padding: 8px 10px;
-    font-size: 0.85em;
-    border-radius: 2px;
-  }
-
-  .group-sessions {
-    padding-left: 1ch;
+    padding: 6px 0;
+    font-size: 1em;
   }
 
   .group-sessions li {
-    padding: 6px 10px;
-    font-size: 0.8em;
-    min-height: 0;
-    border-radius: 2px;
+    padding: 8px 0 8px 0.5ch;
+    font-size: 0.95em;
   }
 
   /* Compact bottom section */

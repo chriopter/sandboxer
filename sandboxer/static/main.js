@@ -566,7 +566,7 @@ function populateSidebar() {
     }
 
     const summary = document.createElement("summary");
-    summary.innerHTML = `<span class="group-label" style="color: var(--${group.color})">${group.label}</span><span class="group-count">${group.sessions.length}</span>`;
+    summary.innerHTML = `<span class="group-label" style="color: var(--${group.color})">${group.label}</span>`;
     details.appendChild(summary);
 
     // Save expanded state on toggle
@@ -1006,7 +1006,7 @@ async function toggleMode(sessionName) {
     if (targetMode === "chat") {
       if (terminalDiv) terminalDiv.style.display = "none";
       if (chatDiv) chatDiv.style.display = "flex";
-      if (toggleBtn) toggleBtn.textContent = "CLI";
+      if (toggleBtn) toggleBtn.textContent = "cli";
       // Connect to chat stream
       connectChat(sessionName);
     } else {
@@ -1019,7 +1019,7 @@ async function toggleMode(sessionName) {
         }
       }
       if (chatDiv) chatDiv.style.display = "none";
-      if (toggleBtn) toggleBtn.textContent = "Chat";
+      if (toggleBtn) toggleBtn.textContent = "chat";
     }
 
     // Recalculate terminal scales
@@ -1029,7 +1029,7 @@ async function toggleMode(sessionName) {
     showToast("Failed to toggle mode: " + err.message, "error");
     // Restore button state
     if (toggleBtn) {
-      toggleBtn.textContent = currentMode === "chat" ? "CLI" : "Chat";
+      toggleBtn.textContent = currentMode === "chat" ? "cli" : "chat";
     }
   } finally {
     if (toggleBtn) toggleBtn.disabled = false;
