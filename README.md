@@ -1,8 +1,8 @@
 <p align="center">
   <img src="logo.png" width="100" /><br><br>
-  Sandboxer<br><br>
-  Web terminal manager for autonomous Claude Code sessions but Claude takes the wheel for the machine itself.<br>
-  Start Sessions in Web, take over via SSH, convert them to chat UI for perfect handling on mobile.
+  <b>Sandboxer</b><br><br>
+  Give Claude root access to a disposable machine and let it run autonomously.<br>
+  Monitor multiple agents live, take over via SSH, or switch to chat UI on mobile.
 </p>
 
 ---
