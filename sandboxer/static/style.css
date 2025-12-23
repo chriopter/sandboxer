@@ -778,15 +778,14 @@ main {
 
 .terminal iframe {
   /* Fixed size for stable rendering - scaled to fit container */
-  width: 800px;
+  /* Extra width extends past 16:9 container, clipping scrollbar */
+  width: 830px;
   height: 450px;
   border: none;
   pointer-events: none;
   opacity: 0.9;
   transform: scale(var(--terminal-scale, 0.5));
   transform-origin: top left;
-  /* Clip right edge to hide scrollbar */
-  clip-path: inset(0 15px 0 0);
 }
 
 .terminal:hover iframe { opacity: 1; pointer-events: auto; }
