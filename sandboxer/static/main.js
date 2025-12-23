@@ -487,16 +487,20 @@ async function updateStats() {
 // ═══ Terminal Preview Scaling ═══
 
 function updateTerminalScales() {
+  // Get zoom level from localStorage (default 75%)
+  const zoomLevel = parseInt(localStorage.getItem("sandboxer_zoom") || "75", 10) / 100;
+
   document.querySelectorAll(".terminal").forEach(terminal => {
     const card = terminal.closest(".card");
     if (!card) return;
 
-    // Get card width (accounting for padding)
+    // Get card width
     const cardWidth = card.offsetWidth;
     if (cardWidth === 0) return; // Not visible
 
-    // Iframe is 800px wide, scale to fit card width
-    const scale = Math.min(1, cardWidth / 800);
+    // Iframe is 800px wide, scale to fit card width, then apply zoom
+    const fitScale = cardWidth / 800;
+    const scale = Math.min(1, fitScale * zoomLevel);
     terminal.style.setProperty("--terminal-scale", scale);
   });
 }
@@ -589,31 +593,8 @@ function initDirDropdown() {
 }
 
 // ═══ Auto-Reconnect Iframes ═══
-
-let lastReconnect = 0;
-const RECONNECT_COOLDOWN = 5000; // Don't reconnect more than once per 5 seconds
-
-function reconnectIframes() {
-  const now = Date.now();
-  if (now - lastReconnect < RECONNECT_COOLDOWN) return;
-  lastReconnect = now;
-
-  document.querySelectorAll(".terminal iframe").forEach((iframe) => {
-    if (iframe.src) {
-      // Reload iframe to reconnect
-      const src = iframe.src;
-      iframe.src = "";
-      iframe.src = src;
-    }
-  });
-}
-
-// Reconnect iframes when page becomes visible after being hidden (tab switch, screen wake)
-document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible") {
-    reconnectIframes();
-  }
-});
+// Note: Removed auto-reconnect on tab change as it was annoying.
+// Iframes maintain their connection state on their own.
 
 // ═══ Initialization ═══
 
@@ -664,8 +645,10 @@ document.addEventListener("visibilitychange", () => {
   initViewModes();
   initZoomModes();
 
-  // Initialize terminal scaling
+  // Initialize terminal scaling - call multiple times to catch late-rendering cards
   updateTerminalScales();
+  setTimeout(updateTerminalScales, 100);
+  setTimeout(updateTerminalScales, 500);
   window.addEventListener("resize", debouncedUpdateScales);
 
   // Start stats updates
