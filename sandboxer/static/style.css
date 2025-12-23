@@ -43,12 +43,13 @@ main {
 
 /* When sidebar is closed - collapse to minimal strip */
 body.sidebar-closed .sidebar {
-  width: 32px;
+  width: 42px;
 }
 
 body.sidebar-closed .sidebar-row select-dropdown,
 body.sidebar-closed .sidebar-row .new-btn,
 body.sidebar-closed .sidebar-row #resumeWrap,
+body.sidebar-closed .sidebar-new-row,
 body.sidebar-closed .sidebar-list,
 body.sidebar-closed .sidebar-bottom {
   display: none;
@@ -56,24 +57,21 @@ body.sidebar-closed .sidebar-bottom {
 
 body.sidebar-closed .sidebar-row {
   justify-content: center;
-  padding: 0.3ch;
+  padding: 0.5ch;
   border-bottom: none;
 }
 
 body.sidebar-closed .sidebar-new-collapsed {
   display: flex !important;
-  margin: 0.3ch auto;
-}
-
-body.sidebar-closed .sidebar-header {
   justify-content: center;
-  padding: 0.5ch;
+  align-items: center;
+  margin: 0 auto 0.5ch;
 }
 
 /* Toggle stays in same position when closed */
 
 body.sidebar-closed main {
-  margin-left: 32px;
+  margin-left: 42px;
 }
 
 .sidebar-row {
