@@ -1470,13 +1470,11 @@ body.chat-page {
   background: var(--surface0);
   border-left: 3px solid var(--mauve);
   color: var(--subtext0);
-  font-size: 0.8em;
+  font-size: 0.75em;
   padding: 1ch 1.5ch;
   margin: 1ch 0;
   white-space: pre-wrap;
   font-family: monospace;
-  max-height: 200px;
-  overflow-y: auto;
 }
 
 .chat-fullscreen .chat-message.streaming::after {
