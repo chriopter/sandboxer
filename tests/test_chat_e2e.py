@@ -7,7 +7,7 @@ import time
 import os
 
 BASE_URL = "http://localhost:8081"
-AUTH_PASS = "test123"
+AUTH_PASS = "EaQGUCtB7XfQhjtcvw4N"
 
 
 def test_chat_e2e():
@@ -32,15 +32,15 @@ def test_chat_e2e():
         try:
             # 1. Load and login
             print("\n[1] Loading page and logging in...")
-            page.goto(BASE_URL, wait_until="networkidle", timeout=15000)
+            page.goto(BASE_URL, wait_until="domcontentloaded", timeout=15000)
 
             # Handle login if needed
             if page.locator("form.login-box").count() > 0:
                 page.fill("input[name='username']", "admin")
                 page.fill("input[name='password']", AUTH_PASS)
                 page.click("button[type='submit']")
-                page.wait_for_load_state("networkidle")
-                time.sleep(0.5)
+                page.wait_for_load_state("domcontentloaded")
+                time.sleep(1)
                 print("   Logged in successfully")
 
             # Take screenshot of initial state
@@ -78,9 +78,9 @@ def test_chat_e2e():
 
             time.sleep(0.3)
 
-            # Close dropdown by clicking elsewhere
-            page.locator("body").click(position={"x": 10, "y": 10})
-            time.sleep(0.2)
+            # Close the dropdown by pressing Escape
+            page.keyboard.press("Escape")
+            time.sleep(0.3)
 
             page.screenshot(path="/home/sandboxer/git/sandboxer/tests/screenshots/chat_e2e_2_dropdown.png")
 

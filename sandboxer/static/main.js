@@ -121,9 +121,9 @@ async function createSession(forceType) {
       // Update terminal scales for new card
       setTimeout(updateTerminalScales, 50);
 
-      // Add demo messages for chat sessions
+      // Connect sync for new chat sessions
       if (data.mode === "chat") {
-        setTimeout(() => addDemoMessages(data.name), 100);
+        connectChatSync(data.name);
       }
 
       // Update sidebar
@@ -998,36 +998,150 @@ function handleChatEvent(session, event, container, state) {
   }
 }
 
-function renderChatMessage(container, role, content) {
+function renderChatMessage(container, role, content, extra = {}) {
   const bubble = document.createElement("div");
   bubble.className = "chat-message " + role;
-  bubble.textContent = content;
+
+  if (extra.collapsible) {
+    // Collapsible message (tool use, tool result, system)
+    const details = document.createElement("details");
+    const summary = document.createElement("summary");
+    summary.innerHTML = extra.summary || role;
+    details.appendChild(summary);
+    const contentDiv = document.createElement("div");
+    contentDiv.className = "collapsible-content";
+    contentDiv.textContent = content;
+    details.appendChild(contentDiv);
+    bubble.appendChild(details);
+  } else {
+    bubble.textContent = content;
+  }
+
   container.appendChild(bubble);
   container.scrollTop = container.scrollHeight;
+  return bubble;
+}
+
+function renderToolUse(container, toolName, toolInput) {
+  const bubble = document.createElement("div");
+  bubble.className = "chat-message tool-use";
+  const details = document.createElement("details");
+  const summary = document.createElement("summary");
+  summary.innerHTML = '<span is-="spinner" variant-="dots"></span> ' + toolName;
+  details.appendChild(summary);
+  if (toolInput) {
+    const pre = document.createElement("pre");
+    pre.textContent = typeof toolInput === 'string' ? toolInput : JSON.stringify(toolInput, null, 2);
+    details.appendChild(pre);
+  }
+  bubble.appendChild(details);
+  container.appendChild(bubble);
+  container.scrollTop = container.scrollHeight;
+  return bubble;
+}
+
+function renderToolResult(container, toolName, result, isError) {
+  const bubble = document.createElement("div");
+  bubble.className = "chat-message tool-result" + (isError ? " error" : "");
+  const details = document.createElement("details");
+  const summary = document.createElement("summary");
+  summary.textContent = (isError ? "✗ " : "✓ ") + toolName;
+  details.appendChild(summary);
+  const pre = document.createElement("pre");
+  // Truncate long results
+  const text = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
+  pre.textContent = text.length > 500 ? text.slice(0, 500) + "\n..." : text;
+  details.appendChild(pre);
+  bubble.appendChild(details);
+  container.appendChild(bubble);
+  container.scrollTop = container.scrollHeight;
+  return bubble;
+}
+
+function renderSystemMessage(container, subtype, data) {
+  const bubble = document.createElement("div");
+  bubble.className = "chat-message system " + subtype;
+
+  if (subtype === "init") {
+    bubble.innerHTML = '<span class="system-label">model:</span> ' + (data.model || "unknown");
+  } else if (subtype === "result" || subtype === "success") {
+    const cost = data.total_cost_usd ? "$" + data.total_cost_usd.toFixed(4) : "";
+    const duration = data.duration_ms ? (data.duration_ms / 1000).toFixed(1) + "s" : "";
+    bubble.innerHTML = '<span class="system-label">done</span> ' + [duration, cost].filter(Boolean).join(" · ");
+  } else {
+    bubble.textContent = subtype;
+  }
+
+  container.appendChild(bubble);
+  container.scrollTop = container.scrollHeight;
+  return bubble;
+}
+
+function renderThinkingBlock(container, thinkingText) {
+  const bubble = document.createElement("div");
+  bubble.className = "chat-message thinking-block";
+  const details = document.createElement("details");
+  const summary = document.createElement("summary");
+  summary.innerHTML = '<span is-="spinner" variant-="dots"></span> extended thinking';
+  details.appendChild(summary);
+  const pre = document.createElement("pre");
+  const truncated = thinkingText.length > 500 ? thinkingText.slice(0, 500) + "\n..." : thinkingText;
+  pre.textContent = truncated;
+  details.appendChild(pre);
+  bubble.appendChild(details);
+  container.appendChild(bubble);
+  container.scrollTop = container.scrollHeight;
+  return bubble;
+}
+
+function setChatStatus(card, status, text) {
+  const statusEl = card.querySelector(".chat-status");
+  if (!statusEl) return;
+  statusEl.className = "chat-status " + status;
+  const textEl = statusEl.querySelector(".status-text");
+  if (textEl) textEl.textContent = text || status;
 }
 
 async function sendChat(sessionName) {
   const card = document.querySelector('[data-session="' + sessionName + '"]');
   if (!card) return;
 
-  const textarea = card.querySelector(".chat-input textarea");
+  const input = card.querySelector(".chat-input input");
   const messagesContainer = card.querySelector(".chat-messages");
-  if (!textarea || !messagesContainer) return;
+  if (!input || !messagesContainer) return;
 
-  const message = textarea.value.trim();
+  const message = input.value.trim();
   if (!message) return;
+
+  // Mark this session as actively sending (skip sync messages)
+  activeSendingSessions.add(sessionName);
 
   // Render user message
   renderChatMessage(messagesContainer, "user", message);
-  textarea.value = "";
+  input.value = "";
 
   // Disable send button while processing
   const sendBtn = card.querySelector(".chat-input button");
   if (sendBtn) sendBtn.disabled = true;
 
+  // Update status to working
+  setChatStatus(card, "working", "thinking...");
+
+  // Show thinking spinner
+  const thinkingEl = document.createElement("div");
+  thinkingEl.className = "chat-message assistant thinking";
+  thinkingEl.innerHTML = '<span is-="spinner" variant-="dots"></span> thinking';
+  messagesContainer.appendChild(thinkingEl);
+  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
   // State for streaming response
   let currentBubble = null;
   let currentText = "";
+  let removedThinking = false;
+  let currentToolBubble = null;
+  let currentToolId = null;
+  let renderedInit = false;  // Track if we already rendered init message
+  let streamedResponse = false;  // Track if we got streaming response (skip final assistant msg)
 
   try {
     const res = await fetch("/api/chat-send", {
@@ -1061,12 +1175,29 @@ async function sendChat(sessionName) {
 
           try {
             const event = JSON.parse(data);
+
+            // Remove thinking spinner on first real content
+            if (!removedThinking && (event.type === "assistant" || event.type === "content_block_start")) {
+              thinkingEl.remove();
+              removedThinking = true;
+            }
+
             // Handle different event types
-            if (event.type === "assistant") {
+            if (event.type === "system") {
+              if (event.subtype === "init" && !renderedInit) {
+                renderedInit = true;
+                renderSystemMessage(messagesContainer, "init", event);
+                setChatStatus(card, "working", "started");
+              }
+            } else if (event.type === "assistant") {
+              // Skip if we already rendered via streaming
+              if (streamedResponse) continue;
+
               const content = event.message && event.message.content;
               if (content && Array.isArray(content)) {
                 for (const block of content) {
                   if (block.type === "text" && block.text) {
+                    setChatStatus(card, "working", "writing...");
                     if (!currentBubble) {
                       currentBubble = document.createElement("div");
                       currentBubble.className = "chat-message assistant";
@@ -1074,11 +1205,42 @@ async function sendChat(sessionName) {
                     }
                     currentBubble.textContent = block.text;
                     messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                  } else if (block.type === "tool_use") {
+                    // Show tool being used with spinner
+                    setChatStatus(card, "working", block.name + "...");
+                    currentToolBubble = renderToolUse(messagesContainer, block.name, block.input?.command || block.input?.description || "");
+                    currentToolId = block.id;
+                    currentBubble = null;
+                  } else if (block.type === "thinking" && block.thinking) {
+                    // Extended thinking block
+                    setChatStatus(card, "working", "thinking deeply...");
+                    renderThinkingBlock(messagesContainer, block.thinking);
+                  }
+                }
+              }
+            } else if (event.type === "user") {
+              // Tool result
+              const content = event.message && event.message.content;
+              if (content && Array.isArray(content)) {
+                for (const block of content) {
+                  if (block.type === "tool_result") {
+                    // Remove spinner from tool use bubble
+                    if (currentToolBubble) {
+                      const spinner = currentToolBubble.querySelector('[is-="spinner"]');
+                      if (spinner) spinner.remove();
+                    }
+                    // Show tool result
+                    const toolName = event.tool_use_result ? "result" : "tool";
+                    const result = event.tool_use_result?.stdout || block.content || "";
+                    renderToolResult(messagesContainer, toolName, result, block.is_error);
+                    currentToolBubble = null;
+                    currentToolId = null;
                   }
                 }
               }
             } else if (event.type === "content_block_start") {
               if (event.content_block && event.content_block.type === "text") {
+                streamedResponse = true;  // Mark that we got streaming, skip final assistant msg
                 currentBubble = document.createElement("div");
                 currentBubble.className = "chat-message assistant streaming";
                 messagesContainer.appendChild(currentBubble);
@@ -1097,10 +1259,14 @@ async function sendChat(sessionName) {
                 currentBubble.classList.remove("streaming");
               }
             } else if (event.type === "result") {
-              // Response complete
+              // Response complete - show summary
               if (currentBubble) {
                 currentBubble.classList.remove("streaming");
               }
+              renderSystemMessage(messagesContainer, event.subtype || "success", event);
+              setChatStatus(card, "paused", "idle");
+              // Remove spinners from any thinking blocks
+              messagesContainer.querySelectorAll(".thinking-block [is-=\"spinner\"]").forEach(s => s.remove());
             }
           } catch (e) {
             console.error("Failed to parse SSE data:", e);
@@ -1111,8 +1277,20 @@ async function sendChat(sessionName) {
   } catch (err) {
     console.error("Chat error:", err);
     showToast("Failed to send message", "error");
+    setChatStatus(card, "paused", "error");
   } finally {
+    // Clean up thinking spinner if still present
+    if (!removedThinking && thinkingEl.parentNode) {
+      thinkingEl.remove();
+    }
     if (sendBtn) sendBtn.disabled = false;
+    // Ensure status is set to idle if not already
+    const statusEl = card.querySelector(".chat-status");
+    if (statusEl && statusEl.classList.contains("working")) {
+      setChatStatus(card, "paused", "idle");
+    }
+    // Allow sync messages again
+    activeSendingSessions.delete(sessionName);
   }
 }
 
@@ -1313,31 +1491,92 @@ document.querySelectorAll('.card-image-input').forEach(input => {
   });
 });
 
-// Demo messages for new chat sessions
-const DEMO_MESSAGES = [
-  { role: "user", content: "Hello! Can you help me with this codebase?" },
-  { role: "assistant", content: "Of course! I'm happy to help. What would you like to know about the codebase?" },
-  { role: "user", content: "How is the session management implemented?" },
-  { role: "assistant", content: "The session management is handled in sessions.py. It uses tmux for persistent terminal sessions and ttyd for web-based access. Each session has metadata stored in /etc/sandboxer/session_meta.json." },
-  { role: "user", content: "Thanks! That's helpful." },
-];
 
-function addDemoMessages(sessionName) {
-  const card = document.querySelector('[data-session="' + sessionName + '"]');
-  if (!card) return;
+// ═══ Chat Sync Across Tabs ═══
 
-  const messagesContainer = card.querySelector(".chat-messages");
-  if (!messagesContainer || messagesContainer.children.length > 0) return;
+const chatSyncConnections = {};  // session -> EventSource
+const activeSendingSessions = new Set();  // Sessions we're currently sending to (skip sync for these)
 
-  DEMO_MESSAGES.forEach(msg => {
-    renderChatMessage(messagesContainer, msg.role, msg.content);
-  });
+function connectChatSync(sessionName) {
+  if (chatSyncConnections[sessionName]) {
+    return;  // Already connected
+  }
+
+  const es = new EventSource("/api/chat-sync?session=" + encodeURIComponent(sessionName));
+  chatSyncConnections[sessionName] = es;
+
+  es.onmessage = (e) => {
+    if (!e.data || e.data === "{}") return;
+
+    // Skip sync messages for sessions we're actively sending to (we render directly from POST)
+    if (activeSendingSessions.has(sessionName)) {
+      return;
+    }
+
+    try {
+      const event = JSON.parse(e.data);
+      const card = document.querySelector('[data-session="' + sessionName + '"]');
+      if (!card) return;
+
+      const messagesContainer = card.querySelector(".chat-messages");
+      if (!messagesContainer) return;
+
+      // Handle synced messages from other tabs
+      if (event.type === "user_message") {
+        // User message from another tab
+        renderChatMessage(messagesContainer, "user", event.content);
+      } else if (event.type === "assistant") {
+        const content = event.message?.content;
+        if (content && Array.isArray(content)) {
+          for (const block of content) {
+            if (block.type === "text" && block.text) {
+              renderChatMessage(messagesContainer, "assistant", block.text);
+            } else if (block.type === "tool_use") {
+              renderToolUse(messagesContainer, block.name, block.input?.command || block.input?.description || "");
+            }
+          }
+        }
+      } else if (event.type === "user") {
+        // Tool result
+        const content = event.message?.content;
+        if (content && Array.isArray(content)) {
+          for (const block of content) {
+            if (block.type === "tool_result") {
+              const result = event.tool_use_result?.stdout || block.content || "";
+              renderToolResult(messagesContainer, "result", result, block.is_error);
+            }
+          }
+        }
+      } else if (event.type === "system") {
+        if (event.subtype === "init") {
+          renderSystemMessage(messagesContainer, "init", event);
+        }
+      } else if (event.type === "result") {
+        renderSystemMessage(messagesContainer, event.subtype || "success", event);
+      }
+    } catch (err) {
+      console.error("Chat sync error:", err);
+    }
+  };
+
+  es.onerror = () => {
+    // Reconnect after 2 seconds
+    delete chatSyncConnections[sessionName];
+    setTimeout(() => connectChatSync(sessionName), 2000);
+  };
 }
 
-// Initialize chat sessions on page load - add demo messages if empty
+function disconnectChatSync(sessionName) {
+  if (chatSyncConnections[sessionName]) {
+    chatSyncConnections[sessionName].close();
+    delete chatSyncConnections[sessionName];
+  }
+}
+
+// Connect sync for all chat sessions on page load
 document.querySelectorAll('.card[data-mode="chat"]').forEach(function(card) {
   const sessionName = card.dataset.session;
   if (sessionName) {
-    addDemoMessages(sessionName);
+    connectChatSync(sessionName);
   }
 });

@@ -210,14 +210,13 @@ _cleanup_orphan_ttyd()
 
 
 def get_chat_sessions() -> list[dict]:
-    """Get list of active chat sessions (not in tmux)."""
+    """Get list of active chat sessions (from session_meta, not tmux)."""
     chat_sessions = []
-    for name, (proc, session_id, _) in chat_processes.items():
-        # Check if process exists and is still running
-        if proc is not None and proc.poll() is None:
+    for name, meta in session_meta.items():
+        if meta.get("type") == "chat":
             chat_sessions.append({
                 "name": name,
-                "title": name,
+                "title": meta.get("title", name),
                 "type": "chat",
             })
     return chat_sessions
