@@ -49,7 +49,6 @@ body.sidebar-closed .sidebar {
 body.sidebar-closed .sidebar-row select-dropdown,
 body.sidebar-closed .sidebar-row .new-btn,
 body.sidebar-closed .sidebar-row #resumeWrap,
-body.sidebar-closed .sidebar-row:nth-child(2),
 body.sidebar-closed .sidebar-list,
 body.sidebar-closed .sidebar-bottom {
   display: none;
