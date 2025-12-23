@@ -124,7 +124,7 @@ select-dropdown column {
   border-radius: 0 0 4px 4px;
   max-height: 250px;
   overflow-y: auto;
-  z-index: 100;
+  z-index: 1000;
 }
 
 select-dropdown column button {
