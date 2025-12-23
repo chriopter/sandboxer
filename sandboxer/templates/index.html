@@ -46,19 +46,32 @@
   </ul>
   <div class="sidebar-bottom">
     <div class="sidebar-actions">
-      <button variant-="teal" onclick="copyTakeover()">ssh</button>
-      <button variant-="mauve" onclick="restartSandboxer()">restart</button>
-      <button variant-="red" onclick="closeAllSessions()">close all</button>
+      <button class="tui-action" onclick="copyTakeover()" title="SSH to current folder"><span class="hotkey">s</span>ssh</button>
+      <button class="tui-action" onclick="restartSandboxer()" title="Restart sandboxer service"><span class="hotkey">r</span>restart</button>
+      <button class="tui-action" onclick="closeAllSessions()" title="Close all visible sessions"><span class="hotkey">x</span>close all</button>
     </div>
-    <div class="view-modes" id="viewModes">
-      <button data-view="1" title="1 column">1</button>
-      <button data-view="2" title="2 columns">2</button>
-      <button data-view="3" title="3 columns">3</button>
+    <div class="sidebar-controls">
+      <div class="control-row">
+        <span class="control-label">view</span>
+        <div class="view-modes" id="viewModes">
+          <button data-view="1" title="1 column">1</button>
+          <button data-view="2" title="2 columns">2</button>
+          <button data-view="3" title="3 columns">3</button>
+        </div>
+      </div>
+      <div class="control-row">
+        <span class="control-label">zoom</span>
+        <div class="zoom-modes" id="zoomModes">
+          <button data-zoom="50" title="Small (50%)">S</button>
+          <button data-zoom="75" title="Medium (75%)">M</button>
+          <button data-zoom="100" title="Large (100%)">L</button>
+        </div>
+      </div>
     </div>
     <div class="sidebar-stats">
-      <span class="stat" id="cpuStat"><span>--%</span>cpu</span>
-      <span class="stat" id="memStat"><span>--%</span>mem</span>
-      <span class="stat" id="diskStat"><span>--%</span>disk</span>
+      <div class="stat" id="cpuStat"><span>--</span><label>cpu</label></div>
+      <div class="stat" id="memStat"><span>--</span><label>mem</label></div>
+      <div class="stat" id="diskStat"><span>--</span><label>disk</label></div>
     </div>
   </div>
 </aside>

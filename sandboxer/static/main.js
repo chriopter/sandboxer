@@ -486,9 +486,9 @@ async function updateStats() {
   try {
     const res = await fetch("/api/stats");
     const data = await res.json();
-    document.querySelector("#cpuStat span").textContent = data.cpu + "%";
-    document.querySelector("#memStat span").textContent = data.mem + "%";
-    document.querySelector("#diskStat span").textContent = data.disk + "%";
+    document.querySelector("#cpuStat span").textContent = data.cpu;
+    document.querySelector("#memStat span").textContent = data.mem;
+    document.querySelector("#diskStat span").textContent = data.disk;
   } catch (e) {
     // ignore
   }
@@ -497,6 +497,9 @@ async function updateStats() {
 // ═══ Terminal Preview Scaling ═══
 
 function updateTerminalScales() {
+  const zoomPercent = parseInt(localStorage.getItem("sandboxer_zoom") || "75");
+  const zoomMultiplier = zoomPercent / 100;
+
   document.querySelectorAll(".terminal").forEach(terminal => {
     const card = terminal.closest(".card");
     if (!card) return;
@@ -505,8 +508,9 @@ function updateTerminalScales() {
     const cardWidth = card.offsetWidth;
     if (cardWidth === 0) return; // Not visible
 
-    // Iframe is 800px wide, scale to fit card width exactly
-    const scale = cardWidth / 800;
+    // Iframe is 800px wide, scale to fit card width with zoom multiplier
+    const baseScale = cardWidth / 800;
+    const scale = baseScale * zoomMultiplier;
     terminal.style.setProperty("--terminal-scale", scale);
   });
 }
@@ -534,7 +538,7 @@ function setZoomMode(value) {
     btn.classList.toggle("active", btn.dataset.zoom === String(value));
   });
 
-  // Recalculate scales (zoom affects base scale preference)
+  // Recalculate scales with new zoom level
   updateTerminalScales();
 }
 

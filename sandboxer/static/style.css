@@ -197,21 +197,66 @@ body.sidebar-closed main {
 .sidebar-actions {
   display: flex;
   flex-direction: column;
-  gap: 0.4ch;
+  gap: 1px;
 }
 
-.sidebar-actions button {
+/* TUI-style action buttons - minimal, text-focused */
+.tui-action {
   width: 100%;
-  padding: 0.5em 1ch !important;
+  padding: 0.4em 1ch !important;
   font-size: 0.85em;
   text-align: left;
+  background: transparent !important;
+  border: none !important;
+  color: var(--subtext0) !important;
+  transition: background 0.1s, color 0.1s;
+  border-radius: 0 !important;
+}
+
+.tui-action:hover {
+  background: var(--surface0) !important;
+  color: var(--text) !important;
+}
+
+.tui-action .hotkey {
+  display: inline-block;
+  width: 1.5ch;
+  color: var(--overlay0);
+  margin-right: 0.5ch;
+}
+
+.tui-action:hover .hotkey {
+  color: var(--mauve);
+}
+
+/* Sidebar controls - compact labeled groups */
+.sidebar-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5ch;
+  padding-top: 0.6ch;
+  border-top: 1px solid var(--surface0);
+}
+
+.control-row {
+  display: flex;
+  align-items: center;
+  gap: 0.8ch;
+}
+
+.control-label {
+  font-size: 0.75em;
+  color: var(--overlay0);
+  min-width: 3.5ch;
+  text-transform: lowercase;
 }
 
 .sidebar-stats {
-  display: flex;
-  justify-content: space-between;
-  padding-top: 0.5ch;
-  margin-top: 0.3ch;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5ch;
+  padding-top: 0.6ch;
+  margin-top: 0.5ch;
   border-top: 1px solid var(--surface0);
 }
 
@@ -411,45 +456,55 @@ body.sidebar-closed main {
     margin-top: auto;
   }
 
-  /* Action buttons - horizontal row */
-  .sidebar-actions {
-    flex-direction: row;
-    gap: 4px;
+  /* Action buttons - keep vertical on mobile */
+  .tui-action {
+    padding: 6px 10px !important;
+    font-size: 0.8em;
   }
 
-  .sidebar-actions button {
-    flex: 1;
-    padding: 6px 4px !important;
+  .tui-action .hotkey {
+    width: 1.2ch;
+    margin-right: 0.4ch;
+  }
+
+  /* Controls - compact on mobile */
+  .sidebar-controls {
+    gap: 0.4ch;
+    padding-top: 0.5ch;
+  }
+
+  .control-row {
+    gap: 0.6ch;
+  }
+
+  .control-label {
+    font-size: 0.7em;
+    min-width: 3ch;
+  }
+
+  .view-modes button,
+  .zoom-modes button {
+    padding: 0.25em 0 !important;
     font-size: 0.75em;
-    border-radius: 2px;
-    text-align: center;
-  }
-
-  /* View modes visible on mobile */
-  .view-modes {
-    border-radius: 2px;
-    padding: 2px;
-  }
-
-  .view-modes button {
-    padding: 4px 0 !important;
-    font-size: 0.75em;
-    border-radius: 1px;
   }
 
   /* Compact stats */
   .sidebar-stats {
-    flex-direction: row;
-    justify-content: space-between;
-    padding: 6px 0;
-    margin-top: 0;
-    border-radius: 0;
-    background: transparent;
-    border: none;
+    gap: 0.3ch;
+    padding-top: 0.5ch;
+    margin-top: 0.4ch;
   }
 
   .sidebar-stats .stat {
-    font-size: 0.7em;
+    gap: 0.1ch;
+  }
+
+  .sidebar-stats .stat span {
+    font-size: 1em;
+  }
+
+  .sidebar-stats .stat label {
+    font-size: 0.8em;
   }
 
   /* Fix card title truncation - allow 2 lines */
@@ -510,63 +565,50 @@ main {
   font-variant-numeric: tabular-nums;
 }
 
-/* View mode buttons */
-.view-modes {
+/* TUI-style view/zoom mode buttons - minimal, character-focused */
+.view-modes,
+.zoom-modes {
   display: flex;
-  gap: 2px;
-  background: var(--surface0);
-  border-radius: 4px;
-  padding: 3px;
+  gap: 0;
+  flex: 1;
 }
 
-.view-modes button {
+.view-modes button,
+.zoom-modes button {
   flex: 1;
-  padding: 0.4em 0 !important;
-  border-radius: 3px;
+  padding: 0.3em 0 !important;
   font-size: 0.8em;
   color: var(--overlay1) !important;
   background: transparent !important;
   border: none !important;
-}
-
-.view-modes button:hover {
-  color: var(--text) !important;
-  background: var(--surface1) !important;
-}
-
-.view-modes button.active {
-  background: var(--mauve) !important;
-  color: var(--crust) !important;
-}
-
-/* Zoom mode buttons */
-.zoom-modes {
-  display: flex;
-  flex: 1;
-  gap: 1px;
-  background: var(--surface0);
-  border-radius: 3px;
-  padding: 2px;
-}
-
-.zoom-modes button {
-  flex: 1;
-  padding: 0.2em 0 !important;
-  border-radius: 2px;
-  font-size: 0.75em;
-  color: var(--overlay1) !important;
-  background: transparent !important;
+  border-radius: 0 !important;
   min-width: 2ch;
+  position: relative;
+  transition: color 0.1s;
 }
 
+.view-modes button:hover,
 .zoom-modes button:hover {
   color: var(--text) !important;
-  background: var(--surface1) !important;
+  background: var(--surface0) !important;
 }
 
+.view-modes button.active,
 .zoom-modes button.active {
-  background: var(--teal) !important;
-  color: var(--crust) !important;
+  color: var(--mauve) !important;
+  background: transparent !important;
+}
+
+/* Subtle underline for active state - TUI style */
+.view-modes button.active::after,
+.zoom-modes button.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  background: var(--mauve);
 }
 
 /* ═══ Grid ═══ */
@@ -1026,29 +1068,26 @@ body.terminal-page {
   background: var(--surface2);
 }
 
-/* Improved Stats Display */
-.sidebar-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 2px;
-  padding: 0.5ch;
-  margin-top: 0.5ch;
-  background: var(--base);
-  border-radius: 4px;
-  border: 1px solid var(--surface0);
-}
-
+/* TUI-style stats - stacked, compact */
 .sidebar-stats .stat {
-  font-size: 0.8em;
-  color: var(--overlay1);
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 0.75em;
+  gap: 0.2ch;
 }
 
 .sidebar-stats .stat span {
-  color: var(--subtext0);
+  color: var(--text);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  margin-right: 0.3ch;
+  font-size: 1.1em;
+}
+
+.sidebar-stats .stat label {
+  color: var(--overlay0);
+  font-size: 0.9em;
+  text-transform: lowercase;
 }
 
 /* Card Hover Polish */
