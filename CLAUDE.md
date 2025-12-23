@@ -8,6 +8,25 @@ Web-based terminal session manager with live previews.
 
 All repos live in `/home/sandboxer/git/`. The folder dropdown only shows `/` and subfolders of `/home/sandboxer/git/`.
 
+## Creating New Repos
+
+When cloning a new repository, follow these steps:
+
+```bash
+# 1. Clone the repo (use gh to handle auth)
+gh repo clone owner/repo-name /home/sandboxer/git/repo-name
+
+# 2. Fix ownership (cloning as root creates root-owned files)
+chown -R sandboxer:sandboxer /home/sandboxer/git/repo-name
+
+# 3. Add to git safe.directory (required for lazygit/git operations)
+git config --global --add safe.directory /home/sandboxer/git/repo-name
+```
+
+**Why these steps?**
+- Sandboxer runs as root but sessions need `sandboxer` user ownership
+- Git rejects operations on repos with mismatched ownership without `safe.directory`
+
 ## After Changing Code
 
 ```bash
