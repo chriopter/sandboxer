@@ -1302,13 +1302,18 @@ button:active {
   word-break: break-all;
 }
 
-/* System messages */
+/* System messages (card view) */
 .chat-message.system {
-  align-self: center;
-  background: transparent;
-  color: var(--overlay0);
-  font-size: 0.7em;
-  padding: 0.2ch 0.5ch;
+  align-self: stretch;
+  background: var(--surface0);
+  border-left: 2px solid var(--mauve);
+  color: var(--subtext0);
+  font-size: 0.65em;
+  padding: 0.5ch 1ch;
+  white-space: pre-wrap;
+  font-family: monospace;
+  max-height: 100px;
+  overflow-y: auto;
 }
 
 .chat-message.system .system-label {

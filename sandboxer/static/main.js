@@ -1614,6 +1614,9 @@ function connectChatSync(sessionName) {
       } else if (event.type === "assistant_message") {
         // Clean format from history
         renderChatMessage(messagesContainer, "assistant", event.content);
+      } else if (event.type === "system_message") {
+        // System message (CLI context, mode switch, etc.)
+        renderChatMessage(messagesContainer, "system", event.content);
       } else if (event.type === "assistant") {
         const content = event.message?.content;
         if (content && Array.isArray(content)) {
