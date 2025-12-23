@@ -20,7 +20,7 @@
 
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
 <aside class="sidebar" id="sidebar">
-  <div class="sidebar-header">
+  <div class="sidebar-row">
     <button variant-="green" size-="small" class="sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">≡</button>
     <select-dropdown id="dirSelect" data-value="{{selected_folder}}">
       <details is-="popover" position-="bottom">
@@ -30,6 +30,8 @@
         </column>
       </details>
     </select-dropdown>
+  </div>
+  <div class="sidebar-row">
     <select-dropdown id="typeSelect" data-value="claude">
       <details is-="popover" position-="bottom">
         <summary tabindex="0" is-="button" size-="small">claude</summary>

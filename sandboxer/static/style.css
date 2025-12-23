@@ -46,9 +46,10 @@ body.sidebar-closed .sidebar {
   width: 32px;
 }
 
-body.sidebar-closed .sidebar-header select-dropdown,
-body.sidebar-closed .sidebar-header .new-btn,
-body.sidebar-closed .sidebar-header #resumeWrap,
+body.sidebar-closed .sidebar-row select-dropdown,
+body.sidebar-closed .sidebar-row .new-btn,
+body.sidebar-closed .sidebar-row #resumeWrap,
+body.sidebar-closed .sidebar-row:nth-child(2),
 body.sidebar-closed .sidebar-list,
 body.sidebar-closed .sidebar-bottom {
   display: none;
@@ -69,33 +70,27 @@ body.sidebar-closed main {
   margin-left: 32px;
 }
 
-.sidebar-header {
+.sidebar-row {
   display: flex;
   align-items: center;
-  gap: 1ch;
+  gap: 0.5ch;
   padding: 0.5ch;
   border-bottom: 1px solid var(--surface0);
 }
 
-.sidebar-header select-dropdown {
-  flex: 0 0 auto;
+.sidebar-row select-dropdown {
+  flex: 1;
+  min-width: 0;
 }
 
-.sidebar-header select-dropdown summary {
-  max-width: 10ch;
+.sidebar-row select-dropdown summary {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   display: block;
 }
 
-.sidebar-header .dir-select {
-  flex: 1;
-  min-width: 0;
-  max-width: none;
-}
-
-.sidebar-header .new-btn {
+.sidebar-row .new-btn {
   flex-shrink: 0;
 }
 
