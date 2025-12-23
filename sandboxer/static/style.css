@@ -60,20 +60,9 @@ body.sidebar-closed .sidebar-row {
   border-bottom: none;
 }
 
-body.sidebar-closed .sidebar-toggle {
-  width: 26px;
-  height: 26px;
-  padding: 0 !important;
-}
-
 body.sidebar-closed .sidebar-new-collapsed {
   display: flex !important;
-  width: 26px;
-  height: 26px;
-  padding: 0 !important;
-  margin: 0 auto;
-  justify-content: center;
-  align-items: center;
+  margin: 0.3ch auto;
 }
 
 body.sidebar-closed .sidebar-header {
