@@ -677,8 +677,8 @@ function updateTerminalScales() {
     const terminalWidth = terminal.offsetWidth;
     if (terminalWidth === 0) return; // Not visible
 
-    // Visible area is 800x450 (16:9), extra width clips scrollbar
-    const baseScale = terminalWidth / 800;
+    // Scale to fit terminal container (808x460 iframe)
+    const baseScale = terminalWidth / 808;
     const scale = baseScale * zoomMultiplier;
     terminal.style.setProperty("--terminal-scale", scale);
   });
