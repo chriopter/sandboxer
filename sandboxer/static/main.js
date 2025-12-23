@@ -680,8 +680,8 @@ function updateTerminalScales() {
     const cardWidth = card.offsetWidth;
     if (cardWidth === 0) return; // Not visible
 
-    // Iframe is 830px wide (extra for scrollbar clipping), scale to fit card
-    const baseScale = cardWidth / 830;
+    // Visible area is 800x450 (16:9), iframe is 860px to clip scrollbar
+    const baseScale = cardWidth / 800;
     const scale = baseScale * zoomMultiplier;
     terminal.style.setProperty("--terminal-scale", scale);
   });
