@@ -736,11 +736,10 @@ function setZoomMode(value) {
   // Update dropdown summary text
   const zoomSelect = document.getElementById("zoomSelect");
   if (zoomSelect) {
-    const labels = { "50": "S", "75": "M", "100": "L" };
     const summary = zoomSelect.querySelector("summary");
     const indicator = summary?.querySelector(".dropdown-indicator");
     if (summary) {
-      summary.textContent = "zoom: " + (labels[value] || value) + " ";
+      summary.textContent = "zoom: " + value + "% ";
       if (indicator) summary.appendChild(indicator);
       else {
         const span = document.createElement("span");
@@ -1176,6 +1175,16 @@ async function sendChat(sessionName) {
           try {
             const event = JSON.parse(data);
 
+            // Handle title update
+            if (event.type === "title_update" && event.title) {
+              const titleEl = card.querySelector(".card-title");
+              if (titleEl) {
+                titleEl.textContent = event.title;
+                populateSidebar();  // Update sidebar
+              }
+              continue;
+            }
+
             // Remove thinking spinner on first real content
             if (!removedThinking && (event.type === "assistant" || event.type === "content_block_start")) {
               thinkingEl.remove();
@@ -1582,6 +1591,16 @@ function connectChatSync(sessionName) {
       const event = JSON.parse(e.data);
       const card = document.querySelector('[data-session="' + sessionName + '"]');
       if (!card) return;
+
+      // Handle title update
+      if (event.type === "title_update" && event.title) {
+        const titleEl = card.querySelector(".card-title");
+        if (titleEl) {
+          titleEl.textContent = event.title;
+          populateSidebar();  // Update sidebar to reflect new title
+        }
+        return;
+      }
 
       const messagesContainer = card.querySelector(".chat-messages");
       if (!messagesContainer) return;
