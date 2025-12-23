@@ -1125,20 +1125,13 @@ async function sendChat(sessionName) {
   const sendBtn = card.querySelector(".chat-input button");
   if (sendBtn) sendBtn.disabled = true;
 
-  // Update status to working
+  // Update status to working (status line shows thinking, no bubble needed)
   setChatStatus(card, "working", "thinking...");
-
-  // Show thinking spinner
-  const thinkingEl = document.createElement("div");
-  thinkingEl.className = "chat-message assistant thinking";
-  thinkingEl.innerHTML = '<span is-="spinner" variant-="dots"></span> thinking';
-  messagesContainer.appendChild(thinkingEl);
   messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
   // State for streaming response
   let currentBubble = null;
   let currentText = "";
-  let removedThinking = false;
   let currentToolBubble = null;
   let currentToolId = null;
   let renderedInit = false;  // Track if we already rendered init message
@@ -1187,11 +1180,6 @@ async function sendChat(sessionName) {
               continue;
             }
 
-            // Remove thinking spinner on first real content
-            if (!removedThinking && (event.type === "assistant" || event.type === "content_block_start")) {
-              thinkingEl.remove();
-              removedThinking = true;
-            }
 
             // Handle different event types
             if (event.type === "system") {
@@ -1262,11 +1250,7 @@ async function sendChat(sessionName) {
                 currentText = "";
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
               } else if (event.content_block && event.content_block.type === "tool_use") {
-                // Tool use from streaming - remove thinking and text, show tool
-                if (!removedThinking) {
-                  thinkingEl.remove();
-                  removedThinking = true;
-                }
+                // Tool use from streaming - remove text bubble, show tool
                 if (currentBubble) {
                   currentBubble.remove();
                   currentBubble = null;
@@ -1306,10 +1290,6 @@ async function sendChat(sessionName) {
     showToast("Failed to send message", "error");
     setChatStatus(card, "paused", "error");
   } finally {
-    // Clean up thinking spinner if still present
-    if (!removedThinking && thinkingEl.parentNode) {
-      thinkingEl.remove();
-    }
     if (sendBtn) sendBtn.disabled = false;
     // Ensure status is set to idle if not already
     const statusEl = card.querySelector(".chat-status");
