@@ -353,10 +353,14 @@ function connectSync() {
     try {
       const event = JSON.parse(e.data);
 
-      // Handle synced messages from other tabs
+      // Handle synced messages and history
       if (event.type === "user_message") {
         renderMessage("user", event.content);
+      } else if (event.type === "assistant_message") {
+        // Clean format from history
+        renderMessage("assistant", event.content);
       } else if (event.type === "assistant") {
+        // Live streaming format
         const content = event.message?.content;
         if (content && Array.isArray(content)) {
           for (const block of content) {

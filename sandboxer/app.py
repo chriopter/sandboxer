@@ -650,15 +650,34 @@ class Handler(http.server.BaseHTTPRequestHandler):
                         "content": message
                     })
 
+                    assistant_text = ""  # Accumulate assistant response
+
                     for line in response_gen:
                         if line:
                             self.wfile.write(f"data: {line}\n\n".encode())
                             self.wfile.flush()
-                            # Broadcast to other subscribers
+                            # Parse and accumulate text, only broadcast final assistant message
                             try:
-                                chat.broadcast_message(session_name, json.loads(line))
+                                event = json.loads(line)
+                                # Accumulate text from streaming
+                                if event.get("type") == "content_block_delta":
+                                    delta = event.get("delta", {}).get("text", "")
+                                    assistant_text += delta
+                                # Or get full text from assistant message
+                                elif event.get("type") == "assistant":
+                                    content = event.get("message", {}).get("content", [])
+                                    for block in content:
+                                        if block.get("type") == "text":
+                                            assistant_text = block.get("text", "")
                             except json.JSONDecodeError:
                                 pass
+
+                    # Broadcast final assistant response (not streaming deltas)
+                    if assistant_text:
+                        chat.broadcast_message(session_name, {
+                            "type": "assistant_message",
+                            "content": assistant_text
+                        })
                     self.wfile.write(b"event: end\ndata: {}\n\n")
                     self.wfile.flush()
 

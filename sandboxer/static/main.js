@@ -1586,10 +1586,13 @@ function connectChatSync(sessionName) {
       const messagesContainer = card.querySelector(".chat-messages");
       if (!messagesContainer) return;
 
-      // Handle synced messages from other tabs
+      // Handle synced messages and history
       if (event.type === "user_message") {
-        // User message from another tab
+        // User message from another tab or history
         renderChatMessage(messagesContainer, "user", event.content);
+      } else if (event.type === "assistant_message") {
+        // Clean format from history
+        renderChatMessage(messagesContainer, "assistant", event.content);
       } else if (event.type === "assistant") {
         const content = event.message?.content;
         if (content && Array.isArray(content)) {
