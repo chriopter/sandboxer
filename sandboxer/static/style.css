@@ -760,7 +760,8 @@ main {
 
 .terminal iframe {
   /* Fixed size for stable rendering - scaled to fit container */
-  width: 800px;
+  /* Extra width clips scrollbar (overflow:hidden on parent) */
+  width: 820px;
   height: 450px;
   border: none;
   pointer-events: none;
