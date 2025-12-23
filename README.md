@@ -7,7 +7,7 @@
 
 ---
 
-<img width="100%" alt="Dashboard" src="https://github.com/user-attachments/assets/e6105295-a898-4070-bc06-3458777144ec" />
+<img width="2812" height="1564" alt="image" src="https://github.com/user-attachments/assets/fb2cebf0-0f94-4b3c-b7ad-9fef30babfca" />
 
 ## Features
 
