@@ -1312,8 +1312,6 @@ button:active {
   padding: 0.5ch 1ch;
   white-space: pre-wrap;
   font-family: monospace;
-  max-height: 100px;
-  overflow-y: auto;
 }
 
 .chat-message.system .system-label {
