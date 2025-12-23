@@ -542,7 +542,6 @@ function populateSidebar() {
     chat: { label: "claude chat", color: "lavender", sessions: [] },
     claude: { label: "claude", color: "mauve", sessions: [] },
     lazygit: { label: "lazygit", color: "peach", sessions: [] },
-    ungit: { label: "ungit", color: "yellow", sessions: [] },
     bash: { label: "bash", color: "green", sessions: [] },
     gemini: { label: "gemini", color: "blue", sessions: [] },
     other: { label: "other", color: "overlay1", sessions: [] },
@@ -555,10 +554,9 @@ function populateSidebar() {
     const title = card.querySelector(".card-title")?.textContent || name;
     const mode = card.dataset.mode;
 
-    // Detect session type - check mode first, then name patterns
+    // Detect session type from name patterns
     let type = "other";
-    if (mode === "ungit" || name.includes("-ungit-") || name.startsWith("ungit")) type = "ungit";
-    else if (name.includes("-chat-") || name.startsWith("chat")) type = "chat";
+    if (name.includes("-chat-") || name.startsWith("chat")) type = "chat";
     else if (name.includes("-claude-") || name.startsWith("claude")) type = "claude";
     else if (name.includes("-gemini-") || name.startsWith("gemini")) type = "gemini";
     else if (name.includes("-bash-") || name.startsWith("bash")) type = "bash";
@@ -571,7 +569,7 @@ function populateSidebar() {
   list.innerHTML = "";
 
   // Load expanded state from localStorage
-  const expandedGroups = JSON.parse(localStorage.getItem("sandboxer_expanded_groups") || '["claude","lazygit","ungit","bash","gemini","other"]');
+  const expandedGroups = JSON.parse(localStorage.getItem("sandboxer_expanded_groups") || '["claude","lazygit","bash","gemini","other"]');
 
   // Render each group with sessions
   Object.entries(groups).forEach(([type, group]) => {
@@ -611,12 +609,6 @@ function populateSidebar() {
         const mode = card?.dataset.mode;
         if (mode === "chat" || type === "chat") {
           window.open("/chat?session=" + encodeURIComponent(name), "_blank");
-        } else if (mode === "ungit" || type === "ungit") {
-          // For ungit, open the iframe URL directly
-          const iframe = card?.querySelector("iframe");
-          if (iframe && iframe.src) {
-            window.open(iframe.src, "_blank");
-          }
         } else {
           window.open("/terminal?session=" + encodeURIComponent(name), "_blank");
         }
@@ -907,12 +899,6 @@ function openFullscreen(sessionName) {
   const mode = card?.dataset.mode || "cli";
   if (mode === "chat") {
     window.open("/chat?session=" + encodeURIComponent(sessionName), "_blank");
-  } else if (mode === "ungit") {
-    // For ungit, open the iframe URL directly
-    const iframe = card.querySelector("iframe");
-    if (iframe && iframe.src) {
-      window.open(iframe.src, "_blank");
-    }
   } else {
     window.open("/terminal?session=" + encodeURIComponent(sessionName), "_blank");
   }

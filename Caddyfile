@@ -9,13 +9,6 @@
         reverse_proxy 127.0.0.1:{re.ttyd.1}
     }
 
-    # ungit sessions (ports 7800-7849)
-    # Note: ungit is started with --urlBase /u/{port} so it expects the full path
-    @ungit path_regexp ungit ^/u/(78[0-4][0-9])(/.*)?$
-    handle @ungit {
-        reverse_proxy 127.0.0.1:{re.ungit.1}
-    }
-
     # Python backend
     reverse_proxy 127.0.0.1:8081
 }
