@@ -739,7 +739,7 @@ function setZoomMode(value) {
     const summary = zoomSelect.querySelector("summary");
     const indicator = summary?.querySelector(".dropdown-indicator");
     if (summary) {
-      summary.textContent = "zoom: " + value + "% ";
+      summary.textContent = value + "% ";
       if (indicator) summary.appendChild(indicator);
       else {
         const span = document.createElement("span");

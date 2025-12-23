@@ -82,7 +82,7 @@ body.sidebar-closed main {
 
 .sidebar-row select-dropdown {
   flex: 1;
-  min-width: 0;
+  min-width: 10ch;
 }
 
 .sidebar-row select-dropdown summary {
@@ -960,77 +960,22 @@ body.terminal-page {
   }
 }
 
-/* ═══ Mobile Input Area (touch bar + text input) ═══ */
+/* ═══ Mobile Input Area (terminal-specific fixed positioning) ═══ */
 
 .mobile-input-area {
   display: none;
 }
 
-.touch-bar {
-  display: flex;
-  padding: 8px 10px;
-  gap: 6px;
-  overflow-x: auto;
-  border-bottom: 1px solid var(--surface0);
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.touch-bar button {
-  flex: 1;
-  min-width: 44px;
-  height: 44px;
-  font-size: 0.9em;
-  font-weight: 600;
-  border-radius: 8px;
-}
-
-.touch-bar .mod-btn.active {
-  background: var(--mauve) !important;
-  color: var(--crust) !important;
-}
-
-.mobile-input-bar {
-  display: flex;
-  padding: 8px 10px;
-  gap: 8px;
-  align-items: center;
-}
-
-.mobile-input-bar input {
-  flex: 1;
-  font-size: 16px;
-  padding: 12px 14px;
-  min-width: 0;
-  height: 48px;
-  border-radius: 8px;
-}
-
-.mobile-input-bar button {
-  flex-shrink: 0;
-  height: 48px !important;
-  min-width: 48px;
-  border-radius: 8px;
-  font-size: 1.1em;
-}
-
-#mobile-send-btn {
-  min-width: 64px;
-  font-weight: 600;
-}
-
 @media (pointer: coarse) {
   .mobile-input-area {
-    display: block;
+    display: flex;
+    flex-direction: column;
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
     width: 100%;
-    background: var(--mantle);
-    border-top: 1px solid var(--surface0);
     z-index: 1000;
-    padding-bottom: env(safe-area-inset-bottom);
     box-sizing: border-box;
   }
 
@@ -1500,62 +1445,7 @@ body.chat-page {
   animation: blink 1s steps(1) infinite;
 }
 
-.chat-input-full {
-  display: flex;
-  gap: 1ch;
-  padding: 1ch 2ch;
-  padding-block-end: calc(1ch + env(safe-area-inset-bottom, 0px));
-  border-top: 1px solid var(--surface0);
-  background: var(--mantle);
-  flex-shrink: 0;
-}
-
-/* iOS Safari: position input using visualViewport */
-@supports (-webkit-touch-callout: none) {
-  .chat-input-full {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    /* JS will set top + translateY(-100%) for iOS keyboard */
-  }
-
-  .chat-fullscreen .chat-messages {
-    /* Add padding for fixed input */
-    padding-block-end: calc(4em + env(safe-area-inset-bottom, 0px));
-  }
-}
-
-.chat-input-full textarea {
-  flex: 1;
-  resize: none;
-  min-height: 2.5em;
-  max-height: 200px;
-  font-size: 1em;
-  padding: 0.8ch 1ch;
-  background: var(--surface0);
-  color: var(--text);
-  border: 1px solid var(--surface1);
-  border-radius: 6px;
-  font-family: inherit;
-}
-
-.chat-input-full textarea:focus {
-  outline: none;
-  border-color: var(--mauve);
-}
-
-.chat-input-full button {
-  flex-shrink: 0;
-  padding: 0.8ch 2ch !important;
-  font-size: 1em;
-}
-
-/* Mobile image upload button (beside send) - hidden by default on desktop */
-.img-btn-mobile {
-  display: none;
-}
-
+/* Mobile chat responsive adjustments */
 @media (max-width: 600px) {
   .chat-fullscreen .chat-messages {
     padding: 1ch;
@@ -1566,54 +1456,171 @@ body.chat-page {
     font-size: 0.9em;
   }
 
-  /* Input row: [↑] [textarea] [Send] - consistent flex layout */
-  .chat-input-full {
+  .chat-bar .img-btn {
+    display: none;
+  }
+}
+
+/* ═══ Unified Composer ═══ */
+/* Shared input component for both chat and terminal modes */
+
+.composer {
+  display: flex;
+  flex-direction: column;
+  background: var(--mantle);
+  border-top: 1px solid var(--surface0);
+  flex-shrink: 0;
+}
+
+/* Touch bar for terminal mode - special keys row */
+.composer-touch-bar {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  .composer-touch-bar {
     display: flex;
-    flex-direction: row;
-    align-items: flex-end;
-    gap: 0.5ch;
-    padding: 0.5ch;
-    padding-block-end: calc(0.5ch + env(safe-area-inset-bottom, 0px));
-    border-top: none;
-    background: var(--mantle);
+    padding: 8px 10px;
+    gap: 6px;
+    overflow-x: auto;
+    border-bottom: 1px solid var(--surface0);
+    width: 100%;
+    box-sizing: border-box;
   }
 
-  .chat-input-full textarea {
+  .composer-touch-bar button {
     flex: 1;
-    min-width: 0;
-    min-height: 2.4em;
-    max-height: 8em;
-    padding: 0.5em 0.8em;
-    font-size: 1em;
-    line-height: 1.4;
-    border-radius: 6px;
+    min-width: 44px;
+    height: 44px;
+    font-size: 0.9em;
+    font-weight: 600;
+    border-radius: 8px;
   }
 
-  /* Both buttons same size and style */
-  .chat-input-full button {
-    flex-shrink: 0;
-    height: 2.4em;
-    min-width: 3.5em;
-    padding: 0 0.8em !important;
-    font-size: 1em;
-    border-radius: 6px;
-    display: flex;
+  .composer-touch-bar .mod-btn.active {
+    background: var(--mauve) !important;
+    color: var(--crust) !important;
+  }
+}
+
+/* Main input row: [attach] [input] [send] */
+.composer-input {
+  display: flex;
+  gap: 1ch;
+  padding: 1ch 2ch;
+  padding-block-end: calc(1ch + env(safe-area-inset-bottom, 0px));
+  align-items: flex-end;
+}
+
+.composer-input input,
+.composer-input textarea {
+  flex: 1;
+  min-width: 0;
+  font-size: 1em;
+  padding: 0.8ch 1ch;
+  background: var(--surface0);
+  color: var(--text);
+  border: 1px solid var(--surface1);
+  border-radius: 6px;
+  font-family: inherit;
+}
+
+.composer-input input {
+  height: 2.6em;
+}
+
+.composer-input textarea {
+  resize: none;
+  min-height: 2.5em;
+  max-height: 200px;
+}
+
+.composer-input input:focus,
+.composer-input textarea:focus {
+  outline: none;
+  border-color: var(--mauve);
+}
+
+.composer-input button {
+  flex-shrink: 0;
+  padding: 0.8ch 1.5ch !important;
+  font-size: 1em;
+}
+
+/* Attach/upload button - hidden on desktop */
+.composer-attach {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  /* Mobile: show attach button, compact layout */
+  .composer-input {
+    padding: 8px 10px;
+    padding-block-end: calc(8px + env(safe-area-inset-bottom, 0px));
+    gap: 8px;
+  }
+
+  .composer-input input,
+  .composer-input textarea {
+    font-size: 16px; /* Prevent iOS zoom */
+    padding: 12px 14px;
+    height: auto;
+    min-height: 48px;
+    border-radius: 8px;
+  }
+
+  .composer-input textarea {
+    min-height: 48px;
+    max-height: 120px;
+  }
+
+  .composer-input button {
+    height: 48px !important;
+    min-width: 48px;
+    border-radius: 8px;
+    font-size: 1.1em;
+    padding: 0 16px !important;
+  }
+
+  .composer-attach {
+    display: flex !important;
     align-items: center;
     justify-content: center;
   }
 
-  .img-btn-mobile {
-    display: flex !important;
-    background: var(--surface1) !important;
-    color: var(--text) !important;
-    border: 1px solid var(--surface2) !important;
+  .composer-send {
+    min-width: 64px;
+    font-weight: 600;
+  }
+}
+
+/* ═══ Chat Composer Overrides ═══ */
+/* Chat mode doesn't need touch bar and has different positioning */
+
+.chat-composer {
+  border-top: none;
+}
+
+.chat-composer .composer-input {
+  border-top: 1px solid var(--surface0);
+}
+
+/* iOS Safari: position chat input using visualViewport */
+@supports (-webkit-touch-callout: none) {
+  .chat-composer {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
   }
 
-  #send-btn {
-    min-width: 4.5em;
+  .chat-fullscreen .chat-messages {
+    padding-block-end: calc(5em + env(safe-area-inset-bottom, 0px));
   }
+}
 
-  .chat-bar .img-btn {
-    display: none;
+@media (max-width: 600px) {
+  .chat-composer .composer-input {
+    border-top: none;
   }
 }
