@@ -172,39 +172,99 @@ select-dropdown column button[aria-selected="true"] {
   overflow-y: auto;
   list-style: none;
   margin: 0;
-  padding: 0.5ch 0;
+  padding: 0.5ch;
 }
 
-.sidebar-list li {
-  padding: 0.6em 1ch;
+/* Grouped sidebar navigation */
+.sidebar-group {
+  margin-bottom: 0.3ch;
+}
+
+.sidebar-group summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5em 0.8ch;
+  cursor: pointer;
+  color: var(--subtext0);
+  font-size: 0.85em;
+  font-weight: 500;
+  border-radius: 4px;
+  list-style: none;
+  user-select: none;
+}
+
+.sidebar-group summary::-webkit-details-marker {
+  display: none;
+}
+
+.sidebar-group summary::before {
+  content: "›";
+  display: inline-block;
+  width: 1.2ch;
+  margin-right: 0.3ch;
+  color: var(--overlay0);
+  transition: transform 0.15s ease;
+}
+
+.sidebar-group[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.sidebar-group summary:hover {
+  background: var(--surface0);
+}
+
+.sidebar-group .group-label {
+  flex: 1;
+}
+
+.sidebar-group .group-count {
+  font-size: 0.8em;
+  color: var(--overlay0);
+  background: var(--surface0);
+  padding: 0.1em 0.5ch;
+  border-radius: 3px;
+  min-width: 1.5ch;
+  text-align: center;
+}
+
+.group-sessions {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 1.2ch;
+}
+
+.group-sessions li {
+  padding: 0.4em 0.8ch;
   cursor: pointer;
   color: var(--text);
-  font-size: 0.85em;
+  font-size: 0.8em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  border-radius: 3px;
+  margin: 1px 0;
+  transition: background 0.1s, color 0.1s;
+  border-left: 2px solid var(--surface1);
+}
+
+.group-sessions li:hover {
   background: var(--surface0);
-  border-radius: 4px;
-  margin-bottom: 0.4ch;
-  transition: background 0.15s, transform 0.1s;
+  border-left-color: var(--mauve);
+  color: var(--text);
 }
 
-.sidebar-list li:hover {
-  background: var(--surface1);
-}
-
-/* Ensure no prefix content */
-.sidebar-list li::before {
+.group-sessions li::before {
   content: none;
 }
 
-/* Session type indicator - subtle left border */
-.sidebar-list li { border-left: 3px solid transparent; }
-.sidebar-list li.type-claude { border-left-color: var(--mauve); }
-.sidebar-list li.type-gemini { border-left-color: var(--blue); }
-.sidebar-list li.type-bash { border-left-color: var(--green); }
-.sidebar-list li.type-lazygit { border-left-color: var(--peach); }
-.sidebar-list li.type-resume { border-left-color: var(--teal); }
+.sidebar-empty {
+  padding: 2ch 1ch;
+  text-align: center;
+  color: var(--overlay0);
+  font-size: 0.85em;
+}
 
 .sidebar-toggle {
   flex-shrink: 0;
@@ -455,19 +515,33 @@ select-dropdown column button[aria-selected="true"] {
 
   /* Compact session list */
   .sidebar-list {
-    padding: 0;
+    padding: 4px;
     margin: 0;
     gap: 1px;
     flex: 1;
     overflow-y: auto;
   }
 
-  .sidebar-list li {
+  /* Mobile grouped navigation */
+  .sidebar-group {
+    margin-bottom: 2px;
+  }
+
+  .sidebar-group summary {
     padding: 8px 10px;
     font-size: 0.85em;
+    border-radius: 2px;
+  }
+
+  .group-sessions {
+    padding-left: 1ch;
+  }
+
+  .group-sessions li {
+    padding: 6px 10px;
+    font-size: 0.8em;
     min-height: 0;
     border-radius: 2px;
-    margin-bottom: 0;
   }
 
   /* Compact bottom section */
@@ -1221,8 +1295,4 @@ button:active {
   padding: 0.5ch 1ch !important;
 }
 
-/* Toggle mode button styling */
-.toggle-mode-btn {
-  font-size: 0.75em;
-  padding: 0.2em 0.5ch !important;
-}
+/* Toggle mode button - same style as ssh button */

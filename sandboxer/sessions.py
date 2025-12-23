@@ -14,6 +14,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SYSTEM_PROMPT_PATH = os.path.join(BASE_DIR, "system-prompt.txt")
 WORKDIRS_FILE = "/etc/sandboxer/session_workdirs.json"
 SESSION_META_FILE = "/etc/sandboxer/session_meta.json"
+ORDER_FILE = "/etc/sandboxer/session_order.json"
 
 # RAM-only state
 ttyd_processes: dict[str, tuple[int, int]] = {}  # name -> (pid, port)
@@ -119,6 +120,63 @@ def restore_sessions():
     return restored
 
 
+# ═══ Session Order Persistence ═══
+
+def _load_session_order():
+    """Load session order from disk."""
+    global session_order
+    if os.path.isfile(ORDER_FILE):
+        try:
+            with open(ORDER_FILE) as f:
+                session_order = json.load(f)
+        except (json.JSONDecodeError, IOError):
+            session_order = []
+
+
+def _save_session_order():
+    """Save session order to disk."""
+    try:
+        os.makedirs(os.path.dirname(ORDER_FILE), exist_ok=True)
+        with open(ORDER_FILE, "w") as f:
+            json.dump(session_order, f)
+    except IOError:
+        pass  # Silent fail
+
+
+def set_order(order: list[str]):
+    """Set session display order."""
+    global session_order
+    session_order = order
+    _save_session_order()
+
+
+def get_ordered_sessions(sessions: list[dict]) -> list[dict]:
+    """Return sessions sorted by stored order, new sessions at end."""
+    session_map = {s["name"]: s for s in sessions}
+    result = []
+
+    # Add sessions in stored order
+    for name in session_order:
+        if name in session_map:
+            result.append(session_map.pop(name))
+
+    # Add remaining (new) sessions at end
+    for session in session_map.values():
+        result.append(session)
+        session_order.append(session["name"])
+
+    # Clean up stale entries
+    existing = {s["name"] for s in sessions}
+    session_order[:] = [n for n in session_order if n in existing]
+
+    # Cleanup stale metadata entries and add workdir to each session
+    _cleanup_session_meta(existing)
+    for s in result:
+        s["workdir"] = get_session_workdir(s["name"])
+
+    return result
+
+
 # ═══ Orphan Cleanup ═══
 
 def _cleanup_orphan_ttyd():
@@ -147,42 +205,8 @@ def _cleanup_orphan_ttyd():
 
 # Initialize on module load
 _load_session_meta()
+_load_session_order()
 _cleanup_orphan_ttyd()
-
-
-# ═══ Ordering (RAM only) ═══
-
-def set_order(order: list[str]):
-    """Set session display order."""
-    global session_order
-    session_order = order
-
-
-def get_ordered_sessions(sessions: list[dict]) -> list[dict]:
-    """Return sessions sorted by stored order, new sessions at end."""
-    session_map = {s["name"]: s for s in sessions}
-    result = []
-
-    # Add sessions in stored order
-    for name in session_order:
-        if name in session_map:
-            result.append(session_map.pop(name))
-
-    # Add remaining (new) sessions at end
-    for session in session_map.values():
-        result.append(session)
-        session_order.append(session["name"])
-
-    # Clean up stale entries
-    existing = {s["name"] for s in sessions}
-    session_order[:] = [n for n in session_order if n in existing]
-
-    # Cleanup stale metadata entries and add workdir to each session
-    _cleanup_session_meta(existing)
-    for s in result:
-        s["workdir"] = get_session_workdir(s["name"])
-
-    return result
 
 
 # ═══ tmux Operations ═══
@@ -421,18 +445,23 @@ def start_chat_claude(name: str, workdir: str, resume_id: str = None):
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         cwd=workdir,
-        bufsize=1,
     )
 
-    # Read init message to get session_id
-    init_line = proc.stdout.readline()
+    # Read init message to get session_id (with timeout to avoid blocking server)
+    import select
+    init_line = b""
     session_id = ""
-    if init_line:
-        try:
-            init_data = json.loads(init_line.decode())
-            session_id = init_data.get("session_id", "")
-        except json.JSONDecodeError:
-            pass
+
+    # Wait up to 10 seconds for init message
+    ready, _, _ = select.select([proc.stdout], [], [], 10)
+    if ready:
+        init_line = proc.stdout.readline()
+        if init_line:
+            try:
+                init_data = json.loads(init_line.decode())
+                session_id = init_data.get("session_id", "")
+            except json.JSONDecodeError:
+                pass
 
     chat_processes[name] = (proc, session_id, init_line)
 

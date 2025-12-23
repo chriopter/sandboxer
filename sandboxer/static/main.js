@@ -523,7 +523,14 @@ function populateSidebar() {
   const list = document.getElementById("sidebarList");
   const cards = document.querySelectorAll(".card");
 
-  list.innerHTML = "";
+  // Group sessions by type
+  const groups = {
+    claude: { label: "claude", color: "mauve", sessions: [] },
+    lazygit: { label: "lazygit", color: "peach", sessions: [] },
+    bash: { label: "bash", color: "green", sessions: [] },
+    gemini: { label: "gemini", color: "blue", sessions: [] },
+    other: { label: "other", color: "overlay1", sessions: [] },
+  };
 
   cards.forEach(card => {
     if (card.style.display === "none") return;
@@ -531,32 +538,71 @@ function populateSidebar() {
     const name = card.dataset.session;
     const title = card.querySelector(".card-title")?.textContent || name;
 
-    const li = document.createElement("li");
-
-    // Detect session type for icon styling
+    // Detect session type
     let type = "other";
-    if (name.startsWith("claude")) type = "claude";
-    else if (name.startsWith("gemini")) type = "gemini";
-    else if (name.startsWith("bash")) type = "bash";
-    else if (name.startsWith("lazygit")) type = "lazygit";
-    else if (name.startsWith("resume")) type = "resume";
+    if (name.includes("-claude-") || name.startsWith("claude")) type = "claude";
+    else if (name.includes("-gemini-") || name.startsWith("gemini")) type = "gemini";
+    else if (name.includes("-bash-") || name.startsWith("bash")) type = "bash";
+    else if (name.includes("-lazygit-") || name.startsWith("lazygit")) type = "lazygit";
+    else if (name.includes("-resume-") || name.startsWith("resume")) type = "claude"; // resume is claude
 
-    li.classList.add("type-" + type);
-    li.textContent = title;
-    li.title = name;
-    li.onclick = () => {
-      window.open("/terminal?session=" + encodeURIComponent(name), "_blank");
-      toggleSidebar();
-    };
-    list.appendChild(li);
+    groups[type].sessions.push({ name, title });
+  });
+
+  list.innerHTML = "";
+
+  // Load expanded state from localStorage
+  const expandedGroups = JSON.parse(localStorage.getItem("sandboxer_expanded_groups") || '["claude","lazygit","bash","gemini","other"]');
+
+  // Render each group with sessions
+  Object.entries(groups).forEach(([type, group]) => {
+    if (group.sessions.length === 0) return;
+
+    const details = document.createElement("details");
+    details.className = "sidebar-group";
+    details.dataset.type = type;
+    if (expandedGroups.includes(type)) {
+      details.open = true;
+    }
+
+    const summary = document.createElement("summary");
+    summary.innerHTML = `<span class="group-label" style="color: var(--${group.color})">${group.label}</span><span class="group-count">${group.sessions.length}</span>`;
+    details.appendChild(summary);
+
+    // Save expanded state on toggle
+    details.addEventListener("toggle", () => {
+      const expanded = JSON.parse(localStorage.getItem("sandboxer_expanded_groups") || "[]");
+      if (details.open && !expanded.includes(type)) {
+        expanded.push(type);
+      } else if (!details.open && expanded.includes(type)) {
+        expanded.splice(expanded.indexOf(type), 1);
+      }
+      localStorage.setItem("sandboxer_expanded_groups", JSON.stringify(expanded));
+    });
+
+    const ul = document.createElement("ul");
+    ul.className = "group-sessions";
+
+    group.sessions.forEach(({ name, title }) => {
+      const li = document.createElement("li");
+      li.textContent = title;
+      li.title = name;
+      li.onclick = () => {
+        window.open("/terminal?session=" + encodeURIComponent(name), "_blank");
+        toggleSidebar();
+      };
+      ul.appendChild(li);
+    });
+
+    details.appendChild(ul);
+    list.appendChild(details);
   });
 
   if (list.children.length === 0) {
-    const li = document.createElement("li");
-    li.textContent = "No sessions";
-    li.style.color = "var(--overlay0)";
-    li.style.cursor = "default";
-    list.appendChild(li);
+    const empty = document.createElement("div");
+    empty.className = "sidebar-empty";
+    empty.textContent = "No sessions";
+    list.appendChild(empty);
   }
 }
 
