@@ -604,11 +604,16 @@ def get_claude_session_id(name: str) -> str:
 
 # ═══ Session Naming ═══
 
+def sanitize_session_name(name: str) -> str:
+    """Sanitize session name to match tmux's behavior (dots become underscores)."""
+    return name.replace(".", "_")
+
+
 def generate_session_name(session_type: str = "claude", workdir: str = "/home/sandboxer") -> str:
     """Generate session name: <dir>-<type>-<number> or UUID for chat."""
     import uuid as uuid_module
 
-    dir_name = os.path.basename(workdir.rstrip("/")) or "root"
+    dir_name = sanitize_session_name(os.path.basename(workdir.rstrip("/")) or "root")
 
     # Chat sessions use UUID to avoid old message conflicts
     if session_type == "chat":
