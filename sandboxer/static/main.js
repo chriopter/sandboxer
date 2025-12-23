@@ -785,6 +785,7 @@ function initDirDropdown() {
 })();
 
 // ═══ Chat Mode ═══
+// Web chat interface with SSE streaming from Claude JSON output
 
 const chatConnections = {};  // session -> EventSource
 

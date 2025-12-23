@@ -398,6 +398,7 @@ def get_ttyd_port(session_name: str) -> int | None:
 
 
 # ═══ Chat Mode (Claude JSON Streaming) ═══
+# Enables web chat UI with real-time streaming via SSE
 
 def start_chat_claude(name: str, workdir: str, resume_id: str = None):
     """Start Claude in JSON streaming mode for chat interface.
