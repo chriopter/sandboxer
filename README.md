@@ -12,7 +12,7 @@
 ## Features
 
 - **Live previews** - See all sessions at a glance in a grid layout
-- **Session persistence** - tmux-backed sessions survive restarts
+- **Session persistence** - tmux-backed sessions survive restarts; chat sessions persist via Claude's `--resume` with stored session UUIDs
 - **SSH takeover** - `ssh -t sandboxer@host sandboxer-shell` to take over sessions (TAB for multi-select split view)
 - **Drag & drop** - Reorder sessions your way
 - **Resume sessions** - Pick up previous Claude conversations

@@ -1527,6 +1527,22 @@ body.chat-page {
   flex-shrink: 0;
 }
 
+/* iOS Safari: position input using visualViewport */
+@supports (-webkit-touch-callout: none) {
+  .chat-input-full {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    /* JS will set top + translateY(-100%) for iOS keyboard */
+  }
+
+  .chat-fullscreen .chat-messages {
+    /* Add padding for fixed input */
+    padding-block-end: calc(4em + env(safe-area-inset-bottom, 0px));
+  }
+}
+
 .chat-input-full textarea {
   flex: 1;
   resize: none;

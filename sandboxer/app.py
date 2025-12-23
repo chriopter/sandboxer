@@ -21,6 +21,9 @@ from html import escape
 from . import sessions
 from . import chat
 
+# Restore chat sessions from persisted metadata
+sessions.init_chat_sessions()
+
 PORT = 8081
 
 # Paths

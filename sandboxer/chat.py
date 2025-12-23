@@ -45,6 +45,19 @@ def _save_chat_history():
 # Load history on module import
 _load_chat_history()
 
+
+def restore_chat_sessions(session_meta: dict):
+    """Restore chat sessions from session_meta on server restart.
+
+    Called by sessions.py after loading session_meta.json.
+    This ensures chat_sessions dict is populated with persisted sessions.
+    """
+    for name, meta in session_meta.items():
+        if meta.get("type") == "chat":
+            session_id = meta.get("claude_session_id", "")
+            chat_sessions[name] = (None, session_id)
+
+
 # SSE subscribers per session: name -> list of queues
 chat_subscribers: dict[str, list] = {}
 subscribers_lock = threading.Lock()

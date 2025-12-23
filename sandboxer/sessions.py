@@ -209,6 +209,15 @@ _load_session_order()
 _cleanup_orphan_ttyd()
 
 
+def init_chat_sessions():
+    """Initialize chat sessions from persisted session_meta.
+
+    Called after all modules are loaded to avoid circular imports.
+    """
+    from . import chat
+    chat.restore_chat_sessions(session_meta)
+
+
 def get_chat_sessions() -> list[dict]:
     """Get list of active chat sessions (from session_meta, not tmux)."""
     chat_sessions = []

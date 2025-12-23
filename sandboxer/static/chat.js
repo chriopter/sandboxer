@@ -392,10 +392,42 @@ function connectSync() {
 connectSync();
 
 // ═══ iOS Safari keyboard handling ═══
-// Scroll to bottom when keyboard appears (textarea focused)
-textarea.addEventListener("focus", () => {
-  // Small delay to let keyboard animation complete
-  setTimeout(() => {
+// Use visualViewport API to position input above keyboard
+
+const inputArea = document.querySelector(".chat-input-full");
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+              (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+if (isIOS && window.visualViewport && inputArea) {
+  const vv = window.visualViewport;
+
+  function positionInput() {
+    // Position input at bottom of visual viewport
+    const offsetTop = vv.offsetTop;
+    const height = vv.height;
+    inputArea.style.position = "fixed";
+    inputArea.style.top = (offsetTop + height) + "px";
+    inputArea.style.bottom = "auto";
+    inputArea.style.transform = "translateY(-100%)";
+
+    // Scroll messages to bottom
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
-  }, 300);
-});
+  }
+
+  vv.addEventListener("resize", positionInput);
+  vv.addEventListener("scroll", positionInput);
+  positionInput();
+
+  // Also position on focus (keyboard opening)
+  textarea.addEventListener("focus", () => {
+    setTimeout(positionInput, 100);
+    setTimeout(positionInput, 300);
+  });
+} else {
+  // Non-iOS: just scroll to bottom on focus
+  textarea.addEventListener("focus", () => {
+    setTimeout(() => {
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }, 300);
+  });
+}
