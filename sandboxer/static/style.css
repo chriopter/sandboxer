@@ -762,6 +762,16 @@ main {
   flex-shrink: 0;
 }
 
+/* Balance icon sizes visually */
+.card-actions .fullscreen-header-btn {
+  font-size: 1.1em;
+}
+
+.card-actions .kill-btn {
+  font-size: 1.2em;
+  line-height: 1;
+}
+
 .card-actions .kill-btn.confirm { animation: pulse 0.3s ease; }
 @keyframes pulse { 50% { transform: scale(1.1); } }
 
