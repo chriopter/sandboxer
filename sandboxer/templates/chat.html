@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{{session_name}} - chat - sandboxer</title>
+  <link rel="icon" type="image/png" href="/static/favicon.png">
+  <link rel="apple-touch-icon" href="/static/favicon.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <link rel="stylesheet" href="/static/webtui.css">
+  <link rel="stylesheet" href="/static/catppuccin.css">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="chat-page" data-webtui-theme="catppuccin-mocha">
+  <div class="chat-bar">
+    <span class="chat-title">{{session_name}}</span>
+    <span class="chat-spacer"></span>
+    <button id="toggle-btn" size-="small" variant-="mauve">cli</button>
+    <button id="ssh-btn" size-="small" variant-="teal">ssh</button>
+    <button id="img-btn" size-="small" class="img-btn">↑</button>
+    <input type="file" id="image-input" accept="image/*" style="display:none">
+    <button id="kill-btn" size-="small" variant-="red">×</button>
+  </div>
+  <div class="chat-fullscreen">
+    <div class="chat-messages" id="chat-messages"></div>
+    <div class="chat-input-full">
+      <textarea id="chat-textarea" placeholder="Message Claude..." rows="1"></textarea>
+      <button id="send-btn" variant-="green">Send</button>
+    </div>
+  </div>
+  <div id="paste-toast" class="paste-toast"></div>
+  <script>
+    window.SANDBOXER_SESSION = "{{session_name}}";
+  </script>
+  <script src="/static/chat.js"></script>
+</body>
+</html>

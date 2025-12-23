@@ -1191,15 +1191,17 @@ button:active {
 
 .chat .fullscreen-btn {
   position: absolute;
-  bottom: 0.8ch;
-  right: 1ch;
+  top: 0.5ch;
+  right: 0.5ch;
   opacity: 0;
   z-index: 10;
   background: var(--surface0) !important;
+  pointer-events: none;
 }
 
 .chat:hover .fullscreen-btn {
   opacity: 1;
+  pointer-events: auto;
 }
 
 .card[data-mode="chat"] .chat {
@@ -1250,39 +1252,170 @@ button:active {
   animation: blink 1s steps(1) infinite;
 }
 
+.chat-message.thinking {
+  color: var(--overlay1);
+  font-style: italic;
+  font-size: 0.8em;
+}
+
+.chat-message.thinking [is-="spinner"] {
+  margin-right: 0.5ch;
+}
+
+/* Tool use / tool result messages */
+.chat-message.tool-use,
+.chat-message.tool-result {
+  align-self: flex-start;
+  background: var(--surface0);
+  color: var(--subtext0);
+  font-size: 0.75em;
+  padding: 0.3ch 0.6ch;
+  max-width: 95%;
+}
+
+.chat-message.tool-use summary,
+.chat-message.tool-result summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.chat-message.tool-use summary::-webkit-details-marker,
+.chat-message.tool-result summary::-webkit-details-marker {
+  display: none;
+}
+
+.chat-message.tool-use [is-="spinner"] {
+  margin-right: 0.3ch;
+}
+
+/* Extended thinking blocks */
+.chat-message.thinking-block {
+  align-self: flex-start;
+  background: var(--surface0);
+  color: var(--overlay1);
+  font-size: 0.75em;
+  padding: 0.3ch 0.6ch;
+  max-width: 95%;
+  font-style: italic;
+}
+
+.chat-message.thinking-block summary {
+  cursor: pointer;
+  list-style: none;
+  color: var(--lavender);
+}
+
+.chat-message.thinking-block summary::-webkit-details-marker {
+  display: none;
+}
+
+.chat-message.thinking-block [is-="spinner"] {
+  margin-right: 0.3ch;
+}
+
+.chat-message.thinking-block pre {
+  margin: 0.5ch 0 0 0;
+  padding: 0.5ch;
+  background: var(--crust);
+  border-radius: 3px;
+  font-size: 0.9em;
+  overflow-x: auto;
+  max-height: 10em;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-style: normal;
+}
+
+.chat-message.tool-result.error summary {
+  color: var(--red);
+}
+
+.chat-message.tool-use pre,
+.chat-message.tool-result pre {
+  margin: 0.5ch 0 0 0;
+  padding: 0.5ch;
+  background: var(--crust);
+  border-radius: 3px;
+  font-size: 0.9em;
+  overflow-x: auto;
+  max-height: 10em;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* System messages */
+.chat-message.system {
+  align-self: center;
+  background: transparent;
+  color: var(--overlay0);
+  font-size: 0.7em;
+  padding: 0.2ch 0.5ch;
+}
+
+.chat-message.system .system-label {
+  color: var(--overlay1);
+}
+
 @keyframes blink {
   50% { opacity: 0; }
 }
 
-.chat-input {
+/* Chat status indicator */
+.chat-status {
   display: flex;
-  gap: 0.5ch;
-  padding: 0.5ch;
+  align-items: center;
+  gap: 0.3ch;
+  font-size: 0.65em;
+  color: var(--overlay0);
+  padding: 0.2ch 0.5ch;
   border-top: 1px solid var(--surface0);
-  background: var(--mantle);
+  background: var(--crust);
 }
 
-.chat-input textarea {
+.chat-status.working {
+  color: var(--green);
+}
+
+.chat-status.working [is-="spinner"] {
+  display: inline-block;
+}
+
+.chat-status [is-="spinner"] {
+  display: none;
+}
+
+.chat-status.paused {
+  color: var(--overlay0);
+}
+
+.chat-input {
+  display: flex;
+  gap: 0.3ch;
+  padding: 0.3ch;
+  border-top: 1px solid var(--surface0);
+  background: var(--mantle);
+  align-items: center;
+}
+
+.chat-input input {
   flex: 1;
-  resize: none;
-  min-height: 2.5em;
-  max-height: 6em;
-  font-size: 0.85em;
-  padding: 0.5ch;
+  min-width: 0;
+  font-size: 0.75em;
+  padding: 0.3ch 0.5ch;
   background: var(--surface0);
   color: var(--text);
   border: 1px solid var(--surface1);
-  border-radius: 4px;
+  border-radius: 3px;
+  height: 1.8em;
 }
 
-.chat-input textarea:focus {
+.chat-input input:focus {
   outline: none;
   border-color: var(--mauve);
 }
 
 .chat-input button {
   flex-shrink: 0;
-  padding: 0.5ch 1ch !important;
 }
 
 /* Toggle mode button - same style as ssh button */
@@ -1301,9 +1434,9 @@ body.chat-page {
 }
 
 .chat-bar {
-  background: var(--mantle);
+  background: var(--base);
   border-bottom: 1px solid var(--surface0);
-  padding: 0.3lh 1.5ch;
+  padding: 0.3lh 1ch;
   display: flex;
   align-items: center;
   gap: 1ch;
@@ -1312,7 +1445,7 @@ body.chat-page {
 
 .chat-title {
   color: var(--lavender);
-  font-weight: 500;
+  font-size: 0.9em;
 }
 
 .chat-spacer {
