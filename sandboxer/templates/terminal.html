@@ -14,9 +14,10 @@
   <div class="term-bar">
     <span class="term-title">{{session_name}}</span>
     <span class="term-spacer"></span>
-    <button id="paste-btn" size-="small">[img]</button>
-    <span is-="separator" direction-="y"></span>
-    <button id="kill-btn" size-="small" variant-="red">[kill]</button>
+    <button id="toggle-btn" size-="small" variant-="mauve">chat</button>
+    <button id="ssh-btn" size-="small" variant-="teal">ssh</button>
+    <button id="paste-btn" size-="small" class="img-btn">↑</button>
+    <button id="kill-btn" size-="small" variant-="red">×</button>
   </div>
   <div class="terminal-wrap" id="terminal-wrap">
     <iframe src="{{ttyd_url}}" id="terminal-iframe"></iframe>

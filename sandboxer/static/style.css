@@ -911,16 +911,16 @@ body.terminal-page {
 }
 
 .term-bar {
-  background: var(--mantle);
+  background: var(--base);
   border-bottom: 1px solid var(--surface0);
-  padding: 0.3lh 1.5ch;
+  padding: 0.3lh 1ch;
   display: flex;
   align-items: center;
   gap: 1ch;
   flex-shrink: 0;
 }
 
-.term-title { color: var(--lavender); font-weight: 500; }
+.term-title { color: var(--lavender); font-size: 0.9em; }
 .term-spacer { flex: 1; }
 .term-bar [is-="separator"] { height: 1.5lh; }
 
@@ -1187,6 +1187,7 @@ button:active {
   aspect-ratio: 16/9;
   background: var(--crust);
   position: relative;
+  overflow: hidden;
 }
 
 .chat .fullscreen-btn {
@@ -1370,6 +1371,7 @@ button:active {
   padding: 0.2ch 0.5ch;
   border-top: 1px solid var(--surface0);
   background: var(--crust);
+  flex-shrink: 0;
 }
 
 .chat-status.working {
@@ -1395,6 +1397,7 @@ button:active {
   border-top: 1px solid var(--surface0);
   background: var(--mantle);
   align-items: center;
+  flex-shrink: 0;
 }
 
 .chat-input input {

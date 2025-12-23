@@ -219,6 +219,59 @@ pasteBtn?.addEventListener("dblclick", (e) => {
   fileInput?.click();
 });
 
+// ─── Toggle to Chat Mode ───
+
+const toggleBtn = document.getElementById("toggle-btn");
+
+toggleBtn?.addEventListener("click", async () => {
+  toggleBtn.disabled = true;
+  toggleBtn.textContent = "...";
+
+  try {
+    const res = await fetch("/api/chat-toggle", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session: SESSION_NAME, target_mode: "chat" }),
+    });
+
+    const data = await res.json();
+    if (data.ok) {
+      window.location.href = "/chat?session=" + encodeURIComponent(SESSION_NAME);
+    } else {
+      showToast("Failed to switch to chat", "error");
+      toggleBtn.disabled = false;
+      toggleBtn.textContent = "chat";
+    }
+  } catch (err) {
+    showToast("Failed to switch to chat", "error");
+    toggleBtn.disabled = false;
+    toggleBtn.textContent = "chat";
+  }
+});
+
+// ─── SSH Button Handler ───
+
+const sshBtn = document.getElementById("ssh-btn");
+
+sshBtn?.addEventListener("click", async () => {
+  const host = window.location.hostname;
+  const cmd = `ssh -t sandboxer@${host} "sudo tmux attach -t '${SESSION_NAME}'"`;
+
+  try {
+    await navigator.clipboard.writeText(cmd);
+    showToast("Copied: " + cmd, "success");
+  } catch (err) {
+    // Fallback copy
+    const ta = document.createElement("textarea");
+    ta.value = cmd;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+    showToast("Copied: " + cmd, "success");
+  }
+});
+
 // ─── Kill Button Handler ───
 
 const killBtn = document.getElementById("kill-btn");
@@ -234,7 +287,7 @@ killBtn?.addEventListener("click", async () => {
     killBtn.textContent = "confirm?";
     killTimeout = setTimeout(() => {
       killBtn.classList.remove("confirm");
-      killBtn.textContent = "[kill]";
+      killBtn.textContent = "×";
     }, 2000);
   }
 });
