@@ -28,14 +28,14 @@
 
 2. Run:
    ```bash
-   claude "clone github.com/anthropics/sandboxer to /home/sandboxer/sandboxer-repo, read CLAUDE.md, then install: deps (python3 tmux ttyd caddy lazygit gemini-cli), copy service files, enable and start services"
+   claude --dangerously-skip-permissions "clone github.com/anthropics/sandboxer to /home/sandboxer/sandboxer-repo, read CLAUDE.md, then install: deps (python3 tmux ttyd caddy lazygit gemini-cli), copy service files, enable and start services"
    ```
 
 3. Access at `http://<host>:8080` — default: `admin` / `admin`
 
-4. Change password: `claude "change sandboxer password to YOUR_PASSWORD"`
+4. Change password: `claude --dangerously-skip-permissions "change sandboxer password to YOUR_PASSWORD"`
 
-5. Clone repos: `claude "clone github.com/user/repo to /home/sandboxer/git/repo"`
+5. Clone repos: `claude --dangerously-skip-permissions "clone github.com/user/repo to /home/sandboxer/git/repo"`
 
 ## Security
 
