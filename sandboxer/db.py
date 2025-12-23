@@ -175,6 +175,33 @@ def get_message_count(session_name: str) -> int:
         return row['count'] if row else 0
 
 
+def get_messages_since(session_name: str, since_id: int) -> list[dict]:
+    """Get messages newer than since_id for polling."""
+    with get_db() as conn:
+        rows = conn.execute("""
+            SELECT * FROM messages
+            WHERE session_name = ? AND id > ?
+            ORDER BY id ASC
+        """, (session_name, since_id)).fetchall()
+
+        messages = []
+        for row in rows:
+            msg = dict(row)
+            if msg.get('metadata'):
+                msg['metadata'] = json.loads(msg['metadata'])
+            messages.append(msg)
+        return messages
+
+
+def get_latest_message_id(session_name: str) -> int:
+    """Get the latest message ID for a session."""
+    with get_db() as conn:
+        row = conn.execute("""
+            SELECT MAX(id) as max_id FROM messages WHERE session_name = ?
+        """, (session_name,)).fetchone()
+        return row['max_id'] or 0
+
+
 def clear_messages(session_name: str):
     """Clear all messages for a session."""
     with get_db() as conn:

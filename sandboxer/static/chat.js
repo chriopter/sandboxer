@@ -1,4 +1,4 @@
-/* Sandboxer - Fullscreen Chat Page JavaScript */
+/* Sandboxer - Chat Page JavaScript (Polling-based sync) */
 
 const sessionName = window.SANDBOXER_SESSION;
 const messagesContainer = document.getElementById("chat-messages");
@@ -11,62 +11,120 @@ const imgBtn = document.getElementById("img-btn");
 const imgBtnMobile = document.getElementById("img-btn-mobile");
 const imageInput = document.getElementById("image-input");
 
+// Track rendered message IDs to avoid duplicates
+const renderedMessageIds = new Set();
+let latestMessageId = 0;
+let isPolling = false;
+let isSending = false;
+
 // Toast helper
 function showToast(message, type = "info") {
   const toast = document.getElementById("paste-toast");
   if (!toast) return;
   toast.textContent = message;
   toast.className = "paste-toast show " + type;
-  setTimeout(() => {
-    toast.classList.remove("show");
-  }, 3000);
+  setTimeout(() => toast.classList.remove("show"), 3000);
 }
 
-// Render a chat message bubble
-function renderMessage(role, content) {
+// Render a message from database
+function renderMessage(msg) {
+  // Skip if already rendered
+  if (msg.id && renderedMessageIds.has(msg.id)) return null;
+  if (msg.id) renderedMessageIds.add(msg.id);
+
   const bubble = document.createElement("div");
-  bubble.className = "chat-message " + role;
-  bubble.textContent = content;
+  bubble.className = "chat-message " + msg.role;
+  if (msg.id) bubble.dataset.messageId = msg.id;
+  bubble.textContent = msg.content;
   messagesContainer.appendChild(bubble);
-  messagesContainer.scrollTop = messagesContainer.scrollHeight;
   return bubble;
+}
+
+// Scroll to bottom
+function scrollToBottom() {
+  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+// Load initial history
+async function loadHistory() {
+  try {
+    const res = await fetch(`/api/chat-history?session=${encodeURIComponent(sessionName)}`);
+    const data = await res.json();
+
+    if (data.messages) {
+      for (const msg of data.messages) {
+        renderMessage(msg);
+        if (msg.id > latestMessageId) latestMessageId = msg.id;
+      }
+      scrollToBottom();
+    }
+  } catch (err) {
+    console.error("Failed to load history:", err);
+  }
+}
+
+// Poll for new messages
+async function pollMessages() {
+  if (isPolling) return;
+  isPolling = true;
+
+  try {
+    const res = await fetch(`/api/chat-poll?session=${encodeURIComponent(sessionName)}&since=${latestMessageId}`);
+    const data = await res.json();
+
+    if (data.messages && data.messages.length > 0) {
+      // Remove any pending/streaming bubbles when real messages arrive
+      const pending = messagesContainer.querySelectorAll(".pending, .streaming, .thinking");
+      pending.forEach(el => el.remove());
+
+      for (const msg of data.messages) {
+        renderMessage(msg);
+        if (msg.id > latestMessageId) latestMessageId = msg.id;
+      }
+      scrollToBottom();
+    }
+
+    if (data.latest_id) latestMessageId = Math.max(latestMessageId, data.latest_id);
+  } catch (err) {
+    console.error("Poll error:", err);
+  } finally {
+    isPolling = false;
+  }
 }
 
 // Send message to Claude
 async function sendMessage() {
   const message = textarea.value.trim();
-  if (!message) return;
+  if (!message || isSending) return;
 
-  // Render user message
-  renderMessage("user", message);
+  isSending = true;
   textarea.value = "";
   textarea.style.height = "auto";
-
-  // Disable send button
   sendBtn.disabled = true;
   sendBtn.textContent = "...";
 
-  // Show thinking spinner
+  // Show pending user message
+  const userBubble = document.createElement("div");
+  userBubble.className = "chat-message user pending";
+  userBubble.textContent = message;
+  messagesContainer.appendChild(userBubble);
+
+  // Show thinking indicator
   const thinkingEl = document.createElement("div");
   thinkingEl.className = "chat-message assistant thinking";
   thinkingEl.innerHTML = '<span is-="spinner" variant-="dots"></span> thinking';
   messagesContainer.appendChild(thinkingEl);
-  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  scrollToBottom();
 
-  // State for streaming response
-  let currentBubble = null;
-  let currentText = "";
-  let removedThinking = false;
-  let streamedResponse = false;  // Track if we got streaming (skip final assistant msg)
-
-  // Mark as sending to skip sync messages
-  window.activeSending = true;
+  // Streaming state
+  let streamBubble = null;
+  let streamText = "";
 
   try {
     const res = await fetch("/api/chat-send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session: sessionName, message: message }),
+      body: JSON.stringify({ session: sessionName, message }),
     });
 
     if (!res.ok) {
@@ -74,7 +132,7 @@ async function sendMessage() {
       return;
     }
 
-    // Read SSE stream from POST response
+    // Read SSE stream
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
@@ -88,88 +146,63 @@ async function sendMessage() {
       buffer = lines.pop() || "";
 
       for (const line of lines) {
-        if (line.startsWith("data: ")) {
-          const data = line.slice(6);
-          if (!data || data === "{}") continue;
+        if (!line.startsWith("data: ")) continue;
+        const data = line.slice(6);
+        if (!data || data === "{}") continue;
 
-          try {
-            const event = JSON.parse(data);
+        try {
+          const event = JSON.parse(data);
 
-            // Handle title update
-            if (event.type === "title_update" && event.title) {
-              document.title = event.title + " - Sandboxer";
-              const titleEl = document.querySelector(".chat-title");
-              if (titleEl) titleEl.textContent = event.title;
-              continue;
-            }
-
-            if (event.type === "assistant") {
-              // Skip if we already rendered via streaming
-              if (streamedResponse) continue;
-
-              // Remove thinking spinner
-              if (!removedThinking) {
-                thinkingEl.remove();
-                removedThinking = true;
-              }
-              const content = event.message && event.message.content;
-              if (content && Array.isArray(content)) {
-                for (const block of content) {
-                  if (block.type === "text" && block.text) {
-                    if (!currentBubble) {
-                      currentBubble = renderMessage("assistant", "");
-                    }
-                    currentBubble.textContent = block.text;
-                  }
-                }
-              }
-            } else if (event.type === "content_block_start") {
-              // Remove thinking spinner
-              if (!removedThinking) {
-                thinkingEl.remove();
-                removedThinking = true;
-              }
-              if (event.content_block && event.content_block.type === "text") {
-                streamedResponse = true;  // Mark that we got streaming
-                currentBubble = document.createElement("div");
-                currentBubble.className = "chat-message assistant streaming";
-                messagesContainer.appendChild(currentBubble);
-                currentText = "";
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-              }
-            } else if (event.type === "content_block_delta") {
-              const delta = event.delta && event.delta.text;
-              if (delta && currentBubble) {
-                currentText += delta;
-                currentBubble.textContent = currentText;
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-              }
-            } else if (event.type === "content_block_stop") {
-              if (currentBubble) {
-                currentBubble.classList.remove("streaming");
-              }
-            } else if (event.type === "result") {
-              if (currentBubble) {
-                currentBubble.classList.remove("streaming");
-              }
-            }
-          } catch (e) {
-            console.error("Failed to parse SSE data:", e);
+          // Title update
+          if (event.type === "title_update" && event.title) {
+            document.title = event.title + " - Sandboxer";
+            const titleEl = document.querySelector(".chat-title");
+            if (titleEl) titleEl.textContent = event.title;
           }
+
+          // Start streaming response
+          if (event.type === "content_block_start" && event.content_block?.type === "text") {
+            thinkingEl.remove();
+            streamBubble = document.createElement("div");
+            streamBubble.className = "chat-message assistant streaming";
+            messagesContainer.appendChild(streamBubble);
+            streamText = "";
+            scrollToBottom();
+          }
+
+          // Stream delta
+          if (event.type === "content_block_delta" && event.delta?.text) {
+            streamText += event.delta.text;
+            if (streamBubble) {
+              streamBubble.textContent = streamText;
+              scrollToBottom();
+            }
+          }
+
+          // Stream complete
+          if (event.type === "content_block_stop" || event.type === "result") {
+            if (streamBubble) streamBubble.classList.remove("streaming");
+          }
+        } catch (e) {
+          // Ignore parse errors
         }
       }
     }
   } catch (err) {
-    console.error("Chat error:", err);
+    console.error("Send error:", err);
     showToast("Failed to send message", "error");
   } finally {
-    // Clean up thinking spinner if still present
-    if (!removedThinking && thinkingEl.parentNode) {
-      thinkingEl.remove();
-    }
+    // Clean up pending states
+    if (thinkingEl.parentNode) thinkingEl.remove();
+    userBubble.classList.remove("pending");
+    if (streamBubble) streamBubble.classList.remove("streaming");
+
     sendBtn.disabled = false;
     sendBtn.textContent = "Send";
-    window.activeSending = false;  // Allow sync messages again
+    isSending = false;
+
+    // Poll to get actual message IDs from DB
+    setTimeout(pollMessages, 500);
   }
 }
 
@@ -184,10 +217,8 @@ async function toggleToCLI() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ session: sessionName, target_mode: "cli" }),
     });
-
     const data = await res.json();
     if (data.ok) {
-      // Redirect to terminal view
       window.location.href = "/terminal?session=" + encodeURIComponent(sessionName);
     } else {
       showToast("Failed to switch to CLI", "error");
@@ -204,14 +235,10 @@ async function toggleToCLI() {
 // Kill session
 async function killSession() {
   if (!confirm("Kill session " + sessionName + "?")) return;
-
   try {
     await fetch("/kill?session=" + encodeURIComponent(sessionName));
     window.close();
-    // If window.close() doesn't work, redirect to home
-    setTimeout(() => {
-      window.location.href = "/";
-    }, 500);
+    setTimeout(() => window.location.href = "/", 500);
   } catch (err) {
     showToast("Failed to kill session", "error");
   }
@@ -221,12 +248,10 @@ async function killSession() {
 async function copySSH() {
   const host = window.location.hostname;
   const cmd = `ssh -t sandboxer@${host} "sudo tmux attach -t '${sessionName}'"`;
-
   try {
     await navigator.clipboard.writeText(cmd);
     showToast("Copied: " + cmd, "success");
   } catch (err) {
-    // Fallback copy
     const ta = document.createElement("textarea");
     ta.value = cmd;
     document.body.appendChild(ta);
@@ -245,12 +270,9 @@ function triggerImageUpload() {
   if (isMobile) {
     imageInput.click();
   } else {
-    // Desktop: enable paste mode
     showToast("Ctrl+V to paste, or double-click to browse", "info");
     clearTimeout(pasteTimeout);
-    pasteTimeout = setTimeout(() => {
-      showToast("Paste timed out", "info");
-    }, 10000);
+    pasteTimeout = setTimeout(() => showToast("Paste timed out", "info"), 10000);
   }
 }
 
@@ -259,7 +281,6 @@ async function uploadImage(file) {
     showToast("Not an image", "error");
     return;
   }
-
   showToast("Uploading...", "info");
 
   try {
@@ -270,16 +291,14 @@ async function uploadImage(file) {
       reader.readAsDataURL(file);
     });
 
-    const filename = file.name || `upload_${Date.now()}.png`;
     const res = await fetch("/api/upload", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image: base64, filename })
+      body: JSON.stringify({ image: base64, filename: file.name || `upload_${Date.now()}.png` })
     });
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || "Upload failed");
 
-    // Append path to textarea
     textarea.value = textarea.value + (textarea.value ? " " : "") + data.path;
     textarea.focus();
     showToast(data.path, "success");
@@ -297,37 +316,21 @@ function autoResize() {
 // Event listeners
 sendBtn.addEventListener("click", sendMessage);
 
-// Keyboard handling:
-// - PC: Enter = send, Alt+Enter or Shift+Enter = newline
-// - Mobile: Enter = newline (natural behavior)
 const isMobile = window.matchMedia("(pointer: coarse)").matches;
-
 textarea.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") {
-    if (isMobile) {
-      // Mobile: let Enter create newlines naturally
-      return;
-    }
-    // PC: Enter sends, Alt+Enter or Shift+Enter for newline
-    if (!e.altKey && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
+  if (e.key === "Enter" && !isMobile && !e.altKey && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
   }
 });
 
 textarea.addEventListener("input", autoResize);
-
 toggleBtn.addEventListener("click", toggleToCLI);
 killBtn.addEventListener("click", killSession);
 sshBtn.addEventListener("click", copySSH);
 imgBtn.addEventListener("click", triggerImageUpload);
 imgBtn.addEventListener("dblclick", () => imageInput.click());
-
-// Mobile image button - direct file picker (always available beside send)
-if (imgBtnMobile) {
-  imgBtnMobile.addEventListener("click", () => imageInput.click());
-}
+if (imgBtnMobile) imgBtnMobile.addEventListener("click", () => imageInput.click());
 
 imageInput.addEventListener("change", (e) => {
   const file = e.target.files?.[0];
@@ -335,7 +338,6 @@ imageInput.addEventListener("change", (e) => {
   e.target.value = "";
 });
 
-// Handle paste for image upload
 document.addEventListener("paste", (e) => {
   const items = e.clipboardData?.items;
   if (!items) return;
@@ -351,80 +353,14 @@ document.addEventListener("paste", (e) => {
   }
 });
 
-// Focus textarea on load
+// Initialize
 textarea.focus();
+loadHistory();
 
-// ═══ Sync with other tabs ═══
-
-let syncConnection = null;
-
-function connectSync() {
-  if (syncConnection) return;
-
-  const es = new EventSource("/api/chat-sync?session=" + encodeURIComponent(sessionName));
-  syncConnection = es;
-
-  es.onmessage = (e) => {
-    if (!e.data || e.data === "{}") return;
-
-    // Skip sync messages while we're sending (we render directly from POST)
-    if (window.activeSending) return;
-
-    try {
-      const event = JSON.parse(e.data);
-
-      // Handle title update from other tab
-      if (event.type === "title_update" && event.title) {
-        document.title = event.title + " - Sandboxer";
-        const titleEl = document.querySelector(".chat-title");
-        if (titleEl) titleEl.textContent = event.title;
-        return;
-      }
-
-      // Handle synced messages and history
-      if (event.type === "user_message") {
-        renderMessage("user", event.content);
-      } else if (event.type === "assistant_message") {
-        // Clean format from history
-        renderMessage("assistant", event.content);
-      } else if (event.type === "assistant") {
-        // Live streaming format
-        const content = event.message?.content;
-        if (content && Array.isArray(content)) {
-          for (const block of content) {
-            if (block.type === "text" && block.text) {
-              renderMessage("assistant", block.text);
-            }
-          }
-        }
-      } else if (event.type === "result") {
-        // Show result summary
-        const cost = event.total_cost_usd ? "$" + event.total_cost_usd.toFixed(4) : "";
-        const duration = event.duration_ms ? (event.duration_ms / 1000).toFixed(1) + "s" : "";
-        if (cost || duration) {
-          const bubble = document.createElement("div");
-          bubble.className = "chat-message system";
-          bubble.textContent = "done " + [duration, cost].filter(Boolean).join(" · ");
-          messagesContainer.appendChild(bubble);
-          messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        }
-      }
-    } catch (err) {
-      console.error("Sync error:", err);
-    }
-  };
-
-  es.onerror = () => {
-    syncConnection = null;
-    setTimeout(connectSync, 2000);
-  };
-}
-
-// Connect sync on load
-connectSync();
+// Start polling (every 1.5s)
+setInterval(pollMessages, 1500);
 
 // ═══ iOS Safari keyboard handling ═══
-// Use visualViewport API to position input above keyboard
 
 const inputArea = document.querySelector(".chat-composer");
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
@@ -434,32 +370,25 @@ if (isIOS && window.visualViewport && inputArea) {
   const vv = window.visualViewport;
 
   function positionInput() {
-    // Position input at bottom of visual viewport
     const offsetTop = vv.offsetTop;
     const height = vv.height;
     inputArea.style.position = "fixed";
     inputArea.style.top = (offsetTop + height) + "px";
     inputArea.style.bottom = "auto";
     inputArea.style.transform = "translateY(-100%)";
-
-    // Scroll messages to bottom
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    scrollToBottom();
   }
 
   vv.addEventListener("resize", positionInput);
   vv.addEventListener("scroll", positionInput);
   positionInput();
 
-  // Also position on focus (keyboard opening)
   textarea.addEventListener("focus", () => {
     setTimeout(positionInput, 100);
     setTimeout(positionInput, 300);
   });
 } else {
-  // Non-iOS: just scroll to bottom on focus
   textarea.addEventListener("focus", () => {
-    setTimeout(() => {
-      messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    }, 300);
+    setTimeout(scrollToBottom, 300);
   });
 }

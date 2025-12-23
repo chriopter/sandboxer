@@ -466,6 +466,20 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_json({"messages": messages, "count": len(messages)})
             return
 
+        # GET /api/chat-poll - Poll for new messages (simple sync)
+        if path == "/api/chat-poll":
+            session_name = query.get("session", [""])[0]
+            since_id = int(query.get("since", ["0"])[0])
+
+            if not session_name:
+                self.send_json({"error": "session required"}, 400)
+                return
+
+            messages = db.get_messages_since(session_name, since_id)
+            latest_id = db.get_latest_message_id(session_name)
+            self.send_json({"messages": messages, "latest_id": latest_id})
+            return
+
         # SSE endpoint for syncing chat across tabs
         if path == "/api/chat-sync":
             session_name = query.get("session", [""])[0]

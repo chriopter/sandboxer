@@ -52,14 +52,13 @@ def remove_subscriber(name: str, q: queue.Queue):
 
 
 def broadcast_message(name: str, message: dict):
-    """Broadcast a message to all subscribers."""
+    """Broadcast a message to all subscribers (legacy - polling is now primary)."""
     with subscribers_lock:
-        if name in chat_subscribers:
-            for q in chat_subscribers[name]:
-                try:
-                    q.put_nowait(message)
-                except queue.Full:
-                    pass
+        for q in chat_subscribers.get(name, []):
+            try:
+                q.put_nowait(message)
+            except queue.Full:
+                pass
 
 
 def init_chat_session(name: str, workdir: str, resume_id: str = None) -> str:
