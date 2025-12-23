@@ -294,7 +294,7 @@ killBtn?.addEventListener("click", async () => {
 
 // ─── Mobile Touch Bar ───
 
-const touchBar = document.querySelector(".touch-bar");
+const touchBar = document.querySelector(".composer-touch-bar");
 let activeModifiers = { ctrl: false, alt: false };
 
 async function sendKey(key) {

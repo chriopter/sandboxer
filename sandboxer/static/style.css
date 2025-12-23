@@ -762,9 +762,9 @@ main {
 }
 
 .terminal iframe {
-  /* 800x450 content + 8px for scrollbar clipping */
+  /* Extra height to ensure tmux status bar visible */
   width: 808px;
-  height: 450px;
+  height: 470px;
   border: none;
   pointer-events: none;
   opacity: 0.9;

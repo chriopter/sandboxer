@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>{{session_name}} - chat - sandboxer</title>
+  <title>{{session_title}} - Sandboxer</title>
   <link rel="icon" type="image/png" href="/static/favicon.png">
   <link rel="apple-touch-icon" href="/static/favicon.png">
   <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
@@ -12,7 +12,7 @@
 </head>
 <body class="chat-page" data-webtui-theme="catppuccin-mocha">
   <div class="chat-bar">
-    <span class="chat-title">{{session_name}}</span>
+    <span class="chat-title">{{session_title}}</span>
     <span class="chat-spacer"></span>
     <button id="toggle-btn" size-="small" variant-="mauve">cli</button>
     <button id="ssh-btn" size-="small" variant-="teal">ssh</button>
@@ -22,10 +22,12 @@
   </div>
   <div class="chat-fullscreen">
     <div class="chat-messages" id="chat-messages"></div>
-    <div class="chat-input-full">
-      <button id="img-btn-mobile" class="img-btn-mobile" size-="small">↑</button>
-      <textarea id="chat-textarea" placeholder="Message..." rows="1"></textarea>
-      <button id="send-btn" variant-="green" size-="small">Send</button>
+    <div class="composer chat-composer">
+      <div class="composer-input">
+        <button id="img-btn-mobile" class="composer-attach" size-="small">↑</button>
+        <textarea id="chat-textarea" placeholder="Message..." rows="1"></textarea>
+        <button id="send-btn" class="composer-send" variant-="green" size-="small">Send</button>
+      </div>
     </div>
   </div>
   <div id="paste-toast" class="paste-toast"></div>

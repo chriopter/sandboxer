@@ -95,6 +95,14 @@ async function sendMessage() {
           try {
             const event = JSON.parse(data);
 
+            // Handle title update
+            if (event.type === "title_update" && event.title) {
+              document.title = event.title + " - Sandboxer";
+              const titleEl = document.querySelector(".chat-title");
+              if (titleEl) titleEl.textContent = event.title;
+              continue;
+            }
+
             if (event.type === "assistant") {
               // Skip if we already rendered via streaming
               if (streamedResponse) continue;
@@ -365,6 +373,14 @@ function connectSync() {
     try {
       const event = JSON.parse(e.data);
 
+      // Handle title update from other tab
+      if (event.type === "title_update" && event.title) {
+        document.title = event.title + " - Sandboxer";
+        const titleEl = document.querySelector(".chat-title");
+        if (titleEl) titleEl.textContent = event.title;
+        return;
+      }
+
       // Handle synced messages and history
       if (event.type === "user_message") {
         renderMessage("user", event.content);
@@ -410,7 +426,7 @@ connectSync();
 // ═══ iOS Safari keyboard handling ═══
 // Use visualViewport API to position input above keyboard
 
-const inputArea = document.querySelector(".chat-input-full");
+const inputArea = document.querySelector(".chat-composer");
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
               (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 

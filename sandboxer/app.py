@@ -20,9 +20,10 @@ from html import escape
 
 from . import sessions
 from . import chat
+from . import db
 
-# Restore chat sessions from persisted metadata
-sessions.init_chat_sessions()
+# Restore chat sessions from database
+chat.restore_chat_sessions()
 
 PORT = 8081
 
@@ -365,15 +366,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
             session_name = query.get("session", [""])[0]
             if session_name:
                 # Initialize chat session if needed
+                meta = sessions.session_meta.get(session_name, {})
                 if not chat.is_chat_session(session_name):
-                    meta = sessions.session_meta.get(session_name, {})
                     workdir = meta.get("workdir", "/home/sandboxer")
                     session_id = meta.get("claude_session_id", "")
                     chat.init_chat_session(session_name, workdir, session_id)
                     sessions.set_session_mode(session_name, "chat")
+                # Use title from metadata if available
+                display_title = meta.get("title") or session_name
                 html = render_template(
                     "chat.html",
                     session_name=escape(session_name),
+                    session_title=escape(display_title),
                 )
                 self.send_html(html)
                 return
@@ -448,6 +452,20 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_json({"error": "Deprecated. Use POST /api/chat-send instead."}, 410)
             return
 
+        # GET /api/chat-history - Get message history from database
+        if path == "/api/chat-history":
+            session_name = query.get("session", [""])[0]
+            limit = int(query.get("limit", ["100"])[0])
+            offset = int(query.get("offset", ["0"])[0])
+
+            if not session_name:
+                self.send_json({"error": "session required"}, 400)
+                return
+
+            messages = chat.get_history(session_name, limit=limit, offset=offset)
+            self.send_json({"messages": messages, "count": len(messages)})
+            return
+
         # SSE endpoint for syncing chat across tabs
         if path == "/api/chat-sync":
             session_name = query.get("session", [""])[0]
@@ -463,10 +481,21 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_header("X-Accel-Buffering", "no")
             self.end_headers()
 
-            # No local history - Claude's --resume handles persistence
-            # This endpoint only streams live updates
+            # Send history first on connection
+            try:
+                history = chat.get_history(session_name, limit=100)
+                for msg in history:
+                    event = {
+                        "type": f"{msg['role']}_message",
+                        "content": msg['content'],
+                        "timestamp": msg.get('created_at')
+                    }
+                    self.wfile.write(f"data: {json.dumps(event)}\n\n".encode())
+                self.wfile.flush()
+            except Exception as e:
+                print(f"[chat-sync] History error: {e}")
 
-            # Subscribe to updates
+            # Subscribe to live updates
             q = chat.add_subscriber(session_name)
             try:
                 while True:
@@ -609,22 +638,30 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     self.send_json({"error": "session and message required"}, 400)
                     return
 
-                # Get session metadata
-                meta = sessions.session_meta.get(session_name, {})
-                workdir = meta.get("workdir", "/home/sandboxer")
-                session_id = meta.get("claude_session_id", "")
+                # Get session metadata from database
+                session_data = db.get_session(session_name)
+                if session_data:
+                    workdir = session_data.get("workdir", "/home/sandboxer")
+                    session_id = session_data.get("claude_session_id") or ""
+                else:
+                    # Fallback to legacy session_meta
+                    meta = sessions.session_meta.get(session_name, {})
+                    workdir = meta.get("workdir", "/home/sandboxer")
+                    session_id = meta.get("claude_session_id", "")
 
                 # Initialize chat session if needed
                 if not chat.is_chat_session(session_name):
                     chat.init_chat_session(session_name, workdir, session_id)
 
                 # Store first message as title (KISS solution for chat titles)
-                if not meta.get("title"):
+                title_update = None
+                current_title = session_data.get("title") if session_data else None
+                if not current_title:
                     title = message[:40].strip()
                     if len(message) > 40:
                         title += "..."
-                    sessions.session_meta[session_name]["title"] = title
-                    sessions._save_session_meta()
+                    db.update_session_field(session_name, 'title', title)
+                    title_update = title
 
                 # Get response generator
                 response_gen, get_session_id = chat.send_message(
@@ -640,40 +677,33 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.end_headers()
 
                 try:
-                    # Broadcast user message first
+                    # Send title update if this was the first message
+                    if title_update:
+                        title_event = {"type": "title_update", "title": title_update}
+                        self.wfile.write(f"data: {json.dumps(title_event)}\n\n".encode())
+                        self.wfile.flush()
+                        chat.broadcast_message(session_name, title_event)
+
+                    # Broadcast user message to all subscribers
                     chat.broadcast_message(session_name, {
                         "type": "user_message",
                         "content": message
                     })
 
-                    assistant_text = ""  # Accumulate assistant response
-
+                    # Stream ALL events to sender AND broadcast to other subscribers
                     for line in response_gen:
                         if line:
+                            # Send to the client making the request
                             self.wfile.write(f"data: {line}\n\n".encode())
                             self.wfile.flush()
-                            # Parse and accumulate text, only broadcast final assistant message
+
+                            # Broadcast same event to all other subscribers (live sync)
                             try:
                                 event = json.loads(line)
-                                # Accumulate text from streaming
-                                if event.get("type") == "content_block_delta":
-                                    delta = event.get("delta", {}).get("text", "")
-                                    assistant_text += delta
-                                # Or get full text from assistant message
-                                elif event.get("type") == "assistant":
-                                    content = event.get("message", {}).get("content", [])
-                                    for block in content:
-                                        if block.get("type") == "text":
-                                            assistant_text = block.get("text", "")
+                                chat.broadcast_message(session_name, event)
                             except json.JSONDecodeError:
                                 pass
 
-                    # Broadcast final assistant response (not streaming deltas)
-                    if assistant_text:
-                        chat.broadcast_message(session_name, {
-                            "type": "assistant_message",
-                            "content": assistant_text
-                        })
                     self.wfile.write(b"event: end\ndata: {}\n\n")
                     self.wfile.flush()
 

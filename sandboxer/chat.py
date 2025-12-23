@@ -1,6 +1,7 @@
 """Chat mode - Claude JSON streaming for web chat interface.
 
-History is NOT stored locally - Claude's --resume handles conversation persistence.
+Messages are persisted in SQLite for history across refreshes.
+Claude's --resume handles conversation context.
 """
 
 import json
@@ -10,20 +11,22 @@ import select
 import subprocess
 import threading
 
+from . import db
+
 # Claude binary path
 CLAUDE_PATH = "/home/sandboxer/.local/bin/claude"
 SYSTEM_PROMPT_PATH = "/home/sandboxer/git/sandboxer/system-prompt.txt"
 
-# Active chat sessions: name -> (process, session_id)
+# Active chat sessions in memory: name -> (process, session_id)
 chat_sessions: dict[str, tuple] = {}
 
 
-def restore_chat_sessions(session_meta: dict):
-    """Restore chat sessions from session_meta on server restart."""
-    for name, meta in session_meta.items():
-        if meta.get("type") == "chat":
-            session_id = meta.get("claude_session_id", "")
-            chat_sessions[name] = (None, session_id)
+def restore_chat_sessions():
+    """Restore chat sessions from database on server restart."""
+    for session in db.get_chat_sessions():
+        name = session['name']
+        session_id = session.get('claude_session_id') or ""
+        chat_sessions[name] = (None, session_id)
 
 
 # SSE subscribers per session: name -> list of queues
@@ -49,7 +52,7 @@ def remove_subscriber(name: str, q: queue.Queue):
 
 
 def broadcast_message(name: str, message: dict):
-    """Broadcast a message to all subscribers (live updates only, no storage)."""
+    """Broadcast a message to all subscribers."""
     with subscribers_lock:
         if name in chat_subscribers:
             for q in chat_subscribers[name]:
@@ -63,6 +66,16 @@ def init_chat_session(name: str, workdir: str, resume_id: str = None) -> str:
     """Initialize a chat session. Returns session_id (may be empty for new sessions)."""
     session_id = resume_id or ""
     chat_sessions[name] = (None, session_id)
+
+    # Ensure session exists in database
+    db.upsert_session(
+        name=name,
+        workdir=workdir,
+        session_type='chat',
+        mode='chat',
+        claude_session_id=session_id if session_id else None
+    )
+
     return session_id
 
 
@@ -85,6 +98,16 @@ def is_chat_session(name: str) -> bool:
     return name in chat_sessions
 
 
+def get_history(name: str, limit: int = 100, offset: int = 0) -> list[dict]:
+    """Get chat message history from database."""
+    return db.get_messages(name, limit=limit, offset=offset)
+
+
+def save_message(name: str, role: str, content: str, metadata: dict = None):
+    """Save a message to the database."""
+    db.add_message(name, role, content, metadata)
+
+
 def send_message(name: str, message: str, workdir: str, session_id: str = None):
     """Send a message and return a generator that yields JSON response lines.
 
@@ -92,6 +115,9 @@ def send_message(name: str, message: str, workdir: str, session_id: str = None):
     Claude requires stdin to be closed before it outputs, so we can't maintain
     a persistent process for bidirectional communication.
     """
+    # Save user message to database
+    save_message(name, 'user', message)
+
     # Build command - same params as CLI sessions
     cmd = [
         CLAUDE_PATH, "-p",
@@ -144,7 +170,6 @@ def send_message(name: str, message: str, workdir: str, session_id: str = None):
         preexec_fn=set_user if user_uid else None,
     )
 
-
     # Close stdin immediately to let Claude process
     proc.stdin.close()
 
@@ -156,6 +181,7 @@ def send_message(name: str, message: str, workdir: str, session_id: str = None):
     def response_generator():
         import time
         new_session_id = None
+        assistant_text = []  # Collect assistant response text
 
         # Wait a moment for process to start outputting
         time.sleep(0.5)
@@ -172,16 +198,40 @@ def send_message(name: str, message: str, workdir: str, session_id: str = None):
                     break
                 try:
                     data = json.loads(line.decode())
+
                     # Capture session_id for future messages
                     if data.get("type") == "system" and data.get("subtype") == "init":
                         new_session_id = data.get("session_id", "")
+
+                    # Collect assistant text for database storage
+                    if data.get("type") == "assistant":
+                        content = data.get("message", {}).get("content", [])
+                        for block in content:
+                            if block.get("type") == "text":
+                                assistant_text.append(block.get("text", ""))
+
+                    # Also collect streaming deltas
+                    if data.get("type") == "content_block_delta":
+                        delta = data.get("delta", {}).get("text", "")
+                        if delta:
+                            assistant_text.append(delta)
+
                     yield line.decode().strip()
                 except json.JSONDecodeError:
                     pass
         finally:
+            # Save assistant response to database
+            full_response = "".join(assistant_text)
+            if full_response:
+                save_message(name, 'assistant', full_response)
+
             # Update stored session_id
-            if new_session_id and name in chat_sessions:
-                chat_sessions[name] = (None, new_session_id)
+            if new_session_id:
+                if name in chat_sessions:
+                    chat_sessions[name] = (None, new_session_id)
+                # Also save to database
+                db.update_session_field(name, 'claude_session_id', new_session_id)
+
             # Ensure process is cleaned up
             if proc.poll() is None:
                 proc.terminate()

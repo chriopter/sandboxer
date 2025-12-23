@@ -23,8 +23,8 @@
     <iframe src="{{ttyd_url}}" id="terminal-iframe"></iframe>
     <div class="touch-overlay" id="touch-overlay"></div>
   </div>
-  <div class="mobile-input-area">
-    <div class="touch-bar">
+  <div class="composer mobile-input-area">
+    <div class="composer-touch-bar">
       <button data-key="Escape" size-="small" variant-="background1">ESC</button>
       <button data-key="Tab" size-="small" variant-="background1">TAB</button>
       <button data-mod="ctrl" size-="small" variant-="background2" class="mod-btn">CTRL</button>
@@ -34,10 +34,10 @@
       <button data-key="Left" size-="small" variant-="background1">←</button>
       <button data-key="Right" size-="small" variant-="background1">→</button>
     </div>
-    <div class="mobile-input-bar">
-      <button id="mobile-attach-btn" size-="small" variant-="background1">📎</button>
+    <div class="composer-input">
+      <button id="mobile-attach-btn" class="composer-attach" size-="small" variant-="background1">↑</button>
       <input type="text" id="mobile-text-input" placeholder="Type here..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-      <button id="mobile-send-btn" size-="small" variant-="mauve">⏎</button>
+      <button id="mobile-send-btn" class="composer-send" size-="small" variant-="mauve">⏎</button>
     </div>
   </div>
   <input type="file" id="image-input" accept="image/*" hidden>

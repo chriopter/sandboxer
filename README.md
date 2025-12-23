@@ -44,27 +44,62 @@
 ## Technical
 
 <details>
-<summary>Session Persistence</summary>
+<summary>Data Storage</summary>
 
-CLI sessions use tmux for persistence. Chat sessions store Claude's session UUID for `--resume`. Both are tracked in `/etc/sandboxer/session_meta.json`:
+All session and message data is stored in SQLite at `/etc/sandboxer/sandboxer.db`:
 
-```json
-{
-  "sandboxer-claude-1": {
-    "workdir": "/home/sandboxer/git/myproject",
-    "type": "claude",
-    "mode": "cli"
-  },
-  "sandboxer-chat-1": {
-    "workdir": "/home/sandboxer/git/myproject",
-    "type": "chat",
-    "mode": "chat",
-    "claude_session_id": "abc123-def456-..."
-  }
-}
+**Sessions table:**
+```sql
+CREATE TABLE sessions (
+    name TEXT PRIMARY KEY,
+    workdir TEXT NOT NULL,
+    type TEXT NOT NULL,        -- 'claude', 'chat', 'bash', 'lazygit'
+    mode TEXT DEFAULT 'cli',   -- 'cli' or 'chat'
+    title TEXT,
+    claude_session_id TEXT,    -- For Claude's --resume
+    created_at TEXT,
+    updated_at TEXT
+);
 ```
 
-Chat history is NOT stored locally—Claude's `--resume` handles conversation persistence internally.
+**Messages table (chat history):**
+```sql
+CREATE TABLE messages (
+    id INTEGER PRIMARY KEY,
+    session_name TEXT NOT NULL,
+    role TEXT NOT NULL,        -- 'user', 'assistant', 'system'
+    content TEXT NOT NULL,
+    metadata TEXT,             -- JSON for tool_use etc.
+    created_at TEXT
+);
+```
+
+CLI sessions use tmux for terminal persistence. Chat sessions store both:
+- Messages in SQLite (for UI history across refreshes)
+- Claude's session UUID for `--resume` (for conversation context)
+
+</details>
+
+<details>
+<summary>Chat Sync Architecture</summary>
+
+Chat messages sync across browser tabs via Server-Sent Events (SSE):
+
+1. **On page load**: `/api/chat-sync` sends full history from SQLite, then subscribes to live updates
+2. **On message send**: `/api/chat-send` saves to SQLite and broadcasts to all subscribers
+3. **Result**: Multiple tabs see the same conversation in real-time
+
+```
+Browser Tab 1          Server              Browser Tab 2
+     │                   │                      │
+     ├──GET /chat-sync──►│◄──GET /chat-sync────┤
+     │◄─────history──────┤──────history───────►│
+     │                   │                      │
+     ├──POST /chat-send─►│                      │
+     │                   ├────save to SQLite    │
+     │◄────SSE stream────┤────SSE broadcast───►│
+     │                   │                      │
+```
 
 </details>
 
