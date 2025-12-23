@@ -757,14 +757,14 @@ main {
   background: var(--crust);
   position: relative;
   overflow: hidden;
-  aspect-ratio: 808 / 460;
+  aspect-ratio: 808 / 500;
   width: 100%;
 }
 
 .terminal iframe {
-  /* 808x460, slightly taller than 16:9 for tmux status bar */
+  /* 808x500, extra height for tmux status bar */
   width: 808px;
-  height: 460px;
+  height: 500px;
   border: none;
   pointer-events: none;
   opacity: 0.9;
