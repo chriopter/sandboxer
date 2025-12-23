@@ -95,6 +95,9 @@ async function sendMessage() {
             const event = JSON.parse(data);
 
             if (event.type === "assistant") {
+              // Skip if we already rendered via streaming
+              if (streamedResponse) continue;
+
               // Remove thinking spinner
               if (!removedThinking) {
                 thinkingEl.remove();
@@ -118,6 +121,7 @@ async function sendMessage() {
                 removedThinking = true;
               }
               if (event.content_block && event.content_block.type === "text") {
+                streamedResponse = true;  // Mark that we got streaming
                 currentBubble = document.createElement("div");
                 currentBubble.className = "chat-message assistant streaming";
                 messagesContainer.appendChild(currentBubble);
@@ -156,6 +160,7 @@ async function sendMessage() {
     }
     sendBtn.disabled = false;
     sendBtn.textContent = "Send";
+    window.activeSending = false;  // Allow sync messages again
   }
 }
 
@@ -335,6 +340,9 @@ function connectSync() {
 
   es.onmessage = (e) => {
     if (!e.data || e.data === "{}") return;
+
+    // Skip sync messages while we're sending (we render directly from POST)
+    if (window.activeSending) return;
 
     try {
       const event = JSON.parse(e.data);
