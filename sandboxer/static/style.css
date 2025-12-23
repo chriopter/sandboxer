@@ -762,8 +762,8 @@ main {
 }
 
 .terminal iframe {
-  /* 800x450 content + 12px for scrollbar clipping */
-  width: 812px;
+  /* 800x450 content + 8px for scrollbar clipping */
+  width: 808px;
   height: 450px;
   border: none;
   pointer-events: none;

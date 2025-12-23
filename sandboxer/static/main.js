@@ -715,7 +715,7 @@ function setViewMode(mode) {
     const summary = viewSelect.querySelector("summary");
     const indicator = summary?.querySelector(".dropdown-indicator");
     if (summary) {
-      summary.textContent = "view: " + mode + " ";
+      summary.textContent = mode + " col ";
       if (indicator) summary.appendChild(indicator);
       else {
         const span = document.createElement("span");
