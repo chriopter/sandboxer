@@ -899,6 +899,12 @@ function openFullscreen(sessionName) {
   const mode = card?.dataset.mode || "cli";
   if (mode === "chat") {
     window.open("/chat?session=" + encodeURIComponent(sessionName), "_blank");
+  } else if (mode === "ungit") {
+    // For ungit, open the iframe URL directly
+    const iframe = card.querySelector("iframe");
+    if (iframe && iframe.src) {
+      window.open(iframe.src, "_blank");
+    }
   } else {
     window.open("/terminal?session=" + encodeURIComponent(sessionName), "_blank");
   }

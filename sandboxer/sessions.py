@@ -172,10 +172,13 @@ def get_ordered_sessions(sessions: list[dict]) -> list[dict]:
     existing = {s["name"] for s in sessions}
     session_order[:] = [n for n in session_order if n in existing]
 
-    # Cleanup stale metadata entries and add workdir to each session
+    # Cleanup stale metadata entries and add workdir/type to each session
     _cleanup_session_meta(existing)
     for s in result:
         s["workdir"] = get_session_workdir(s["name"])
+        # Add type from session_meta if not already present
+        if "type" not in s and s["name"] in session_meta:
+            s["type"] = session_meta[s["name"]].get("type", "")
 
     return result
 

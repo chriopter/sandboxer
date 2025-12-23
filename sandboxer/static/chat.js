@@ -333,7 +333,14 @@ function autoResize() {
 }
 
 // Event listeners
-sendBtn.addEventListener("click", sendMessage);
+if (sendBtn) {
+  sendBtn.addEventListener("click", sendMessage);
+  // Also handle touch for mobile reliability
+  sendBtn.addEventListener("touchend", (e) => {
+    e.preventDefault();
+    sendMessage();
+  });
+}
 
 const isMobile = window.matchMedia("(pointer: coarse)").matches;
 textarea.addEventListener("keydown", (e) => {

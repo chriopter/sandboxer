@@ -14,19 +14,19 @@
   <div class="chat-bar">
     <span class="chat-title">{{session_title}}</span>
     <span class="chat-spacer"></span>
-    <button id="toggle-btn" size-="small" variant-="mauve">cli</button>
-    <button id="ssh-btn" size-="small" variant-="teal">ssh</button>
-    <button id="img-btn" size-="small" class="img-btn">↑</button>
+    <button type="button" id="toggle-btn" size-="small" variant-="mauve">cli</button>
+    <button type="button" id="ssh-btn" size-="small" variant-="teal">ssh</button>
+    <button type="button" id="img-btn" size-="small" class="img-btn">↑</button>
     <input type="file" id="image-input" accept="image/*" style="display:none">
-    <button id="kill-btn" size-="small" variant-="red">×</button>
+    <button type="button" id="kill-btn" size-="small" variant-="red">×</button>
   </div>
   <div class="chat-fullscreen">
     <div class="chat-messages" id="chat-messages"></div>
     <div class="composer chat-composer">
       <div class="composer-input">
-        <button id="img-btn-mobile" class="composer-attach" size-="small">↑</button>
+        <button type="button" id="img-btn-mobile" class="composer-attach" size-="small">↑</button>
         <textarea id="chat-textarea" placeholder="Message..." rows="1"></textarea>
-        <button id="send-btn" class="composer-send" variant-="green" size-="small">Send</button>
+        <button type="button" id="send-btn" class="composer-send" variant-="green" size-="small">Send</button>
       </div>
     </div>
   </div>

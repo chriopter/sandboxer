@@ -1613,10 +1613,23 @@ body.chat-page {
     left: 0;
     right: 0;
     bottom: 0;
+    z-index: 1000;
   }
 
   .chat-fullscreen .chat-messages {
     padding-block-end: calc(5em + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* Mobile: ensure composer buttons are always tappable */
+@media (pointer: coarse) {
+  .chat-composer {
+    z-index: 1000;
+  }
+
+  .chat-composer button {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
   }
 }
 
