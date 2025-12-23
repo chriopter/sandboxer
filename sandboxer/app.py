@@ -200,15 +200,37 @@ def build_session_cards(sessions_list: list[dict]) -> str:
     return "".join(build_single_card(s) for s in sessions_list)
 
 
-def build_dir_options() -> str:
+def build_dir_options(selected_folder: str | None = None) -> str:
     """Build HTML options for directory select."""
     dirs = sessions.get_directories()
-    selected = get_selected_folder()
+    selected = selected_folder or get_selected_folder()
     options = []
     for d in dirs:
         sel = ' selected' if d == selected else ''
         options.append(f'<option value="{d}"{sel}>{d}</option>')
     return "\n".join(options)
+
+
+def folder_name_to_path(name: str) -> str | None:
+    """Convert folder name like 'sandboxer' to full path, or None if not found."""
+    if name == "/":
+        return "/"
+    dirs = sessions.get_directories()
+    # Try exact match with folder name
+    for d in dirs:
+        if d.rstrip("/").split("/")[-1] == name:
+            return d
+    # Try if it's already a full path
+    if name in dirs:
+        return name
+    return None
+
+
+def path_to_folder_name(path: str) -> str:
+    """Convert full path to folder name for URLs."""
+    if path == "/":
+        return ""
+    return path.rstrip("/").split("/")[-1]
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -298,8 +320,21 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        # ─── Main Page ───
+        # ─── Main Page (with optional folder in URL) ───
+        # Handle paths like /, /sandboxer, /valiido
+        folder_from_url = None
         if path == "/":
+            folder_from_url = None  # Use saved folder
+        elif path.startswith("/") and "/" not in path[1:]:
+            # Single path component like /sandboxer
+            folder_name = path[1:]  # Remove leading /
+            folder_from_url = folder_name_to_path(folder_name)
+            if folder_from_url is None:
+                # Not a valid folder, might be another route
+                pass
+
+        if path == "/" or folder_from_url is not None:
+            selected_folder = folder_from_url or get_selected_folder()
             tmux_sessions = sessions.get_tmux_sessions()
             ordered = sessions.get_ordered_sessions(tmux_sessions)
 
@@ -310,7 +345,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             html = render_template(
                 "index.html",
                 cards=build_session_cards(ordered),
-                dir_options=build_dir_options(),
+                dir_options=build_dir_options(selected_folder),
                 system_prompt_path=sessions.SYSTEM_PROMPT_PATH,
             )
             self.send_html(html)

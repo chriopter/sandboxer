@@ -252,6 +252,13 @@ async function saveSelectedFolder(folder) {
   } catch (err) {
     console.warn("Failed to save selected folder:", err);
   }
+
+  // Update URL to reflect folder (allows different tabs for different folders)
+  const folderName = folder === "/" ? "" : folder.split("/").pop();
+  const newPath = folderName ? "/" + folderName : "/";
+  if (window.location.pathname !== newPath) {
+    window.history.replaceState(null, "", newPath);
+  }
 }
 
 function filterSessionsByFolder(selectedDir) {
