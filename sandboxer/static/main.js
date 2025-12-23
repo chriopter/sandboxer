@@ -35,8 +35,12 @@ async function createSession(forceType) {
       const newCard = template.content.firstChild;
       grid.prepend(newCard);
 
-      // Initialize drag & drop for new card
+      // Initialize drag & drop and resize observer for new card
       initCardDragDrop(newCard);
+      observeCardResize(newCard);
+
+      // Update terminal scales for new card
+      setTimeout(updateTerminalScales, 50);
 
       // Update sidebar
       populateSidebar();
@@ -284,6 +288,9 @@ function filterSessionsByFolder(selectedDir) {
     if (showCard) visibleCount++;
   });
 
+  // Recalculate terminal scales after filtering (cards may have resized)
+  setTimeout(updateTerminalScales, 50);
+
   // Handle empty state - show message if no cards match
   if (emptyState) {
     emptyState.style.display = visibleCount === 0 ? "" : "none";
@@ -359,7 +366,10 @@ function initCardDragDrop(card) {
 
 function initDragAndDrop() {
   const grid = document.querySelector(".grid");
-  grid.querySelectorAll(".card").forEach(initCardDragDrop);
+  grid.querySelectorAll(".card").forEach(card => {
+    initCardDragDrop(card);
+    observeCardResize(card);
+  });
 }
 
 async function saveCardOrder() {
@@ -487,9 +497,6 @@ async function updateStats() {
 // ═══ Terminal Preview Scaling ═══
 
 function updateTerminalScales() {
-  // Get zoom level from localStorage (default 75%)
-  const zoomLevel = parseInt(localStorage.getItem("sandboxer_zoom") || "75", 10) / 100;
-
   document.querySelectorAll(".terminal").forEach(terminal => {
     const card = terminal.closest(".card");
     if (!card) return;
@@ -498,9 +505,8 @@ function updateTerminalScales() {
     const cardWidth = card.offsetWidth;
     if (cardWidth === 0) return; // Not visible
 
-    // Iframe is 800px wide, scale to fit card width, then apply zoom
-    const fitScale = cardWidth / 800;
-    const scale = Math.min(1, fitScale * zoomLevel);
+    // Iframe is 800px wide, scale to fit card width exactly
+    const scale = cardWidth / 800;
     terminal.style.setProperty("--terminal-scale", scale);
   });
 }
@@ -510,6 +516,12 @@ let scaleTimeout;
 function debouncedUpdateScales() {
   clearTimeout(scaleTimeout);
   scaleTimeout = setTimeout(updateTerminalScales, 100);
+}
+
+// Use ResizeObserver to detect when cards resize
+const cardResizeObserver = new ResizeObserver(debouncedUpdateScales);
+function observeCardResize(card) {
+  cardResizeObserver.observe(card);
 }
 
 // ═══ Preview Zoom ═══
@@ -649,6 +661,11 @@ function initDirDropdown() {
   updateTerminalScales();
   setTimeout(updateTerminalScales, 100);
   setTimeout(updateTerminalScales, 500);
+  setTimeout(updateTerminalScales, 1000);
+  window.addEventListener("load", () => {
+    updateTerminalScales();
+    setTimeout(updateTerminalScales, 100);
+  });
   window.addEventListener("resize", debouncedUpdateScales);
 
   // Start stats updates
