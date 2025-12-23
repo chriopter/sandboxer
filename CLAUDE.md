@@ -96,6 +96,23 @@ python3 -m sandboxer.app
 
 Login credentials are in `.sandbox-auth` (gitignored).
 
+## Git Commit Rules
+
+**Multiple agents may be working on this repo simultaneously.** Follow these rules:
+
+1. **Only commit files you touched** - Use `git add <specific-files>` not `git add .`
+2. **Always include Claude co-author** - Every commit must have:
+
+```
+Commit message here
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+```
+
+This ensures proper attribution in the git history. See [example commit](https://github.com/chriopter/sandboxer/commit/bd1727faddb59b281f788986d0e61a1bcc21685a).
+
 ## SSH Session Takeover
 
 ```bash
