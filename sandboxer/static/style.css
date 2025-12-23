@@ -168,23 +168,26 @@ body.sidebar-closed main {
   position: absolute;
   top: 0.5ch;
   right: 0.5ch;
-  background: var(--green) !important;
-  color: var(--crust) !important;
-  border: none !important;
-  border-radius: 4px;
+  width: 28px;
+  height: 28px;
+  background: var(--surface0) !important;
+  color: var(--subtext0) !important;
+  border: 1px solid var(--surface1) !important;
+  border-radius: 3px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0.3em 0.8em !important;
-  transition: filter 0.15s;
+  padding: 0 !important;
+  transition: background 0.15s, color 0.15s;
   flex-shrink: 0;
   z-index: 10;
-  font-size: 0.85em;
+  font-size: 1em;
 }
 
 .sidebar-toggle:hover {
-  filter: brightness(1.1);
+  background: var(--surface1) !important;
+  color: var(--text) !important;
 }
 
 .sidebar-actions {
