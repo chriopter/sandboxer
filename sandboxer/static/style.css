@@ -168,30 +168,23 @@ body.sidebar-closed main {
   position: absolute;
   top: 0.5ch;
   right: 0.5ch;
-  width: 24px;
-  height: 24px;
-  background: var(--surface0) !important;
-  border: 1px solid var(--surface1) !important;
+  background: var(--green) !important;
+  color: var(--crust) !important;
+  border: none !important;
   border-radius: 4px;
-  color: var(--subtext0) !important;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 !important;
-  transition: background 0.15s, color 0.15s;
+  padding: 0.3em 0.8em !important;
+  transition: filter 0.15s;
   flex-shrink: 0;
   z-index: 10;
+  font-size: 0.85em;
 }
 
 .sidebar-toggle:hover {
-  background: var(--surface1) !important;
-  color: var(--text) !important;
-}
-
-.sidebar-toggle::after {
-  content: "☰";
-  font-size: 0.9rem;
+  filter: brightness(1.1);
 }
 
 .sidebar-actions {
@@ -408,10 +401,6 @@ body.sidebar-closed main {
     border: 1px solid var(--surface2) !important;
   }
 
-  .sidebar-toggle::after {
-    content: "×";
-    font-size: 1.2rem;
-  }
 
   /* ═══ Mobile TUI Style ═══ */
 
