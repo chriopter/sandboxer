@@ -669,7 +669,7 @@ async function updateStats() {
 // ═══ Terminal Preview Scaling ═══
 
 function updateTerminalScales() {
-  const zoomPercent = parseInt(localStorage.getItem("sandboxer_zoom") || "75");
+  const zoomPercent = parseInt(localStorage.getItem("sandboxer_zoom") || "100");
   const zoomMultiplier = zoomPercent / 100;
 
   document.querySelectorAll(".terminal").forEach(terminal => {
@@ -769,7 +769,7 @@ function initViewZoomDropdowns() {
 
   // Restore saved values
   const savedView = localStorage.getItem("sandboxer_view_mode") || getDefaultViewMode();
-  const savedZoom = localStorage.getItem("sandboxer_zoom") || "75";
+  const savedZoom = localStorage.getItem("sandboxer_zoom") || "100";
 
   // Set initial values
   setViewMode(savedView);

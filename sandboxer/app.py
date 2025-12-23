@@ -401,7 +401,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             name = query.get("session", [""])[0]
             if name:
                 sessions.kill_session(name)
-                chat.delete_chat_history(name)
             self.send_redirect("/")
             return
 
@@ -464,11 +463,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_header("X-Accel-Buffering", "no")
             self.end_headers()
 
-            # Send history first
-            history = chat.get_history(session_name)
-            for msg in history:
-                self.wfile.write(f"data: {json.dumps(msg)}\n\n".encode())
-            self.wfile.flush()
+            # No local history - Claude's --resume handles persistence
+            # This endpoint only streams live updates
 
             # Subscribe to updates
             q = chat.add_subscriber(session_name)

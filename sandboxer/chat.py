@@ -1,4 +1,7 @@
-"""Chat mode - Claude JSON streaming for web chat interface."""
+"""Chat mode - Claude JSON streaming for web chat interface.
+
+History is NOT stored locally - Claude's --resume handles conversation persistence.
+"""
 
 import json
 import os
@@ -7,51 +10,16 @@ import select
 import subprocess
 import threading
 
-# Claude binary path - use system path or user-accessible location
-# When running as sandboxer user, we need a path that user can access
+# Claude binary path
 CLAUDE_PATH = "/home/sandboxer/.local/bin/claude"
 SYSTEM_PROMPT_PATH = "/home/sandboxer/git/sandboxer/system-prompt.txt"
-CHAT_HISTORY_FILE = "/etc/sandboxer/chat_history.json"
 
 # Active chat sessions: name -> (process, session_id)
-# Note: process is None for one-shot mode (each message spawns a new process)
 chat_sessions: dict[str, tuple] = {}
-
-# Message history per session: name -> list of message dicts
-chat_history: dict[str, list] = {}
-
-
-def _load_chat_history():
-    """Load chat history from disk."""
-    global chat_history
-    if os.path.isfile(CHAT_HISTORY_FILE):
-        try:
-            with open(CHAT_HISTORY_FILE) as f:
-                chat_history = json.load(f)
-        except (json.JSONDecodeError, IOError):
-            chat_history = {}
-
-
-def _save_chat_history():
-    """Save chat history to disk."""
-    os.makedirs(os.path.dirname(CHAT_HISTORY_FILE), exist_ok=True)
-    try:
-        with open(CHAT_HISTORY_FILE, "w") as f:
-            json.dump(chat_history, f)
-    except IOError:
-        pass
-
-
-# Load history on module import
-_load_chat_history()
 
 
 def restore_chat_sessions(session_meta: dict):
-    """Restore chat sessions from session_meta on server restart.
-
-    Called by sessions.py after loading session_meta.json.
-    This ensures chat_sessions dict is populated with persisted sessions.
-    """
+    """Restore chat sessions from session_meta on server restart."""
     for name, meta in session_meta.items():
         if meta.get("type") == "chat":
             session_id = meta.get("claude_session_id", "")
@@ -81,14 +49,7 @@ def remove_subscriber(name: str, q: queue.Queue):
 
 
 def broadcast_message(name: str, message: dict):
-    """Broadcast a message to all subscribers of a session."""
-    # Store in history
-    if name not in chat_history:
-        chat_history[name] = []
-    chat_history[name].append(message)
-    _save_chat_history()
-
-    # Broadcast to subscribers
+    """Broadcast a message to all subscribers (live updates only, no storage)."""
     with subscribers_lock:
         if name in chat_subscribers:
             for q in chat_subscribers[name]:
@@ -98,27 +59,11 @@ def broadcast_message(name: str, message: dict):
                     pass
 
 
-def get_history(name: str) -> list:
-    """Get message history for a session."""
-    return chat_history.get(name, [])
-
-
 def init_chat_session(name: str, workdir: str, resume_id: str = None) -> str:
     """Initialize a chat session. Returns session_id (may be empty for new sessions)."""
     session_id = resume_id or ""
     chat_sessions[name] = (None, session_id)
-    # Clear history for new sessions (no resume_id means fresh start)
-    if not resume_id and name in chat_history:
-        del chat_history[name]
-        _save_chat_history()
     return session_id
-
-
-def delete_chat_history(name: str):
-    """Delete chat history for a session (called when session is killed)."""
-    if name in chat_history:
-        del chat_history[name]
-        _save_chat_history()
 
 
 def stop_chat_session(name: str) -> str:

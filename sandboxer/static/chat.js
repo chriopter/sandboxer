@@ -289,10 +289,22 @@ function autoResize() {
 // Event listeners
 sendBtn.addEventListener("click", sendMessage);
 
+// Keyboard handling:
+// - PC: Enter = send, Alt+Enter or Shift+Enter = newline
+// - Mobile: Enter = newline (natural behavior)
+const isMobile = window.matchMedia("(pointer: coarse)").matches;
+
 textarea.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && !e.shiftKey) {
-    e.preventDefault();
-    sendMessage();
+  if (e.key === "Enter") {
+    if (isMobile) {
+      // Mobile: let Enter create newlines naturally
+      return;
+    }
+    // PC: Enter sends, Alt+Enter or Shift+Enter for newline
+    if (!e.altKey && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
   }
 });
 

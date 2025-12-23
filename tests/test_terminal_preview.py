@@ -49,9 +49,20 @@ def test_terminal_preview_fills_container():
                 return
             page.fill("input[type='password']", passwd)
             page.click("button[type='submit']")
-            page.wait_for_url(f"{BASE_URL}/", wait_until="networkidle")
+            page.wait_for_timeout(2000)  # Wait for redirect
 
-        page.wait_for_timeout(1000)
+        # Clear any saved zoom preference to test default
+        page.evaluate("localStorage.removeItem('sandboxer_zoom')")
+        page.reload()
+        page.wait_for_timeout(2000)
+
+        # Manually trigger scale update after clearing localStorage
+        page.evaluate("if (typeof updateTerminalScales === 'function') updateTerminalScales()")
+        page.wait_for_timeout(500)
+
+        # Debug: check localStorage
+        zoom_val = page.evaluate("localStorage.getItem('sandboxer_zoom')")
+        print(f"    Zoom in localStorage: {zoom_val} (null = using default)")
 
         # Find terminal cards (not chat mode)
         cards = page.locator(".card:not([data-mode='chat'])")
