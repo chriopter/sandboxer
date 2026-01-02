@@ -273,9 +273,6 @@ pick_folder() {
 pick_session() {
     local folder_filter="$1"
 
-    local fzf_input=$(build_session_list "$folder_filter")
-    local count=$(echo "$fzf_input" | grep -c '|' || echo 0)
-
     # Build header with folder info and shortcuts
     local header="TAB: multi │ ENTER: attach │ ESC: back"
     local create_hint=""
@@ -286,11 +283,16 @@ pick_session() {
 
     # Export for reload command
     export SANDBOXER_FOLDER_FILTER="$folder_filter"
+    export SANDBOXER_HINT="$create_hint"
 
-    # Build reload command
-    local reload_cmd="bash -c 'source /home/sandboxer/git/sandboxer/sandboxer-shell-funcs 2>/dev/null || { WORKDIRS_FILE=\"/etc/sandboxer/session_workdirs.json\"; get_workdir() { python3 -c \"import json; d=json.load(open(\\\"\$WORKDIRS_FILE\\\")); print(d.get(\\\"\$1\\\", \\\"\\\"))\" 2>/dev/null || echo \"\"; }; format_session() { local name=\"\$1\"; local created=\$(sudo tmux display-message -t \"\$name\" -p \"#{session_created}\" 2>/dev/null || echo \"0\"); local attached=\$(sudo tmux display-message -t \"\$name\" -p \"#{session_attached}\" 2>/dev/null || echo \"0\"); local title=\$(sudo tmux display-message -t \"\$name\" -p \"#{pane_title}\" 2>/dev/null || echo \"\"); local workdir=\$(get_workdir \"\$name\"); local now=\$(date +%s); local diff=\$((now - created)); local time_ago; if [ \$diff -lt 60 ]; then time_ago=\"now\"; elif [ \$diff -lt 3600 ]; then time_ago=\"\$((diff / 60))m\"; elif [ \$diff -lt 86400 ]; then time_ago=\"\$((diff / 3600))h\"; else time_ago=\"\$((diff / 86400))d\"; fi; local status=\"  \"; [ \"\$attached\" = \"1\" ] && status=\"● \"; [[ \"\$title\" == *\"✳\"* ]] && title=\"\${title#*✳ }\"; local folder_short=\"?\"; if [ -n \"\$workdir\" ]; then folder_short=\$(basename \"\$workdir\"); [ \"\$folder_short\" = \"/\" ] && folder_short=\"/\"; fi; if [ -n \"\$title\" ] && [ \"\$title\" != \"Window Title\" ] && [ \"\$title\" != \"\$name\" ]; then echo \"\$status[\$folder_short] \$title (\$name) [\$time_ago]\"; else echo \"\$status[\$folder_short] \$name [\$time_ago]\"; fi; }; }; for name in \$(sudo tmux list-sessions -F \"#{session_name}\" 2>/dev/null); do [[ \"\$name\" == split-* ]] && continue; if [ -n \"\$SANDBOXER_FOLDER_FILTER\" ]; then workdir=\$(get_workdir \"\$name\"); [ \"\$workdir\" != \"\$SANDBOXER_FOLDER_FILTER\" ] && [[ \"\$workdir\" != \"\$SANDBOXER_FOLDER_FILTER/\"* ]] && continue; fi; echo \"\$(format_session \"\$name\")|\$name\"; done'"
+    # Simple reload command using helper script
+    local reload_cmd="source /home/sandboxer/git/sandboxer/sandboxer-shell-funcs && build_session_list \"\$SANDBOXER_FOLDER_FILTER\" \"\$SANDBOXER_HINT\""
 
-    # Prepare fzf options
+    # Build initial input
+    local fzf_input=$(build_session_list "$folder_filter")
+    [ -n "$create_hint" ] && fzf_input="$create_hint"$'\n'"$fzf_input"
+
+    # Prepare fzf options with live reload every 2 seconds
     local fzf_opts=(
         --multi
         --delimiter='|'
@@ -311,13 +313,8 @@ pick_session() {
         --color="border:#6c7086,label:#cba6f7"
         --expect="esc,c,l,b,g"
         --bind="ctrl-r:reload($reload_cmd)"
+        --bind="focus:reload-sync($reload_cmd)"
     )
-
-    # Add create hint to header if in folder context
-    if [ -n "$create_hint" ]; then
-        fzf_opts+=(--header-lines=0)
-        fzf_input="$create_hint"$'\n'"$fzf_input"
-    fi
 
     local selected
     selected=$(printf '%s' "$fzf_input" | fzf "${fzf_opts[@]}" 2>/dev/null) || true
