@@ -25,7 +25,7 @@
 
 2. Run:
    ```bash
-   claude --dangerously-skip-permissions "clone github.com/anthropics/sandboxer to /home/sandboxer/sandboxer-repo, read CLAUDE.md, then install: deps (python3 tmux ttyd caddy lazygit gemini-cli), copy service files, enable and start services"
+   claude --dangerously-skip-permissions "clone github.com/anthropics/sandboxer to /home/sandboxer/sandboxer-repo, read CLAUDE.md, then install: deps (python3 tmux ttyd caddy lazygit fzf gemini-cli), copy service files, symlink sandboxer-shell to /usr/local/bin, enable and start services"
    ```
 
 3. Access at `http://<host>:8080` — default: `admin` / `admin`
@@ -37,6 +37,17 @@
 ## Security
 
 > **Warning**: This gives Claude complete control of a machine. Only use on a disposable VM without secrets.
+
+## Mobile Access (Terminus/Blink)
+
+Set `sandboxer-shell` as your SSH client's startup command:
+
+| App | Setting |
+|-----|---------|
+| Terminus | Host → Startup Command → `sandboxer-shell` |
+| Blink | Config → Startup Command → `sandboxer-shell` |
+
+Then connect via SSH — you'll get folder picker → session picker → attached.
 
 ## Technical
 
