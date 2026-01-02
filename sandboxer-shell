@@ -53,16 +53,24 @@ get_workdir() {
     fi
 }
 
-# Get unique folders from workdirs
+# Get unique folders from workdirs with session counts
 get_folders() {
     if [ -f "$WORKDIRS_FILE" ]; then
         python3 -c "
 import json
 try:
     d = json.load(open('$WORKDIRS_FILE'))
-    folders = sorted(set(d.values()))
-    for f in folders:
-        print(f)
+    # Count sessions per folder
+    counts = {}
+    for folder in d.values():
+        counts[folder] = counts.get(folder, 0) + 1
+    # Sort and print with counts
+    for f in sorted(set(d.values())):
+        count = counts.get(f, 0)
+        if count > 0:
+            print(f'{f} ({count})')
+        else:
+            print(f)
 except: pass
 " 2>/dev/null
     fi
@@ -266,7 +274,8 @@ pick_folder() {
     if [ "$choice" = "[all folders]" ]; then
         echo ""
     else
-        echo "$choice"
+        # Strip session count from folder path (e.g., "/path/to/folder (3)" -> "/path/to/folder")
+        echo "$choice" | sed 's/ ([0-9]*)$//'
     fi
 }
 

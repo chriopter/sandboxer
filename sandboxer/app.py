@@ -208,21 +208,35 @@ def build_dir_options(selected_folder: str | None = None) -> str:
     """Build HTML buttons for directory dropdown."""
     dirs = sessions.get_directories()
     selected = selected_folder or get_selected_folder()
+
+    # Count sessions per folder
+    folder_counts = {}
+    for workdir in sessions.session_workdirs.values():
+        folder_counts[workdir] = folder_counts.get(workdir, 0) + 1
+
     buttons = []
     for d in dirs:
         name = d.split("/")[-1] if d != "/" else "/"
+        count = folder_counts.get(d, 0)
+        label = f"{name} ({count})" if count > 0 else name
         aria = "true" if d == selected else "false"
-        buttons.append(f'<button data-value="{escape(d)}" size-="small" aria-selected="{aria}">{escape(name)}</button>')
+        buttons.append(f'<button data-value="{escape(d)}" size-="small" aria-selected="{aria}">{escape(label)}</button>')
     return "\n          ".join(buttons)
 
 
-def get_folder_display_name(folder: str, max_len: int = 10) -> str:
+def get_folder_display_name(folder: str, max_len: int = 10, include_count: bool = False) -> str:
     """Get display name for a folder path, truncated if needed."""
     if folder == "/":
         return "/"
     name = folder.split("/")[-1] or folder
     if len(name) > max_len:
-        return name[:max_len-1] + "…"
+        name = name[:max_len-1] + "…"
+
+    if include_count:
+        count = sum(1 for w in sessions.session_workdirs.values() if w == folder)
+        if count > 0:
+            name = f"{name} ({count})"
+
     return name
 
 
@@ -343,7 +357,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 cards=build_session_cards(ordered),
                 dir_options=build_dir_options(selected_folder),
                 selected_folder=selected_folder,
-                selected_folder_name=get_folder_display_name(selected_folder),
+                selected_folder_name=get_folder_display_name(selected_folder, include_count=True),
                 system_prompt_path=sessions.SYSTEM_PROMPT_PATH,
             )
             self.send_html(html)
