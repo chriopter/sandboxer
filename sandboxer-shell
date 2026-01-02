@@ -169,12 +169,8 @@ create_session() {
     local folder="$2"
 
     if [ -z "$folder" ] || [ "$folder" = "/" ]; then
-        echo "Cannot create session without folder context" >&2
         return 1
     fi
-
-    # Get sessions BEFORE creating
-    local before=$($TMUX_CMD list-sessions -F "#{session_name}" 2>/dev/null | sort)
 
     # URL encode the folder path
     local encoded_folder=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$folder', safe=''))")
@@ -185,13 +181,8 @@ create_session() {
     # Wait for session to be created
     sleep 0.5
 
-    # Get sessions AFTER and find the new one
-    local after=$($TMUX_CMD list-sessions -F "#{session_name}" 2>/dev/null | sort)
-
-    # Find the new session (in after but not in before)
-    local new_session=$(comm -13 <(echo "$before") <(echo "$after") | head -1)
-
-    echo "$new_session"
+    # Get the most recently created session (highest session_created timestamp)
+    $TMUX_CMD list-sessions -F "#{session_created} #{session_name}" 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2
 }
 
 pick_folder() {
