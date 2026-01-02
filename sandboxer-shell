@@ -281,18 +281,11 @@ pick_session() {
         create_hint="c:claude  l:lazygit  b:bash  g:gemini"
     fi
 
-    # Export for reload command
-    export SANDBOXER_FOLDER_FILTER="$folder_filter"
-    export SANDBOXER_HINT="$create_hint"
-
-    # Simple reload command - just run the helper script directly
-    local reload_cmd="/home/sandboxer/git/sandboxer/sandboxer-shell-funcs"
-
     # Build initial input
     local fzf_input=$(build_session_list "$folder_filter")
     [ -n "$create_hint" ] && fzf_input="$create_hint"$'\n'"$fzf_input"
 
-    # Prepare fzf options with live reload every 2 seconds
+    # Prepare fzf options
     local fzf_opts=(
         --multi
         --delimiter='|'
@@ -312,7 +305,6 @@ pick_session() {
         --color="marker:#a6e3a1,spinner:#f5e0dc,header:#6c7086"
         --color="border:#6c7086,label:#cba6f7"
         --expect="esc,c,l,b,g"
-        --bind="ctrl-r:reload:$reload_cmd"
     )
 
     local selected
