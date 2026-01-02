@@ -312,8 +312,7 @@ pick_session() {
         --color="marker:#a6e3a1,spinner:#f5e0dc,header:#6c7086"
         --color="border:#6c7086,label:#cba6f7"
         --expect="esc,c,l,b,g"
-        --bind="ctrl-r:reload($reload_cmd)"
-        --bind="focus:reload-sync($reload_cmd)"
+        --bind="ctrl-r:reload:$reload_cmd"
     )
 
     local selected
