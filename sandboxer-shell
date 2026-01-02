@@ -163,7 +163,7 @@ create_split_session() {
     exec $TMUX_CMD attach -t "$split_name"
 }
 
-# Create a new session via API
+# Create a new session via API (returns session name)
 create_session() {
     local type="$1"
     local folder="$2"
@@ -175,14 +175,9 @@ create_session() {
     # URL encode the folder path
     local encoded_folder=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$folder', safe=''))")
 
-    # Create session via API
-    curl -s "${API_URL}/create?type=${type}&dir=${encoded_folder}" > /dev/null
-
-    # Wait for session to be created
-    sleep 0.5
-
-    # Get the most recently created session (highest session_created timestamp)
-    $TMUX_CMD list-sessions -F "#{session_created} #{session_name}" 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2
+    # Create session via API and get the name from JSON response
+    local response=$(curl -s "${API_URL}/api/create?type=${type}&dir=${encoded_folder}")
+    echo "$response" | python3 -c "import sys,json; print(json.load(sys.stdin).get('name',''))" 2>/dev/null
 }
 
 pick_folder() {
