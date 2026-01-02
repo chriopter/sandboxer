@@ -173,16 +173,25 @@ create_session() {
         return 1
     fi
 
+    # Get sessions BEFORE creating
+    local before=$($TMUX_CMD list-sessions -F "#{session_name}" 2>/dev/null | sort)
+
     # URL encode the folder path
     local encoded_folder=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$folder', safe=''))")
 
     # Create session via API
     curl -s "${API_URL}/create?type=${type}&dir=${encoded_folder}" > /dev/null
 
-    # Return the new session name (API redirects, so we get it from the latest session)
-    sleep 0.3
-    local dir_name=$(basename "$folder" | tr '.' '_')
-    $TMUX_CMD list-sessions -F "#{session_name}" 2>/dev/null | grep "^${dir_name}-${type}-" | tail -1
+    # Wait for session to be created
+    sleep 0.5
+
+    # Get sessions AFTER and find the new one
+    local after=$($TMUX_CMD list-sessions -F "#{session_name}" 2>/dev/null | sort)
+
+    # Find the new session (in after but not in before)
+    local new_session=$(comm -13 <(echo "$before") <(echo "$after") | head -1)
+
+    echo "$new_session"
 }
 
 pick_folder() {
