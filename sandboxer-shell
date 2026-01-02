@@ -285,8 +285,8 @@ pick_session() {
     export SANDBOXER_FOLDER_FILTER="$folder_filter"
     export SANDBOXER_HINT="$create_hint"
 
-    # Simple reload command using helper script
-    local reload_cmd="source /home/sandboxer/git/sandboxer/sandboxer-shell-funcs && build_session_list \"\$SANDBOXER_FOLDER_FILTER\" \"\$SANDBOXER_HINT\""
+    # Simple reload command - just run the helper script directly
+    local reload_cmd="/home/sandboxer/git/sandboxer/sandboxer-shell-funcs"
 
     # Build initial input
     local fzf_input=$(build_session_list "$folder_filter")

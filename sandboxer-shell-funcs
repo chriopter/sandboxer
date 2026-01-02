@@ -68,7 +68,7 @@ build_session_list() {
     done
 }
 
-# If called directly with arguments, run build_session_list
-if [ "${1:-}" = "--list" ]; then
+# If called directly, run build_session_list with env vars
+if [ -n "${BASH_SOURCE[0]}" ] && [ "${BASH_SOURCE[0]}" = "$0" ]; then
     build_session_list "$SANDBOXER_FOLDER_FILTER" "$SANDBOXER_HINT"
 fi
