@@ -207,17 +207,22 @@ create_session() {
         # bash: just leave shell prompt
     esac
 
-    # Save workdir to JSON for sandboxer to pick up
-    python3 -c "
+    # Save workdir to JSON for sandboxer to pick up (needs sudo for /etc/sandboxer)
+    sudo python3 -c "
 import json, os
-f = '/etc/sandboxer/session_workdirs.json'
-d = {}
-if os.path.exists(f):
-    try: d = json.load(open(f))
-    except: pass
-d['$session_name'] = '$folder'
-json.dump(d, open(f, 'w'))
-" 2>/dev/null
+os.makedirs('/etc/sandboxer', exist_ok=True)
+for fname in ['session_workdirs.json', 'session_meta.json']:
+    f = '/etc/sandboxer/' + fname
+    d = {}
+    if os.path.exists(f):
+        try: d = json.load(open(f))
+        except: pass
+    if fname == 'session_workdirs.json':
+        d['$session_name'] = '$folder'
+    else:
+        d['$session_name'] = {'workdir': '$folder', 'type': '$type', 'mode': 'cli'}
+    json.dump(d, open(f, 'w'))
+"
 
     echo "$session_name"
 }
