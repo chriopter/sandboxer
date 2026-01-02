@@ -8,12 +8,15 @@
 #   ssh -t sandboxer@host sandboxer-shell --all              # skip folder picker, show all
 #
 # Multi-select: Use TAB/Shift-TAB to select multiple sessions, creates split panes
+# Create sessions: c=Claude, l=Lazygit, b=Bash, g=Gemini (requires folder context)
+# Navigation: ESC to go back to folder picker
 
 set -e
 
 # Use sudo for tmux since sessions run as root
 TMUX_CMD="sudo tmux"
 WORKDIRS_FILE="/etc/sandboxer/session_workdirs.json"
+API_URL="http://localhost:8081"
 
 # Parse arguments
 FOLDER_FILTER=""
@@ -68,6 +71,7 @@ except: pass
 
 # Colors (Catppuccin Mocha)
 MAUVE=$'\033[38;2;203;166;247m'
+GREEN=$'\033[38;2;166;227;161m'
 RESET=$'\033[0m'
 
 get_sessions() {
@@ -116,6 +120,28 @@ format_session() {
     fi
 }
 
+# Build session list for fzf (optionally filtered by folder)
+build_session_list() {
+    local folder_filter="$1"
+    local sessions_raw=$(get_sessions)
+
+    while read -r name; do
+        [ -z "$name" ] && continue
+        # Skip SSH takeover wrapper sessions
+        [[ "$name" == split-* ]] && continue
+
+        # Filter by folder if specified
+        if [ -n "$folder_filter" ]; then
+            local workdir=$(get_workdir "$name")
+            if [ "$workdir" != "$folder_filter" ] && [[ "$workdir" != "$folder_filter/"* ]]; then
+                continue
+            fi
+        fi
+
+        echo "$(format_session "$name")|$name"
+    done <<< "$sessions_raw"
+}
+
 create_split_session() {
     local sessions=("$@")
     local count=${#sessions[@]}
@@ -137,11 +163,33 @@ create_split_session() {
     exec $TMUX_CMD attach -t "$split_name"
 }
 
+# Create a new session via API
+create_session() {
+    local type="$1"
+    local folder="$2"
+
+    if [ -z "$folder" ] || [ "$folder" = "/" ]; then
+        echo "Cannot create session without folder context" >&2
+        return 1
+    fi
+
+    # URL encode the folder path
+    local encoded_folder=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$folder', safe=''))")
+
+    # Create session via API
+    curl -s "${API_URL}/create?type=${type}&dir=${encoded_folder}" > /dev/null
+
+    # Return the new session name (API redirects, so we get it from the latest session)
+    sleep 0.3
+    local dir_name=$(basename "$folder" | tr '.' '_')
+    $TMUX_CMD list-sessions -F "#{session_name}" 2>/dev/null | grep "^${dir_name}-${type}-" | tail -1
+}
+
 pick_folder() {
     local folders=$(get_folders)
     if [ -z "$folders" ]; then
         echo ""
-        return
+        return 1
     fi
 
     # Add "all" option at the top
@@ -156,107 +204,219 @@ pick_folder() {
         --border-label-pos=3 \
         --prompt="› " \
         --pointer="▶" \
-        --header="Select folder context" \
+        --header="Select folder context (ESC to exit)" \
         --color="fg:#cdd6f4,bg:#1e1e2e,hl:#f38ba8" \
         --color="fg+:#cdd6f4,bg+:#313244,hl+:#f38ba8" \
         --color="info:#94e2d5,prompt:#cba6f7,pointer:#f5e0dc" \
         --color="marker:#a6e3a1,spinner:#f5e0dc,header:#6c7086" \
         --color="border:#6c7086,label:#cba6f7" \
-        --bind="ctrl-c:abort" \
-        2>/dev/null) || echo ""
+        --expect="esc" \
+        2>/dev/null)
 
-    if [ "$selected" = "[all folders]" ]; then
+    local key=$(echo "$selected" | head -1)
+    local choice=$(echo "$selected" | tail -1)
+
+    if [ "$key" = "esc" ] || [ -z "$choice" ]; then
+        echo "__EXIT__"
+        return 0
+    fi
+
+    if [ "$choice" = "[all folders]" ]; then
         echo ""
     else
-        echo "$selected"
+        echo "$choice"
+    fi
+}
+
+pick_session() {
+    local folder_filter="$1"
+
+    local fzf_input=$(build_session_list "$folder_filter")
+    local count=$(echo "$fzf_input" | grep -c '|' || echo 0)
+
+    # Build header with folder info and shortcuts
+    local header="TAB: multi │ ENTER: attach │ ESC: back"
+    local create_hint=""
+    if [ -n "$folder_filter" ]; then
+        header="$folder_filter"
+        create_hint="c:claude  l:lazygit  b:bash  g:gemini"
+    fi
+
+    # Export for reload command
+    export SANDBOXER_FOLDER_FILTER="$folder_filter"
+
+    # Build reload command
+    local reload_cmd="bash -c 'source /home/sandboxer/git/sandboxer/sandboxer-shell-funcs 2>/dev/null || { WORKDIRS_FILE=\"/etc/sandboxer/session_workdirs.json\"; get_workdir() { python3 -c \"import json; d=json.load(open(\\\"\$WORKDIRS_FILE\\\")); print(d.get(\\\"\$1\\\", \\\"\\\"))\" 2>/dev/null || echo \"\"; }; format_session() { local name=\"\$1\"; local created=\$(sudo tmux display-message -t \"\$name\" -p \"#{session_created}\" 2>/dev/null || echo \"0\"); local attached=\$(sudo tmux display-message -t \"\$name\" -p \"#{session_attached}\" 2>/dev/null || echo \"0\"); local title=\$(sudo tmux display-message -t \"\$name\" -p \"#{pane_title}\" 2>/dev/null || echo \"\"); local workdir=\$(get_workdir \"\$name\"); local now=\$(date +%s); local diff=\$((now - created)); local time_ago; if [ \$diff -lt 60 ]; then time_ago=\"now\"; elif [ \$diff -lt 3600 ]; then time_ago=\"\$((diff / 60))m\"; elif [ \$diff -lt 86400 ]; then time_ago=\"\$((diff / 3600))h\"; else time_ago=\"\$((diff / 86400))d\"; fi; local status=\"  \"; [ \"\$attached\" = \"1\" ] && status=\"● \"; [[ \"\$title\" == *\"✳\"* ]] && title=\"\${title#*✳ }\"; local folder_short=\"?\"; if [ -n \"\$workdir\" ]; then folder_short=\$(basename \"\$workdir\"); [ \"\$folder_short\" = \"/\" ] && folder_short=\"/\"; fi; if [ -n \"\$title\" ] && [ \"\$title\" != \"Window Title\" ] && [ \"\$title\" != \"\$name\" ]; then echo \"\$status[\$folder_short] \$title (\$name) [\$time_ago]\"; else echo \"\$status[\$folder_short] \$name [\$time_ago]\"; fi; }; }; for name in \$(sudo tmux list-sessions -F \"#{session_name}\" 2>/dev/null); do [[ \"\$name\" == split-* ]] && continue; if [ -n \"\$SANDBOXER_FOLDER_FILTER\" ]; then workdir=\$(get_workdir \"\$name\"); [ \"\$workdir\" != \"\$SANDBOXER_FOLDER_FILTER\" ] && [[ \"\$workdir\" != \"\$SANDBOXER_FOLDER_FILTER/\"* ]] && continue; fi; echo \"\$(format_session \"\$name\")|\$name\"; done'"
+
+    # Prepare fzf options
+    local fzf_opts=(
+        --multi
+        --delimiter='|'
+        --with-nth=1
+        --height=50%
+        --reverse
+        --border=rounded
+        --border-label=" sandboxer "
+        --border-label-pos=3
+        --prompt="› "
+        --pointer="▶"
+        --marker="✓"
+        --header="$header"
+        --color="fg:#cdd6f4,bg:#1e1e2e,hl:#f38ba8"
+        --color="fg+:#cdd6f4,bg+:#313244,hl+:#f38ba8"
+        --color="info:#94e2d5,prompt:#cba6f7,pointer:#f5e0dc"
+        --color="marker:#a6e3a1,spinner:#f5e0dc,header:#6c7086"
+        --color="border:#6c7086,label:#cba6f7"
+        --expect="esc,c,l,b,g"
+        --bind="ctrl-r:reload($reload_cmd)"
+    )
+
+    # Add create hint to header if in folder context
+    if [ -n "$create_hint" ]; then
+        fzf_opts+=(--header-lines=0)
+        fzf_input="$create_hint"$'\n'"$fzf_input"
+    fi
+
+    local selected
+    selected=$(printf '%s' "$fzf_input" | fzf "${fzf_opts[@]}" 2>/dev/null) || true
+
+    # Parse result
+    local key=$(echo "$selected" | head -1)
+    local choices=$(echo "$selected" | tail -n +2)
+
+    # Handle special keys
+    case "$key" in
+        esc)
+            echo "__BACK__"
+            return 0
+            ;;
+        c|l|b|g)
+            if [ -n "$folder_filter" ]; then
+                local type_map="c:claude l:lazygit b:bash g:gemini"
+                local session_type=$(echo "$type_map" | tr ' ' '\n' | grep "^$key:" | cut -d: -f2)
+                local new_session=$(create_session "$session_type" "$folder_filter")
+                if [ -n "$new_session" ]; then
+                    echo "$new_session"
+                    return 0
+                fi
+            fi
+            echo "__BACK__"
+            return 0
+            ;;
+    esac
+
+    # Extract session names from selection
+    local session_names=()
+    while read -r line; do
+        [ -z "$line" ] && continue
+        # Skip the hint line
+        [[ "$line" == *"claude"*"lazygit"*"bash"* ]] && continue
+        session_names+=("${line##*|}")
+    done <<< "$choices"
+
+    if [ ${#session_names[@]} -eq 0 ]; then
+        echo "__EXIT__"
+        return 0
+    elif [ ${#session_names[@]} -eq 1 ]; then
+        echo "${session_names[0]}"
+    else
+        # Multiple sessions - return special marker
+        echo "__SPLIT__:${session_names[*]}"
     fi
 }
 
 main() {
-    # Show folder picker by default (unless -f or --all specified)
-    if [ "$SKIP_FOLDER_PICKER" = false ]; then
-        FOLDER_FILTER=$(pick_folder)
-    fi
-
-    local sessions_raw=$(get_sessions)
-
-    if [ -z "$sessions_raw" ]; then
-        echo -e "${MAUVE}No active sessions${RESET}"
-        exec bash -l
-    fi
-
-    # Build fzf input, optionally filtering by folder
-    local fzf_input=""
-    local count=0
-    while read -r name; do
-        [ -z "$name" ] && continue
-
-        # Skip SSH takeover wrapper sessions
-        [[ "$name" == split-* ]] && continue
-
-        # Filter by folder if specified
-        if [ -n "$FOLDER_FILTER" ]; then
-            local workdir=$(get_workdir "$name")
-            # Match exact folder or subfolder
-            if [ "$workdir" != "$FOLDER_FILTER" ] && [[ "$workdir" != "$FOLDER_FILTER/"* ]]; then
-                continue
+    while true; do
+        # Show folder picker by default (unless -f or --all specified)
+        if [ "$SKIP_FOLDER_PICKER" = false ]; then
+            FOLDER_FILTER=$(pick_folder)
+            if [ "$FOLDER_FILTER" = "__EXIT__" ]; then
+                exit 0
             fi
         fi
 
-        fzf_input+="$(format_session "$name")|$name"$'\n'
-        ((count++)) || true
-    done <<< "$sessions_raw"
+        # Reset skip flag after first use (allows ESC to return to folder picker)
+        local was_skipped=$SKIP_FOLDER_PICKER
+        SKIP_FOLDER_PICKER=false
 
-    if [ $count -eq 0 ]; then
-        echo -e "${MAUVE}No sessions in folder: $FOLDER_FILTER${RESET}"
-        exec bash -l
-    fi
+        # Check if any sessions exist
+        local sessions_raw=$(get_sessions)
+        local has_sessions=false
+        while read -r name; do
+            [ -z "$name" ] && continue
+            [[ "$name" == split-* ]] && continue
 
-    # Build header with folder info
-    local header="TAB: multi-select │ ENTER: attach"
-    if [ -n "$FOLDER_FILTER" ]; then
-        header="folder: $FOLDER_FILTER │ $header"
-    fi
+            if [ -z "$FOLDER_FILTER" ]; then
+                has_sessions=true
+                break
+            fi
 
-    # Run fzf with multi-select
-    local selected
-    selected=$(printf '%s' "$fzf_input" | fzf \
-        --multi \
-        --delimiter='|' \
-        --with-nth=1 \
-        --height=50% \
-        --reverse \
-        --border=rounded \
-        --border-label=" sandboxer " \
-        --border-label-pos=3 \
-        --prompt="› " \
-        --pointer="▶" \
-        --marker="✓" \
-        --header="$header" \
-        --color="fg:#cdd6f4,bg:#1e1e2e,hl:#f38ba8" \
-        --color="fg+:#cdd6f4,bg+:#313244,hl+:#f38ba8" \
-        --color="info:#94e2d5,prompt:#cba6f7,pointer:#f5e0dc" \
-        --color="marker:#a6e3a1,spinner:#f5e0dc,header:#6c7086" \
-        --color="border:#6c7086,label:#cba6f7" \
-        --bind="ctrl-c:abort" \
-        2>/dev/null) || exit 0
+            local workdir=$(get_workdir "$name")
+            if [ "$workdir" = "$FOLDER_FILTER" ] || [[ "$workdir" == "$FOLDER_FILTER/"* ]]; then
+                has_sessions=true
+                break
+            fi
+        done <<< "$sessions_raw"
 
-    # Extract session names
-    local session_names=()
-    while read -r line; do
-        [ -z "$line" ] && continue
-        session_names+=("${line##*|}")
-    done <<< "$selected"
+        if [ "$has_sessions" = false ]; then
+            if [ -n "$FOLDER_FILTER" ]; then
+                echo -e "${MAUVE}No sessions in: $FOLDER_FILTER${RESET}"
+                echo -e "${GREEN}Press c/l/b/g to create a session, or wait...${RESET}"
+                # Show empty picker to allow creating sessions
+                local result=$(pick_session "$FOLDER_FILTER")
+                case "$result" in
+                    __BACK__)
+                        continue
+                        ;;
+                    __EXIT__)
+                        if [ "$was_skipped" = true ]; then
+                            exec bash -l
+                        fi
+                        continue
+                        ;;
+                    *)
+                        if [ -n "$result" ]; then
+                            exec $TMUX_CMD attach -t "$result"
+                        fi
+                        continue
+                        ;;
+                esac
+            else
+                echo -e "${MAUVE}No active sessions${RESET}"
+                exec bash -l
+            fi
+        fi
 
-    if [ ${#session_names[@]} -eq 0 ]; then
-        exit 0
-    elif [ ${#session_names[@]} -eq 1 ]; then
-        # Single session - direct attach
-        exec $TMUX_CMD attach -t "${session_names[0]}"
-    else
-        # Multiple sessions - create split view
-        create_split_session "${session_names[@]}"
-    fi
+        # Pick session
+        local result=$(pick_session "$FOLDER_FILTER")
+
+        case "$result" in
+            __BACK__)
+                if [ "$was_skipped" = true ]; then
+                    # Was started with -f or --all, go to folder picker now
+                    continue
+                fi
+                continue
+                ;;
+            __EXIT__)
+                if [ "$was_skipped" = true ]; then
+                    exec bash -l
+                fi
+                exit 0
+                ;;
+            __SPLIT__:*)
+                # Multiple sessions selected
+                local sessions_str="${result#__SPLIT__:}"
+                read -ra session_names <<< "$sessions_str"
+                create_split_session "${session_names[@]}"
+                ;;
+            *)
+                if [ -n "$result" ]; then
+                    exec $TMUX_CMD attach -t "$result"
+                fi
+                ;;
+        esac
+    done
 }
 
 main
