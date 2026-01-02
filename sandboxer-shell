@@ -16,7 +16,6 @@ set -e
 # Use sudo for tmux since sessions run as root
 TMUX_CMD="sudo tmux"
 WORKDIRS_FILE="/etc/sandboxer/session_workdirs.json"
-API_URL="http://localhost:8081"
 
 # Parse arguments
 FOLDER_FILTER=""
@@ -163,7 +162,7 @@ create_split_session() {
     exec $TMUX_CMD attach -t "$split_name"
 }
 
-# Create a new session via API (returns session name)
+# Create a new session directly with tmux (bypasses API auth)
 create_session() {
     local type="$1"
     local folder="$2"
@@ -172,12 +171,55 @@ create_session() {
         return 1
     fi
 
-    # URL encode the folder path
-    local encoded_folder=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$folder', safe=''))")
+    # Generate session name: folder-type-N
+    local dir_name=$(basename "$folder" | tr '.' '_')
+    local prefix="${dir_name}-${type}-"
 
-    # Create session via API and get the name from JSON response
-    local response=$(curl -s "${API_URL}/api/create?type=${type}&dir=${encoded_folder}")
-    echo "$response" | python3 -c "import sys,json; print(json.load(sys.stdin).get('name',''))" 2>/dev/null
+    # Find next number
+    local max_num=0
+    while read -r name; do
+        if [[ "$name" == ${prefix}* ]]; then
+            local num="${name#$prefix}"
+            if [[ "$num" =~ ^[0-9]+$ ]] && [ "$num" -gt "$max_num" ]; then
+                max_num="$num"
+            fi
+        fi
+    done < <($TMUX_CMD list-sessions -F "#{session_name}" 2>/dev/null)
+
+    local session_name="${prefix}$((max_num + 1))"
+
+    # Create tmux session
+    $TMUX_CMD new-session -d -s "$session_name" -c "$folder"
+    $TMUX_CMD set -t "$session_name" mouse on
+
+    # Start the appropriate command
+    case "$type" in
+        claude)
+            local cmd="IS_SANDBOX=1 claude --dangerously-skip-permissions --system-prompt /home/sandboxer/git/sandboxer/system-prompt.txt"
+            $TMUX_CMD send-keys -t "$session_name" "$cmd" Enter
+            ;;
+        lazygit)
+            $TMUX_CMD send-keys -t "$session_name" "lazygit" Enter
+            ;;
+        gemini)
+            $TMUX_CMD send-keys -t "$session_name" "gemini" Enter
+            ;;
+        # bash: just leave shell prompt
+    esac
+
+    # Save workdir to JSON for sandboxer to pick up
+    python3 -c "
+import json, os
+f = '/etc/sandboxer/session_workdirs.json'
+d = {}
+if os.path.exists(f):
+    try: d = json.load(open(f))
+    except: pass
+d['$session_name'] = '$folder'
+json.dump(d, open(f, 'w'))
+" 2>/dev/null
+
+    echo "$session_name"
 }
 
 pick_folder() {
