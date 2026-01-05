@@ -670,16 +670,32 @@ async function updateStats() {
 
 function updateTerminalScales() {
   const zoomPercent = parseInt(localStorage.getItem("sandboxer_zoom") || "100");
-  const zoomMultiplier = zoomPercent / 100;
 
   document.querySelectorAll(".terminal").forEach(terminal => {
-    // Use terminal container's own width for more accurate scaling
     const terminalWidth = terminal.offsetWidth || terminal.getBoundingClientRect().width;
     if (terminalWidth === 0) return; // Not visible
 
-    // Iframe is 830px wide (extra for scrollbar clipping), scale to fit terminal container
-    const baseScale = terminalWidth / 830;
-    const scale = baseScale * zoomMultiplier;
+    const iframe = terminal.querySelector('iframe');
+    if (!iframe) return;
+
+    // Base iframe size at 100% zoom
+    const baseIframeWidth = 830;
+    const baseIframeHeight = 450;
+
+    // Inverse zoom: lower zoom % = larger iframe = more content visible
+    // 50% zoom -> 2x iframe size (shows 2x content, scaled down to fit)
+    // 100% zoom -> 1x iframe size (normal)
+    // 150% zoom -> 0.67x iframe size (shows less content, scaled up)
+    const zoomFactor = zoomPercent / 100;
+    const actualIframeWidth = baseIframeWidth / zoomFactor;
+    const actualIframeHeight = baseIframeHeight / zoomFactor;
+
+    // Set iframe dimensions (ttyd will reflow to fit)
+    iframe.style.width = actualIframeWidth + 'px';
+    iframe.style.height = actualIframeHeight + 'px';
+
+    // Scale to fit container width
+    const scale = terminalWidth / actualIframeWidth;
     terminal.style.setProperty("--terminal-scale", scale);
   });
 }

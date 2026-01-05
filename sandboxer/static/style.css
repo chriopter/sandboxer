@@ -37,6 +37,10 @@ body {
 /* Shift layout for sidebar */
 main {
   margin-left: 260px;
+  width: calc(100vw - 260px);
+  max-width: calc(100vw - 260px);
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 /* When sidebar is closed - collapse to minimal strip */
@@ -70,6 +74,8 @@ body.sidebar-closed .sidebar-new-collapsed {
 
 body.sidebar-closed main {
   margin-left: 42px;
+  width: calc(100vw - 42px);
+  max-width: calc(100vw - 42px);
 }
 
 .sidebar-row {
@@ -688,6 +694,10 @@ main {
   gap: 2ch;
   /* Prevent cards from stretching to match row height */
   align-items: start;
+  /* Prevent overflow */
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
 }
 
 .grid[data-view="1"] { grid-template-columns: 1fr; }
@@ -779,7 +789,7 @@ main {
 }
 
 .terminal iframe {
-  /* Fixed size - extra width clips scrollbar */
+  /* Base size - JS adjusts based on zoom level */
   width: 830px;
   height: 450px;
   border: none;
