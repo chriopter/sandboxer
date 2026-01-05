@@ -91,15 +91,6 @@ def get_all_sessions() -> list[dict]:
         return [dict(row) for row in rows]
 
 
-def get_chat_sessions() -> list[dict]:
-    """Get all chat-type sessions."""
-    with get_db() as conn:
-        rows = conn.execute(
-            "SELECT * FROM sessions WHERE type = 'chat' ORDER BY updated_at DESC"
-        ).fetchall()
-        return [dict(row) for row in rows]
-
-
 def upsert_session(name: str, workdir: str, session_type: str,
                    mode: str = "cli", title: str = None,
                    claude_session_id: str = None):

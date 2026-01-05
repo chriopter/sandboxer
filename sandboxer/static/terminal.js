@@ -219,36 +219,6 @@ pasteBtn?.addEventListener("dblclick", (e) => {
   fileInput?.click();
 });
 
-// ─── Toggle to Chat Mode ───
-
-const toggleBtn = document.getElementById("toggle-btn");
-
-toggleBtn?.addEventListener("click", async () => {
-  toggleBtn.disabled = true;
-  toggleBtn.textContent = "...";
-
-  try {
-    const res = await fetch("/api/chat-toggle", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session: SESSION_NAME, target_mode: "chat" }),
-    });
-
-    const data = await res.json();
-    if (data.ok) {
-      window.location.href = "/chat?session=" + encodeURIComponent(SESSION_NAME);
-    } else {
-      showToast("Failed to switch to chat", "error");
-      toggleBtn.disabled = false;
-      toggleBtn.textContent = "chat";
-    }
-  } catch (err) {
-    showToast("Failed to switch to chat", "error");
-    toggleBtn.disabled = false;
-    toggleBtn.textContent = "chat";
-  }
-});
-
 // ─── SSH Button Handler ───
 
 const sshBtn = document.getElementById("ssh-btn");

@@ -18,7 +18,6 @@ ORDER_FILE = "/etc/sandboxer/session_order.json"
 
 # RAM-only state
 ttyd_processes: dict[str, tuple[int, int]] = {}  # name -> (pid, port)
-chat_processes: dict[str, tuple] = {}  # name -> (Popen, session_id, init_line)
 session_order: list[str] = []
 
 # Persisted state: session_name -> workdir (legacy)
@@ -212,38 +211,9 @@ _load_session_order()
 _cleanup_orphan_ttyd()
 
 
-def init_chat_sessions():
-    """Initialize chat sessions from persisted session_meta.
-
-    Called after all modules are loaded to avoid circular imports.
-    """
-    from . import chat
-    chat.restore_chat_sessions(session_meta)
-
-
-def get_chat_sessions() -> list[dict]:
-    """Get list of active chat sessions (from session_meta, not tmux)."""
-    chat_sessions = []
-    for name, meta in session_meta.items():
-        if meta.get("type") == "chat":
-            chat_sessions.append({
-                "name": name,
-                "title": meta.get("title", name),
-                "type": "chat",
-            })
-    return chat_sessions
-
-
 def get_all_sessions() -> list[dict]:
-    """Get all sessions - tmux + chat."""
-    tmux = get_tmux_sessions()
-    chat = get_chat_sessions()
-    # Merge, avoiding duplicates
-    tmux_names = {s["name"] for s in tmux}
-    for s in chat:
-        if s["name"] not in tmux_names:
-            tmux.append(s)
-    return tmux
+    """Get all sessions from tmux."""
+    return get_tmux_sessions()
 
 
 # ═══ tmux Operations ═══
@@ -299,18 +269,6 @@ def get_pane_title(session_name: str) -> str | None:
 
 def create_session(name: str, session_type: str = "claude", workdir: str = "/home/sandboxer", resume_id: str = None):
     """Create a new tmux session."""
-    # Chat type doesn't need tmux - it runs Claude directly
-    if session_type == "chat":
-        # Add to order
-        if name not in session_order:
-            session_order.append(name)
-        # Track session metadata
-        session_meta[name] = {"workdir": workdir, "type": "chat", "mode": "chat"}
-        _save_session_meta()
-        session_workdirs[name] = workdir
-        _save_workdirs()
-        return
-
     subprocess.run(["tmux", "new-session", "-d", "-s", name, "-c", workdir], capture_output=True)
 
     # Enable mouse mode for scrolling
@@ -354,9 +312,6 @@ def rename_session(old_name: str, new_name: str) -> bool:
         # Update ttyd mapping
         if old_name in ttyd_processes:
             ttyd_processes[new_name] = ttyd_processes.pop(old_name)
-        # Update chat mapping
-        if old_name in chat_processes:
-            chat_processes[new_name] = chat_processes.pop(old_name)
         # Update order
         if old_name in session_order:
             idx = session_order.index(old_name)
@@ -374,9 +329,8 @@ def rename_session(old_name: str, new_name: str) -> bool:
 
 
 def kill_session(name: str):
-    """Kill a tmux session and its ttyd/chat process."""
+    """Kill a tmux session and its ttyd process."""
     stop_ttyd(name)
-    stop_chat_claude(name)
     subprocess.run(["tmux", "kill-session", "-t", name], capture_output=True)
     if name in session_order:
         session_order.remove(name)
@@ -458,150 +412,6 @@ def get_ttyd_port(session_name: str) -> int | None:
     return None
 
 
-# ═══ Chat Mode (Claude JSON Streaming) ═══
-# Enables web chat UI with real-time streaming via SSE
-
-def start_chat_claude(name: str, workdir: str, resume_id: str = None):
-    """Initialize chat session metadata. Actual Claude calls happen per-message.
-    Returns (None, session_id, b"") tuple for compatibility.
-    """
-    session_id = resume_id or ""
-
-    # Store as None process - messages will spawn one-shot processes
-    chat_processes[name] = (None, session_id, b"")
-
-    # Update metadata
-    if name not in session_meta:
-        session_meta[name] = {"workdir": workdir, "type": "chat"}
-    session_meta[name]["claude_session_id"] = session_id
-    session_meta[name]["mode"] = "chat"
-    _save_session_meta()
-
-    return None, session_id, b""
-
-
-def stop_chat_claude(name: str) -> str:
-    """Stop chat Claude process, return session_id for resume."""
-    session_id = ""
-    if name in chat_processes:
-        proc, session_id, _ = chat_processes[name]
-        try:
-            proc.terminate()
-            proc.wait(timeout=2)
-        except Exception:
-            try:
-                proc.kill()
-            except Exception:
-                pass
-        del chat_processes[name]
-
-    # Fallback to metadata
-    if not session_id and name in session_meta:
-        session_id = session_meta[name].get("claude_session_id", "")
-
-    return session_id
-
-
-def get_chat_process(name: str):
-    """Get chat process info for a session.
-    Returns (proc, session_id, init_line) or None.
-    """
-    return chat_processes.get(name)
-
-
-def send_chat_message(name: str, message: str):
-    """Send a message and return a generator that yields response lines.
-    Each message spawns a new Claude process (one-shot mode).
-    """
-    if name not in chat_processes:
-        return None
-
-    _, session_id, _ = chat_processes[name]
-    meta = session_meta.get(name, {})
-    workdir = meta.get("workdir", "/home/sandboxer")
-
-    # Build command
-    claude_path = "/root/.local/bin/claude"
-    cmd = [
-        claude_path, "-p",
-        "--output-format", "stream-json",
-        "--verbose",
-        "--dangerously-skip-permissions",
-    ]
-    if session_id:
-        cmd.extend(["--resume", session_id])
-
-    # Add the message as argument
-    cmd.append(message)
-
-    # Spawn process
-    proc = subprocess.Popen(
-        cmd,
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        cwd=workdir,
-    )
-
-    # Close stdin immediately to let Claude process
-    proc.stdin.close()
-
-    # Generator that yields response lines
-    def response_generator():
-        import select
-        new_session_id = None
-        while True:
-            if proc.poll() is not None:
-                break
-            ready, _, _ = select.select([proc.stdout], [], [], 0.1)
-            if not ready:
-                continue
-            line = proc.stdout.readline()
-            if not line:
-                break
-            try:
-                data = json.loads(line.decode())
-                # Capture session_id for future messages
-                if data.get("type") == "system" and data.get("subtype") == "init":
-                    new_session_id = data.get("session_id", "")
-                    if new_session_id and name in chat_processes:
-                        chat_processes[name] = (None, new_session_id, b"")
-                        if name in session_meta:
-                            session_meta[name]["claude_session_id"] = new_session_id
-                            _save_session_meta()
-                yield line.decode().strip()
-            except json.JSONDecodeError:
-                pass
-
-        # Update session_id if we got one
-        if new_session_id and name in session_meta:
-            session_meta[name]["claude_session_id"] = new_session_id
-            _save_session_meta()
-
-    return response_generator()
-
-
-def get_session_mode(name: str) -> str:
-    """Get session mode (cli or chat) from metadata."""
-    if name in session_meta:
-        return session_meta[name].get("mode", "cli")
-    return "cli"
-
-
-def set_session_mode(name: str, mode: str):
-    """Set session mode in metadata."""
-    if name in session_meta:
-        session_meta[name]["mode"] = mode
-        _save_session_meta()
-
-
-def get_claude_session_id(name: str) -> str:
-    """Get Claude session ID from metadata."""
-    if name in session_meta:
-        return session_meta[name].get("claude_session_id", "")
-    return ""
-
-
 # ═══ Session Naming ═══
 
 def sanitize_session_name(name: str) -> str:
@@ -610,16 +420,8 @@ def sanitize_session_name(name: str) -> str:
 
 
 def generate_session_name(session_type: str = "claude", workdir: str = "/home/sandboxer") -> str:
-    """Generate session name: <dir>-<type>-<number> or UUID for chat."""
-    import uuid as uuid_module
-
+    """Generate session name: <dir>-<type>-<number>."""
     dir_name = sanitize_session_name(os.path.basename(workdir.rstrip("/")) or "root")
-
-    # Chat sessions use UUID to avoid old message conflicts
-    if session_type == "chat":
-        short_uuid = uuid_module.uuid4().hex[:8]
-        return f"{dir_name}-chat-{short_uuid}"
-
     prefix = f"{dir_name}-{session_type}-"
 
     existing = get_tmux_sessions()
