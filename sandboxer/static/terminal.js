@@ -132,10 +132,14 @@ async function handleFile(file) {
 async function handleFiles(files) {
   if (!files || files.length === 0) return;
 
-  showToast(`Uploading ${files.length} file(s)...`, "info");
+  // Convert FileList to array immediately to prevent it being cleared during async ops
+  const fileArray = Array.from(files);
+
+  showToast(`Uploading ${fileArray.length} file(s)...`, "info");
 
   const paths = [];
-  for (const file of files) {
+  for (let i = 0; i < fileArray.length; i++) {
+    const file = fileArray[i];
     try {
       const path = await uploadFile(file);
       paths.push(path);

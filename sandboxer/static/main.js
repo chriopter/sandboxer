@@ -1008,24 +1008,35 @@ async function uploadFileToSession(sessionName, file) {
 async function uploadFilesToSession(sessionName, files) {
   if (!files || files.length === 0) return;
 
-  showToast(`Uploading ${files.length} file(s)...`, "info");
+  // Convert FileList to array immediately to prevent it being cleared during async ops
+  const fileArray = Array.from(files);
+
+  console.log('[upload] uploadFilesToSession called with', fileArray.length, 'files');
+  showToast(`Uploading ${fileArray.length} file(s)...`, "info");
 
   const paths = [];
-  for (const file of files) {
+  for (let i = 0; i < fileArray.length; i++) {
+    const file = fileArray[i];
+    console.log('[upload] uploading file', i + 1, 'of', fileArray.length, ':', file.name);
     try {
       const path = await uploadFileToSession(sessionName, file);
+      console.log('[upload] got path:', path);
       if (path) paths.push(path);
     } catch (err) {
+      console.error('[upload] failed:', err);
       showToast("Upload failed: " + err.message, "error");
     }
   }
 
+  console.log('[upload] all paths:', paths);
   if (paths.length > 0) {
+    const text = paths.join(" ") + " ";
+    console.log('[upload] injecting text:', text);
     // Inject all paths into session
     await fetch("/api/inject", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session: sessionName, text: paths.join(" ") + " " })
+      body: JSON.stringify({ session: sessionName, text })
     });
 
     showToast(`Uploaded ${paths.length} file(s)`, "success");
@@ -1050,19 +1061,23 @@ async function uploadImageToSession(sessionName, file) {
   }
 }
 
-// Set up file input listeners for all cards
-document.querySelectorAll('.card-image-input').forEach(input => {
-  input.addEventListener('change', (e) => {
-    const files = e.target.files;
-    const sessionName = input.dataset.session;
-    if (files && files.length > 0 && sessionName) {
-      if (files.length === 1) {
-        uploadImageToSession(sessionName, files[0]);
-      } else {
-        uploadFilesToSession(sessionName, files);
-      }
+// Set up file input listener using event delegation (handles dynamically created cards too)
+document.addEventListener('change', (e) => {
+  if (!e.target.classList.contains('card-image-input')) return;
+
+  const input = e.target;
+  const files = input.files;
+  const sessionName = input.dataset.session;
+
+  console.log('[upload] files selected:', files?.length, 'session:', sessionName);
+
+  if (files && files.length > 0 && sessionName) {
+    if (files.length === 1) {
+      uploadImageToSession(sessionName, files[0]);
+    } else {
+      uploadFilesToSession(sessionName, files);
     }
-    e.target.value = ''; // Reset for next upload
-  });
+  }
+  input.value = ''; // Reset for next upload
 });
 
