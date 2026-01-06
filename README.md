@@ -7,7 +7,6 @@
 
 ---
 
-<img width="2812" height="1564" alt="image" src="https://github.com/user-attachments/assets/fb2cebf0-0f94-4b3c-b7ad-9fef30babfca" />
 
 ## Features
 
@@ -17,7 +16,7 @@
 - **SSH takeover** - `ssh -t sandboxer@host sandboxer-shell` to take over any session from terminal
 - **Session persistence** - All sessions survive restarts; chat history stored in SQLite
 
-<img width="500" alt="SSH takeover" src="https://github.com/user-attachments/assets/e748762f-077a-48ef-82de-fad7c351a863" />
+<img width="2528" height="1428" alt="image" src="https://github.com/user-attachments/assets/6b2e0306-d9b3-4151-b94d-a90fae7573ce" />
 
 ## Install
 
