@@ -7,7 +7,7 @@
 #   ssh -t sandboxer@host sandboxer-shell -f /path           # skip folder picker, filter by path
 #   ssh -t sandboxer@host sandboxer-shell --all              # skip folder picker, show all
 #
-# Multi-select: Use TAB/Shift-TAB to select multiple sessions, creates split panes
+# Multi-select: Use SPACE to select multiple sessions, ENTER opens them in split panes
 # Create sessions: c=Claude, l=Lazygit, b=Bash, g=Gemini (requires folder context)
 # Navigation: ESC to go back to folder picker
 
@@ -90,7 +90,6 @@ format_session() {
     local created=$($TMUX_CMD display-message -t "$name" -p "#{session_created}" 2>/dev/null || echo "0")
     local attached=$($TMUX_CMD display-message -t "$name" -p "#{session_attached}" 2>/dev/null || echo "0")
     local title=$($TMUX_CMD display-message -t "$name" -p "#{pane_title}" 2>/dev/null || echo "")
-    local workdir=$(get_workdir "$name")
 
     # Time ago
     local now=$(date +%s)
@@ -113,24 +112,27 @@ format_session() {
     # Clean title
     [[ "$title" == *"✳"* ]] && title="${title#*✳ }"
 
-    # Short folder name (basename or "?" if unknown)
-    local folder_short="?"
-    if [ -n "$workdir" ]; then
-        folder_short=$(basename "$workdir")
-        [ "$folder_short" = "/" ] && folder_short="/"
-    fi
-
+    # Display title if available, otherwise just the session number
     if [ -n "$title" ] && [ "$title" != "Window Title" ] && [ "$title" != "$name" ]; then
-        echo "$status[$folder_short] $title ($name) [$time_ago]"
+        echo "$status$title [$time_ago]"
     else
-        echo "$status[$folder_short] $name [$time_ago]"
+        # Extract just the number from session name (e.g., valiido-claude-1 -> #1)
+        local num="${name##*-}"
+        echo "$status#$num [$time_ago]"
     fi
 }
 
-# Build session list for fzf (optionally filtered by folder)
+# Build session list for fzf (optionally filtered by folder), grouped by type
 build_session_list() {
     local folder_filter="$1"
     local sessions_raw=$(get_sessions)
+
+    # Collect sessions by type
+    local claude_sessions=()
+    local lazygit_sessions=()
+    local bash_sessions=()
+    local gemini_sessions=()
+    local other_sessions=()
 
     while read -r name; do
         [ -z "$name" ] && continue
@@ -145,8 +147,43 @@ build_session_list() {
             fi
         fi
 
-        echo "$(format_session "$name")|$name"
+        local formatted="$(format_session "$name")|$name"
+
+        # Group by type based on session name
+        if [[ "$name" == *-claude-* ]]; then
+            claude_sessions+=("$formatted")
+        elif [[ "$name" == *-lazygit-* ]]; then
+            lazygit_sessions+=("$formatted")
+        elif [[ "$name" == *-bash-* ]]; then
+            bash_sessions+=("$formatted")
+        elif [[ "$name" == *-gemini-* ]]; then
+            gemini_sessions+=("$formatted")
+        else
+            other_sessions+=("$formatted")
+        fi
     done <<< "$sessions_raw"
+
+    # Output grouped with headers
+    if [ ${#claude_sessions[@]} -gt 0 ]; then
+        echo "── Claude ──────────────────────────────|__HEADER__"
+        printf '%s\n' "${claude_sessions[@]}"
+    fi
+    if [ ${#lazygit_sessions[@]} -gt 0 ]; then
+        echo "── Lazygit ─────────────────────────────|__HEADER__"
+        printf '%s\n' "${lazygit_sessions[@]}"
+    fi
+    if [ ${#bash_sessions[@]} -gt 0 ]; then
+        echo "── Bash ────────────────────────────────|__HEADER__"
+        printf '%s\n' "${bash_sessions[@]}"
+    fi
+    if [ ${#gemini_sessions[@]} -gt 0 ]; then
+        echo "── Gemini ──────────────────────────────|__HEADER__"
+        printf '%s\n' "${gemini_sessions[@]}"
+    fi
+    if [ ${#other_sessions[@]} -gt 0 ]; then
+        echo "── Other ───────────────────────────────|__HEADER__"
+        printf '%s\n' "${other_sessions[@]}"
+    fi
 }
 
 create_split_session() {
@@ -282,20 +319,22 @@ pick_folder() {
 pick_session() {
     local folder_filter="$1"
 
-    # Build header with folder info and shortcuts
-    local header="TAB: multi │ ENTER: attach │ ESC: back"
-    local create_hint=""
+    # Build header with folder info and shortcuts (folder in bold)
+    local BOLD=$'\033[1m'
+    local RESET=$'\033[0m'
+    local header="SPACE: select │ ENTER: attach │ ESC: back"
     if [ -n "$folder_filter" ]; then
-        header="$folder_filter"
-        create_hint="c:claude  l:lazygit  b:bash  g:gemini"
+        local folder_name=$(basename "$folder_filter")
+        header="${BOLD}${folder_name}${RESET}
+SPACE: select │ ENTER: attach │ ESC: back │ c/l/b/g: create"
     fi
 
     # Build initial input
     local fzf_input=$(build_session_list "$folder_filter")
-    [ -n "$create_hint" ] && fzf_input="$create_hint"$'\n'"$fzf_input"
 
     # Prepare fzf options
     local fzf_opts=(
+        --ansi
         --multi
         --delimiter='|'
         --with-nth=1
@@ -313,6 +352,7 @@ pick_session() {
         --color="info:#94e2d5,prompt:#cba6f7,pointer:#f5e0dc"
         --color="marker:#a6e3a1,spinner:#f5e0dc,header:#6c7086"
         --color="border:#6c7086,label:#cba6f7"
+        --bind="space:toggle,tab:toggle+down,shift-tab:toggle+up"
         --expect="esc,c,l,b,g"
     )
 
@@ -344,13 +384,14 @@ pick_session() {
             ;;
     esac
 
-    # Extract session names from selection
+    # Extract session names from selection (skip headers)
     local session_names=()
     while read -r line; do
         [ -z "$line" ] && continue
-        # Skip the hint line
-        [[ "$line" == *"claude"*"lazygit"*"bash"* ]] && continue
-        session_names+=("${line##*|}")
+        local session_name="${line##*|}"
+        # Skip header lines
+        [ "$session_name" = "__HEADER__" ] && continue
+        session_names+=("$session_name")
     done <<< "$choices"
 
     if [ ${#session_names[@]} -eq 0 ]; then
