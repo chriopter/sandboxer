@@ -665,7 +665,8 @@ function updateTerminalScales() {
     if (!iframe) return;
 
     // Base iframe size at 100% zoom
-    const baseIframeWidth = 830;
+    const baseVisibleWidth = 830;  // Visible content width
+    const baseScrollbarWidth = 20; // Extra width for scrollbar (gets clipped)
     const baseIframeHeight = 450;
 
     // Inverse zoom: lower zoom % = larger iframe = more content visible
@@ -673,15 +674,16 @@ function updateTerminalScales() {
     // 100% zoom -> 1x iframe size (normal)
     // 150% zoom -> 0.67x iframe size (shows less content, scaled up)
     const zoomFactor = zoomPercent / 100;
-    const actualIframeWidth = baseIframeWidth / zoomFactor;
+    const actualVisibleWidth = baseVisibleWidth / zoomFactor;
+    const actualIframeWidth = (baseVisibleWidth + baseScrollbarWidth) / zoomFactor;
     const actualIframeHeight = baseIframeHeight / zoomFactor;
 
     // Set iframe dimensions (ttyd will reflow to fit)
     iframe.style.width = actualIframeWidth + 'px';
     iframe.style.height = actualIframeHeight + 'px';
 
-    // Scale to fit container width
-    const scale = terminalWidth / actualIframeWidth;
+    // Scale based on visible width so scrollbar extends beyond container
+    const scale = terminalWidth / actualVisibleWidth;
     terminal.style.setProperty("--terminal-scale", scale);
   });
 }

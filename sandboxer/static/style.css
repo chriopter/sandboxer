@@ -779,7 +779,7 @@ main {
   background: var(--crust);
   position: relative;
   overflow: hidden;
-  /* Aspect ratio matches iframe (extra width for scrollbar clipping) */
+  /* Aspect ratio for visible content area */
   aspect-ratio: 830 / 450;
   width: 100%;
   max-width: 100%;
@@ -789,12 +789,14 @@ main {
 }
 
 .terminal iframe {
-  /* Base size - JS adjusts based on zoom level */
-  width: 830px;
+  /* Make iframe wider than container - scrollbar gets clipped by overflow:hidden */
+  /* 850px = 830px visible + 20px for scrollbar that gets hidden */
+  width: calc(830px + 20px);
   height: 450px;
   border: none;
   pointer-events: none;
   opacity: 0.9;
+  /* Scale based on 830px (visible portion), not full width */
   transform: scale(var(--terminal-scale, 0.5));
   transform-origin: top left;
 }
