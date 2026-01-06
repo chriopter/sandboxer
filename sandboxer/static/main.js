@@ -971,13 +971,8 @@ function triggerImageBrowse(sessionName) {
   if (input) input.click();
 }
 
-async function uploadImageToSession(sessionName, file) {
-  if (!file || !file.type.startsWith("image/")) {
-    showToast("Not an image", "error");
-    return;
-  }
-
-  showToast("Uploading...", "info");
+async function uploadFileToSession(sessionName, file) {
+  if (!file) return null;
 
   try {
     // Convert to base64
@@ -993,7 +988,7 @@ async function uploadImageToSession(sessionName, file) {
     });
 
     // Upload
-    const filename = file.name || `upload_${Date.now()}.png`;
+    const filename = file.name || `upload_${Date.now()}`;
     const uploadRes = await fetch("/api/upload", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1004,14 +999,52 @@ async function uploadImageToSession(sessionName, file) {
       throw new Error(uploadData.error || "Upload failed");
     }
 
-    // Inject path into session
+    return uploadData.path;
+  } catch (err) {
+    throw err;
+  }
+}
+
+async function uploadFilesToSession(sessionName, files) {
+  if (!files || files.length === 0) return;
+
+  showToast(`Uploading ${files.length} file(s)...`, "info");
+
+  const paths = [];
+  for (const file of files) {
+    try {
+      const path = await uploadFileToSession(sessionName, file);
+      if (path) paths.push(path);
+    } catch (err) {
+      showToast("Upload failed: " + err.message, "error");
+    }
+  }
+
+  if (paths.length > 0) {
+    // Inject all paths into session
     await fetch("/api/inject", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session: sessionName, text: uploadData.path + " " })
+      body: JSON.stringify({ session: sessionName, text: paths.join(" ") + " " })
     });
 
-    showToast(uploadData.path, "success");
+    showToast(`Uploaded ${paths.length} file(s)`, "success");
+  }
+}
+
+// Backwards compatibility alias
+async function uploadImageToSession(sessionName, file) {
+  showToast("Uploading...", "info");
+  try {
+    const path = await uploadFileToSession(sessionName, file);
+    if (path) {
+      await fetch("/api/inject", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session: sessionName, text: path + " " })
+      });
+      showToast(path, "success");
+    }
   } catch (err) {
     showToast("Upload failed: " + err.message, "error");
   }
@@ -1020,10 +1053,14 @@ async function uploadImageToSession(sessionName, file) {
 // Set up file input listeners for all cards
 document.querySelectorAll('.card-image-input').forEach(input => {
   input.addEventListener('change', (e) => {
-    const file = e.target.files?.[0];
+    const files = e.target.files;
     const sessionName = input.dataset.session;
-    if (file && sessionName) {
-      uploadImageToSession(sessionName, file);
+    if (files && files.length > 0 && sessionName) {
+      if (files.length === 1) {
+        uploadImageToSession(sessionName, files[0]);
+      } else {
+        uploadFilesToSession(sessionName, files);
+      }
     }
     e.target.value = ''; // Reset for next upload
   });

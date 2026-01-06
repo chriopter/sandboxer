@@ -66,15 +66,14 @@ function showToast(message, type = "info") {
   }, 3000);
 }
 
-async function uploadImage(file) {
+async function uploadFile(file) {
   const reader = new FileReader();
 
   return new Promise((resolve, reject) => {
     reader.onload = async () => {
       try {
         const base64 = reader.result.split(",")[1];
-        const ext = file.type.split("/")[1]?.split(";")[0] || "png";
-        const filename = `image_${Date.now()}.${ext}`;
+        const filename = file.name || `file_${Date.now()}`;
 
         const resp = await fetch("/api/upload", {
           method: "POST",
@@ -92,7 +91,7 @@ async function uploadImage(file) {
         reject(err);
       }
     };
-    reader.onerror = () => reject(new Error("Failed to read image"));
+    reader.onerror = () => reject(new Error("Failed to read file"));
     reader.readAsDataURL(file);
   });
 }
@@ -113,15 +112,12 @@ function focusTerminal() {
 }
 
 async function handleFile(file) {
-  if (!file || !file.type.startsWith("image/")) {
-    showToast("Not an image", "error");
-    return;
-  }
+  if (!file) return;
 
   showToast("Uploading...", "info");
 
   try {
-    const path = await uploadImage(file);
+    const path = await uploadFile(file);
     await injectText(path + " ");
     showToast(path, "success");
     // Re-focus terminal after upload completes
@@ -133,13 +129,42 @@ async function handleFile(file) {
   }
 }
 
+async function handleFiles(files) {
+  if (!files || files.length === 0) return;
+
+  showToast(`Uploading ${files.length} file(s)...`, "info");
+
+  const paths = [];
+  for (const file of files) {
+    try {
+      const path = await uploadFile(file);
+      paths.push(path);
+    } catch (err) {
+      console.error("Upload failed:", err);
+      showToast("Failed: " + err.message, "error");
+    }
+  }
+
+  if (paths.length > 0) {
+    await injectText(paths.join(" ") + " ");
+    showToast(`Uploaded ${paths.length} file(s)`, "success");
+  }
+  setTimeout(focusTerminal, 100);
+}
+
 // File input handler
 const fileInput = document.getElementById("image-input");
 const pasteBtn = document.getElementById("paste-btn");
 
 fileInput?.addEventListener("change", (e) => {
-  const file = e.target.files?.[0];
-  if (file) handleFile(file);
+  const files = e.target.files;
+  if (files && files.length > 0) {
+    if (files.length === 1) {
+      handleFile(files[0]);
+    } else {
+      handleFiles(files);
+    }
+  }
   e.target.value = ""; // Reset for next upload
 });
 
@@ -172,8 +197,8 @@ pasteTarget.addEventListener("paste", (e) => {
       return;
     }
   }
-  // No image - open file picker instead
-  showToast("No image in clipboard - select file", "info");
+  // No image in clipboard - open file picker instead
+  showToast("No file in clipboard - select file", "info");
   fileInput?.click();
   pasteMode = false;
   clearTimeout(pasteTimeout);

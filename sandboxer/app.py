@@ -164,7 +164,7 @@ def build_single_card(s: dict) -> str:
     <div class="card-actions">
       <button size-="small" variant-="teal" class="ssh-btn" onclick="event.stopPropagation(); copySSH('{escape(s['name'])}')">ssh</button>
       <button size-="small" class="img-btn" onclick="event.stopPropagation(); triggerImageUpload('{escape(s['name'])}')" ondblclick="event.stopPropagation(); triggerImageBrowse('{escape(s['name'])}')">↑</button>
-      <input type="file" class="card-image-input" accept="image/*" style="display:none" data-session="{escape(s['name'])}">
+      <input type="file" class="card-image-input" multiple style="display:none" data-session="{escape(s['name'])}">
       <button size-="small" class="fullscreen-header-btn" onclick="event.stopPropagation(); openFullscreen('{escape(s['name'])}')">⧉</button>
       <button size-="small" variant-="red" class="kill-btn" onclick="event.stopPropagation(); killSession(this, '{escape(s['name'])}')">×</button>
     </div>
@@ -493,19 +493,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
             try:
                 import uuid
                 data = json.loads(body)
-                image_b64 = data.get("image", "")
+                file_b64 = data.get("image", "")  # kept as "image" for backwards compat
                 orig_filename = data.get("filename", "")
-                # Always generate unique filename with timestamp + uuid
-                ext = ".png"
-                if orig_filename:
-                    _, ext = os.path.splitext(orig_filename)
-                    if not ext:
-                        ext = ".png"
-                unique_name = f"img_{int(time.time())}_{uuid.uuid4().hex[:6]}{ext}"
+                # Generate unique filename preserving original name
+                name, ext = os.path.splitext(orig_filename) if orig_filename else ("file", "")
+                if not ext:
+                    ext = ".bin"
+                # Sanitize filename (remove path components, limit length)
+                name = os.path.basename(name)[:50]
+                unique_name = f"{name}_{int(time.time())}_{uuid.uuid4().hex[:6]}{ext}"
                 filepath = os.path.join(UPLOADS_DIR, unique_name)
-                image_data = base64.b64decode(image_b64)
+                file_data = base64.b64decode(file_b64)
                 with open(filepath, "wb") as f:
-                    f.write(image_data)
+                    f.write(file_data)
                 self.send_json({"ok": True, "path": filepath})
             except Exception as e:
                 self.send_json({"error": str(e)}, 500)
