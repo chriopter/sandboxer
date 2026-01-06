@@ -11,10 +11,8 @@
 ## Features
 
 - **Live previews** - See all Claude sessions at a glance in a scalable grid layout
-- **CLI ↔ Chat toggle** - Switch any session between terminal and chat UI; context preserved via `--resume`
-- **Mobile chat** - Full chat interface on mobile with real-time sync across devices
 - **SSH takeover** - `ssh -t sandboxer@host sandboxer-shell` to take over any session from terminal
-- **Session persistence** - All sessions survive restarts; chat history stored in SQLite
+- **Session persistence** - All sessions survive restarts via tmux
 
 <img width="2528" height="1428" alt="image" src="https://github.com/user-attachments/assets/6b2e0306-d9b3-4151-b94d-a90fae7573ce" />
 
@@ -60,8 +58,7 @@ All session and message data is stored in SQLite at `/etc/sandboxer/sandboxer.db
 CREATE TABLE sessions (
     name TEXT PRIMARY KEY,
     workdir TEXT NOT NULL,
-    type TEXT NOT NULL,        -- 'claude', 'chat', 'bash', 'lazygit'
-    mode TEXT DEFAULT 'cli',   -- 'cli' or 'chat'
+    type TEXT NOT NULL,        -- 'claude', 'bash', 'lazygit'
     title TEXT,
     claude_session_id TEXT,    -- For Claude's --resume
     created_at TEXT,
@@ -69,46 +66,10 @@ CREATE TABLE sessions (
 );
 ```
 
-**Messages table (chat history):**
-```sql
-CREATE TABLE messages (
-    id INTEGER PRIMARY KEY,
-    session_name TEXT NOT NULL,
-    role TEXT NOT NULL,        -- 'user', 'assistant', 'system'
-    content TEXT NOT NULL,
-    metadata TEXT,             -- JSON for tool_use etc.
-    created_at TEXT
-);
-```
-
-CLI sessions use tmux for terminal persistence. Chat sessions store both:
-- Messages in SQLite (for UI history across refreshes)
-- Claude's session UUID for `--resume` (for conversation context)
+Sessions use tmux for terminal persistence.
 
 </details>
 
-<details>
-<summary>Chat Sync Architecture</summary>
-
-Chat messages sync across browser tabs via Server-Sent Events (SSE):
-
-1. **On page load**: `/api/chat-sync` sends full history from SQLite, then subscribes to live updates
-2. **On message send**: `/api/chat-send` saves to SQLite and broadcasts to all subscribers
-3. **Result**: Multiple tabs see the same conversation in real-time
-
-```
-Browser Tab 1          Server              Browser Tab 2
-     │                   │                      │
-     ├──GET /chat-sync──►│◄──GET /chat-sync────┤
-     │◄─────history──────┤──────history───────►│
-     │                   │                      │
-     ├──POST /chat-send─►│                      │
-     │                   ├────save to SQLite    │
-     │◄────SSE stream────┤────SSE broadcast───►│
-     │                   │                      │
-```
-
-</details>
 
 ---
 
