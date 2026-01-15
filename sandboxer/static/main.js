@@ -535,7 +535,8 @@ function populateSidebar() {
   // Group sessions by type
   const groups = {
     claude: { label: "claude", color: "mauve", sessions: [] },
-    lazygit: { label: "lazygit", color: "peach", sessions: [] },
+    ralph: { label: "ralph", color: "peach", sessions: [] },
+    lazygit: { label: "lazygit", color: "yellow", sessions: [] },
     bash: { label: "bash", color: "green", sessions: [] },
     gemini: { label: "gemini", color: "blue", sessions: [] },
     other: { label: "other", color: "overlay1", sessions: [] },
@@ -550,6 +551,7 @@ function populateSidebar() {
     // Detect session type from name patterns
     let type = "other";
     if (name.includes("-claude-") || name.startsWith("claude")) type = "claude";
+    else if (name.includes("-ralph-") || name.startsWith("ralph")) type = "ralph";
     else if (name.includes("-gemini-") || name.startsWith("gemini")) type = "gemini";
     else if (name.includes("-bash-") || name.startsWith("bash")) type = "bash";
     else if (name.includes("-lazygit-") || name.startsWith("lazygit")) type = "lazygit";

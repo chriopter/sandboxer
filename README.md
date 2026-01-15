@@ -22,7 +22,7 @@
 
 2. Run:
    ```bash
-   claude --dangerously-skip-permissions "clone github.com/anthropics/sandboxer to /home/sandboxer/sandboxer-repo, read CLAUDE.md, then install: deps (python3 tmux ttyd caddy lazygit fzf gemini-cli), copy service files, symlink sandboxer-shell to /usr/local/bin, enable and start services"
+   claude --dangerously-skip-permissions "clone github.com/anthropics/sandboxer to /home/sandboxer/sandboxer-repo, read CLAUDE.md, then install: deps (python3 tmux ttyd caddy lazygit fzf gemini-cli), copy service files, symlink sandboxer-shell to /usr/local/bin, enable and start services, clone github.com/frankbria/ralph-claude-code to /home/sandboxer/git/ralph-claude-code and run ./install.sh install"
    ```
 
 3. Access at `http://<host>:8080` — default: `admin` / `admin`
