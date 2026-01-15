@@ -348,9 +348,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
             session_name = query.get("session", [""])[0]
             if session_name:
                 port = sessions.start_ttyd(session_name)
+                title = sessions.get_pane_title(session_name) or session_name
                 html = render_template(
                     "terminal.html",
                     session_name=escape(session_name),
+                    session_title=escape(title),
                     ttyd_url=f"/t/{port}/",
                 )
                 self.send_html(html)
