@@ -65,35 +65,3 @@ Run `gemini` to start an interactive session, or use it non-interactively:
 ```bash
 echo "your prompt" | gemini
 ```
-
-## Ralph (Autonomous Loops)
-
-When the user asks you to "write a PROMPT.md", "set up ralph", or "create ralph prompt", create a `PROMPT.md` file in the project root with this structure:
-
-```markdown
-## Goal
-[Clear one-sentence description of what to build/fix]
-
-## Requirements
-- [Specific, actionable requirement]
-- [Another requirement]
-- [Be concrete, not vague]
-
-## Context
-[Any relevant info: tech stack, constraints, existing patterns to follow]
-
-## Done When
-- [Measurable completion criteria]
-- [e.g. "Tests pass", "Feature works in UI", "No TypeScript errors"]
-- Update this PROMPT.md with a "## Results" section summarizing what was done
-```
-
-**Always include "Update PROMPT.md with Results" in Done When** - so Ralph documents its work in the same file.
-
-**Tips for good PROMPT.md:**
-- Be specific ("Add dark mode toggle to sidebar") not vague ("Improve UI")
-- Include acceptance criteria so Ralph knows when to stop
-- Reference existing files/patterns if relevant
-- Keep it focused - one feature/fix per Ralph run
-
-After creating PROMPT.md, user can start a "ralph" session from sandboxer UI.

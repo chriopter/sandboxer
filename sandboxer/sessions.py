@@ -112,10 +112,6 @@ def restore_sessions():
                 subprocess.run(["tmux", "send-keys", "-t", name, cmd, "Enter"], capture_output=True)
             elif session_type == "lazygit":
                 subprocess.run(["tmux", "send-keys", "-t", name, "lazygit", "Enter"], capture_output=True)
-            elif session_type == "ralph":
-                subprocess.run(["tmux", "send-keys", "-t", name, "TMUX= ralph --monitor", "Enter"], capture_output=True)
-            elif session_type == "ralph-prompt":
-                subprocess.run(["tmux", "send-keys", "-t", name, "ralph-prompt", "Enter"], capture_output=True)
             # bash: just leave the shell prompt
 
             restored += 1
@@ -292,10 +288,6 @@ def create_session(name: str, session_type: str = "claude", workdir: str = "/hom
         subprocess.run(["tmux", "send-keys", "-t", name, cmd, "Enter"], capture_output=True)
     elif session_type == "lazygit":
         subprocess.run(["tmux", "send-keys", "-t", name, "lazygit", "Enter"], capture_output=True)
-    elif session_type == "ralph":
-        subprocess.run(["tmux", "send-keys", "-t", name, "TMUX= ralph --monitor", "Enter"], capture_output=True)
-    elif session_type == "ralph-prompt":
-        subprocess.run(["tmux", "send-keys", "-t", name, "ralph-prompt", "Enter"], capture_output=True)
     # bash type: just leave the shell prompt, no command
 
     # Add to order

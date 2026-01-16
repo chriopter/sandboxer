@@ -13,7 +13,6 @@
 - **Live previews** - See all Claude sessions at a glance in a scalable grid layout
 - **SSH takeover** - `ssh -t sandboxer@host sandboxer-shell` to take over any session from terminal
 - **Session persistence** - All sessions survive restarts via tmux
-- **Ralph loops** - Run autonomous [ralph-claude-code](https://github.com/frankbria/ralph-claude-code) sessions with live monitoring
 
 <img width="2528" height="1428" alt="image" src="https://github.com/user-attachments/assets/6b2e0306-d9b3-4151-b94d-a90fae7573ce" />
 
@@ -23,7 +22,7 @@
 
 2. Run:
    ```bash
-   claude --dangerously-skip-permissions "clone github.com/anthropics/sandboxer to /home/sandboxer/sandboxer-repo, read CLAUDE.md, then install: deps (python3 tmux ttyd caddy lazygit fzf gemini-cli), copy service files, symlink sandboxer-shell to /usr/local/bin, enable and start services, clone github.com/frankbria/ralph-claude-code to /home/sandboxer/git/ralph-claude-code and run ./install.sh install"
+   claude --dangerously-skip-permissions "clone github.com/anthropics/sandboxer to /home/sandboxer/sandboxer-repo, read CLAUDE.md, then install: deps (python3 tmux ttyd caddy lazygit fzf gemini-cli), copy service files, symlink sandboxer-shell to /usr/local/bin, enable and start services"
    ```
 
 3. Access at `http://<host>:8080` — default: `admin` / `admin`
