@@ -15,22 +15,25 @@ A PROMPT.md file exists in your working directory with your task. Work on it.
 ## When you complete the task:
 1. Add a "## Results" section to PROMPT.md documenting what you did
 2. Run: mv PROMPT.md PROMPT.done.md
+3. Run: /exit
 
-This signals the loop to stop.
+This signals the loop to stop. The /exit command is REQUIRED after moving the file.
 
 ## If you hit context limits or need to continue later:
-Just exit normally. The loop will restart you with fresh context.
+Run /exit to exit. The loop will restart you with fresh context.
 Your previous work is saved in files/git - check git log and project state.
 
 ## If you are blocked and cannot proceed:
 1. Add a "## Blocked" section explaining why
 2. Run: mv PROMPT.md PROMPT.blocked.md
+3. Run: /exit
 
 ## Important:
 - Check PROMPT.md first to understand your task
 - Check git status/log to see what has already been done
 - Work autonomously - make decisions, do not ask questions
-- Commit your work regularly with descriptive messages'
+- Commit your work regularly with descriptive messages
+- ALWAYS run /exit when done (whether complete, blocked, or needing restart)'
 
 # Check for PROMPT.md
 if [ ! -f PROMPT.md ]; then
