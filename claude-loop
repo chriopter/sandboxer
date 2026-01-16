@@ -58,8 +58,11 @@ while [ -f PROMPT.md ]; do
   touch "$marker"
   no_activity=0
 
-  # Start Claude in background
-  claude --dangerously-skip-permissions --system-prompt "$SYSTEM_PROMPT" --append-system-prompt "$LOOP_PROMPT" &
+  # Read PROMPT.md and pass to Claude
+  prompt_content=$(cat PROMPT.md)
+
+  # Start Claude in background (IS_SANDBOX=1 allows --dangerously-skip-permissions as root)
+  IS_SANDBOX=1 claude --dangerously-skip-permissions --system-prompt "$SYSTEM_PROMPT" --append-system-prompt "$LOOP_PROMPT" -p "$prompt_content" &
   claude_pid=$!
 
   # Monitor loop
