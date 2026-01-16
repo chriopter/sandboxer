@@ -46,6 +46,7 @@ while true; do
 
     echo ""
     echo "───────────────────────────────────────"
+    echo "  Restart: on exit or 60min idle"
     echo "  Ctrl+B d = detach (keeps running)"
   else
     echo "  Waiting for loop..."
