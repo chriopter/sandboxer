@@ -85,7 +85,10 @@ When the user asks you to "write a PROMPT.md", "set up ralph", or "create ralph 
 ## Done When
 - [Measurable completion criteria]
 - [e.g. "Tests pass", "Feature works in UI", "No TypeScript errors"]
+- Update this PROMPT.md with a "## Results" section summarizing what was done
 ```
+
+**Always include "Update PROMPT.md with Results" in Done When** - so Ralph documents its work in the same file.
 
 **Tips for good PROMPT.md:**
 - Be specific ("Add dark mode toggle to sidebar") not vague ("Improve UI")
