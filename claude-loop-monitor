@@ -46,7 +46,22 @@ while true; do
 
     echo ""
     echo "───────────────────────────────────────"
-    echo "  Restart: on exit or 60min idle"
+    # Show restart conditions
+    idle_min=$((since_activity / 60))
+    remaining=$((60 - idle_min))
+    if [ "$status" = "complete" ]; then
+      echo "  ✓ Task complete"
+    elif [ "$status" = "restarting" ]; then
+      echo "  ↻ Restarting now..."
+    elif [ "$status" = "claude_running" ]; then
+      echo "  ● Claude running"
+      if [ $remaining -le 10 ]; then
+        echo "  ⚠ Idle restart in ${remaining}min"
+      fi
+    else
+      echo "  Status: $status"
+    fi
+    echo ""
     echo "  Ctrl+B d = detach (keeps running)"
   else
     echo "  Waiting for loop..."
