@@ -1,0 +1,104 @@
+#!/bin/bash
+# claude-loop - Autonomous Claude loop using PROMPT.md
+
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+LOOP_PROMPT=$(cat <<'SYSPROMPT'
+You are in AUTONOMOUS LOOP MODE.
+
+A PROMPT.md file exists in your working directory with your task. Work on it.
+
+## When you complete the task:
+1. Add a "## Results" section to PROMPT.md documenting what you did
+2. Run: mv PROMPT.md PROMPT.done.md
+
+This signals the loop to stop.
+
+## If you hit context limits or need to continue later:
+Just exit normally. The loop will restart you with fresh context.
+Your previous work is saved in files/git - check git log and project state.
+
+## If you're blocked and can't proceed:
+1. Add a "## Blocked" section explaining why
+2. Run: mv PROMPT.md PROMPT.blocked.md
+
+## Important:
+- Check PROMPT.md first to understand your task
+- Check git status/log to see what's already been done
+- Work autonomously - make decisions, don't ask questions
+- Commit your work regularly with descriptive messages
+SYSPROMPT
+)
+
+SYSTEM_PROMPT="$SCRIPT_DIR/system-prompt.txt"
+ACTIVITY_TIMEOUT=60  # minutes without file changes before restart
+
+# Check for PROMPT.md
+if [ ! -f PROMPT.md ]; then
+  echo "No PROMPT.md found in current directory."
+  echo "Create one with your task description, then run claude-loop again."
+  exit 1
+fi
+
+echo "═══════════════════════════════════════════════════════════"
+echo "  claude-loop - Autonomous Loop Mode"
+echo "  Task: $(pwd)/PROMPT.md"
+echo "  Restart: on exit or ${ACTIVITY_TIMEOUT}min without file changes"
+echo "  Stop: Ctrl+C or Claude moves PROMPT.md"
+echo "═══════════════════════════════════════════════════════════"
+
+iteration=0
+while [ -f PROMPT.md ]; do
+  ((iteration++))
+  echo ""
+  echo "──── Iteration $iteration | $(date '+%Y-%m-%d %H:%M:%S') ────"
+  echo ""
+
+  # Create activity marker
+  marker=$(mktemp)
+  touch "$marker"
+  no_activity=0
+
+  # Start Claude in background
+  claude --dangerously-skip-permissions --system-prompt "$SYSTEM_PROMPT" --append-system-prompt "$LOOP_PROMPT" &
+  claude_pid=$!
+
+  # Monitor loop
+  while kill -0 $claude_pid 2>/dev/null; do
+    sleep 60  # Check every minute
+
+    # Check for file changes (any file modified after marker)
+    if find . -type f -newer "$marker" ! -path './.git/*' | grep -q .; then
+      touch "$marker"  # Reset marker
+      no_activity=0
+    else
+      ((no_activity++))
+      if [ $no_activity -ge $ACTIVITY_TIMEOUT ]; then
+        echo ""
+        echo "──── No file changes for ${ACTIVITY_TIMEOUT} minutes ────"
+        echo "──── Restarting Claude... ────"
+        kill $claude_pid 2>/dev/null
+        break
+      fi
+    fi
+  done
+
+  wait $claude_pid 2>/dev/null
+  rm -f "$marker"
+
+  if [ -f PROMPT.md ]; then
+    echo ""
+    echo "──── Claude exited, PROMPT.md still exists ────"
+    echo "──── Restarting in 3 seconds... (Ctrl+C to abort) ────"
+    sleep 3
+  fi
+done
+
+echo ""
+echo "═══════════════════════════════════════════════════════════"
+echo "  Loop complete! PROMPT.md moved/removed."
+if [ -f PROMPT.done.md ]; then
+  echo "  Results in: PROMPT.done.md"
+elif [ -f PROMPT.blocked.md ]; then
+  echo "  Task blocked: PROMPT.blocked.md"
+fi
+echo "═══════════════════════════════════════════════════════════"
