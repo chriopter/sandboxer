@@ -15,25 +15,22 @@ A PROMPT.md file exists in your working directory with your task. Work on it.
 ## When you complete the task:
 1. Add a "## Results" section to PROMPT.md documenting what you did
 2. Run: mv PROMPT.md PROMPT.done.md
-3. Run: /exit
 
-This signals the loop to stop. The /exit command is REQUIRED after moving the file.
+The loop will automatically detect completion and restart or stop.
 
 ## If you hit context limits or need to continue later:
-Run /exit to exit. The loop will restart you with fresh context.
+Just exit normally. The loop will restart you with fresh context.
 Your previous work is saved in files/git - check git log and project state.
 
 ## If you are blocked and cannot proceed:
 1. Add a "## Blocked" section explaining why
 2. Run: mv PROMPT.md PROMPT.blocked.md
-3. Run: /exit
 
 ## Important:
 - Check PROMPT.md first to understand your task
 - Check git status/log to see what has already been done
 - Work autonomously - make decisions, do not ask questions
-- Commit your work regularly with descriptive messages
-- ALWAYS run /exit when done (whether complete, blocked, or needing restart)'
+- Commit your work regularly with descriptive messages'
 
 # Check for PROMPT.md
 if [ ! -f PROMPT.md ]; then
@@ -82,24 +79,43 @@ while [ -f PROMPT.md ]; do
 
   update_status "status" "claude_running"
 
-  # Activity monitoring in background
+  # Background watcher: monitors for completion and kills Claude
   (
-    while [ -f "$marker" ]; do
-      sleep 30
+    no_activity=0
+    while true; do
+      sleep 5
+
+      # Check if task completed (PROMPT.md moved)
+      if [ ! -f PROMPT.md ]; then
+        sleep 2  # Give Claude a moment to finish any final output
+        # Find and kill the claude process for this runner
+        pkill -P $$ -f "claude.*--dangerously-skip-permissions" 2>/dev/null
+        break
+      fi
+
+      # Check for file activity
       if find . -type f -newer "$marker" ! -path './.git/*' 2>/dev/null | grep -q .; then
         touch "$marker"
         update_status "last_activity" "$(date +%s)"
+        no_activity=0
+      else
+        ((no_activity++))
+        # Restart after ACTIVITY_TIMEOUT minutes of no activity
+        if [ $no_activity -ge $((ACTIVITY_TIMEOUT * 12)) ]; then
+          pkill -P $$ -f "claude.*--dangerously-skip-permissions" 2>/dev/null
+          break
+        fi
       fi
     done
   ) &
-  monitor_pid=$!
+  watcher_pid=$!
 
-  # Run Claude with instruction to read PROMPT.md
+  # Run Claude (foreground for visible UI)
   echo "Read PROMPT.md and complete the task. When done, move it to PROMPT.done.md" | IS_SANDBOX=1 claude --dangerously-skip-permissions --system-prompt "$SYSTEM_PROMPT" --append-system-prompt "$LOOP_PROMPT"
 
   # Cleanup
+  kill $watcher_pid 2>/dev/null
   rm -f "$marker"
-  kill $monitor_pid 2>/dev/null
 
   if [ -f PROMPT.md ]; then
     update_status "status" "restarting"
