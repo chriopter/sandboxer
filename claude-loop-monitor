@@ -1,0 +1,55 @@
+#!/bin/bash
+# claude-loop-monitor - Status display for claude-loop
+
+STATUS_FILE="$1"
+WORKDIR="$2"
+
+while true; do
+  clear
+  echo "╔═══════════════════════════════════════╗"
+  echo "║        CLAUDE LOOP MONITOR            ║"
+  echo "╚═══════════════════════════════════════╝"
+  echo ""
+
+  if [ -f "$STATUS_FILE" ]; then
+    source "$STATUS_FILE"
+
+    now=$(date +%s)
+    elapsed=$((now - start_time))
+    since_activity=$((now - last_activity))
+    elapsed_fmt=$(printf '%02d:%02d:%02d' $((elapsed/3600)) $((elapsed%3600/60)) $((elapsed%60)))
+    activity_fmt=$(printf '%02d:%02d' $((since_activity/60)) $((since_activity%60)))
+
+    echo "  Iteration:    $iteration"
+    echo "  Status:       $status"
+    echo "  Elapsed:      $elapsed_fmt"
+    echo "  Last change:  ${activity_fmt} ago"
+    echo ""
+    echo "───────────────────────────────────────"
+    echo "  Dir: $(basename "$WORKDIR")"
+    echo ""
+
+    if [ -f "$WORKDIR/PROMPT.md" ]; then
+      echo "  📋 PROMPT.md (working)"
+    elif [ -f "$WORKDIR/PROMPT.done.md" ]; then
+      echo "  ✅ PROMPT.done.md (complete!)"
+    elif [ -f "$WORKDIR/PROMPT.blocked.md" ]; then
+      echo "  ❌ PROMPT.blocked.md (blocked)"
+    else
+      echo "  ⚠️  No PROMPT file"
+    fi
+
+    echo ""
+    echo "───────────────────────────────────────"
+    echo "  Recent files:"
+    ls -t "$WORKDIR" 2>/dev/null | head -4 | while read f; do echo "    $f"; done
+
+    echo ""
+    echo "───────────────────────────────────────"
+    echo "  Ctrl+B d = detach (keeps running)"
+  else
+    echo "  Waiting for loop..."
+  fi
+
+  sleep 2
+done

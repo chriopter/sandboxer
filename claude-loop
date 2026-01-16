@@ -1,9 +1,14 @@
 #!/bin/bash
-# claude-loop - Autonomous Claude loop using PROMPT.md
+# claude-loop - Autonomous Claude loop with split-pane monitor
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
-LOOP_PROMPT=$(cat <<'SYSPROMPT'
-You are in AUTONOMOUS LOOP MODE.
+SYSTEM_PROMPT="$SCRIPT_DIR/system-prompt.txt"
+MONITOR_SCRIPT="$SCRIPT_DIR/claude-loop-monitor"
+ACTIVITY_TIMEOUT=60
+STATUS_FILE="/tmp/claude-loop-status-$$"
+WORKDIR="$(pwd)"
+
+LOOP_PROMPT='You are in AUTONOMOUS LOOP MODE.
 
 A PROMPT.md file exists in your working directory with your task. Work on it.
 
@@ -17,20 +22,15 @@ This signals the loop to stop.
 Just exit normally. The loop will restart you with fresh context.
 Your previous work is saved in files/git - check git log and project state.
 
-## If you're blocked and can't proceed:
+## If you are blocked and cannot proceed:
 1. Add a "## Blocked" section explaining why
 2. Run: mv PROMPT.md PROMPT.blocked.md
 
 ## Important:
 - Check PROMPT.md first to understand your task
-- Check git status/log to see what's already been done
-- Work autonomously - make decisions, don't ask questions
-- Commit your work regularly with descriptive messages
-SYSPROMPT
-)
-
-SYSTEM_PROMPT="$SCRIPT_DIR/system-prompt.txt"
-ACTIVITY_TIMEOUT=60  # minutes without file changes before restart
+- Check git status/log to see what has already been done
+- Work autonomously - make decisions, do not ask questions
+- Commit your work regularly with descriptive messages'
 
 # Check for PROMPT.md
 if [ ! -f PROMPT.md ]; then
@@ -39,69 +39,97 @@ if [ ! -f PROMPT.md ]; then
   exit 1
 fi
 
-echo "═══════════════════════════════════════════════════════════"
-echo "  claude-loop - Autonomous Loop Mode"
-echo "  Task: $(pwd)/PROMPT.md"
-echo "  Restart: on exit or ${ACTIVITY_TIMEOUT}min without file changes"
-echo "  Stop: Ctrl+C or Claude moves PROMPT.md"
-echo "═══════════════════════════════════════════════════════════"
+# Write runner script (runs in left pane)
+RUNNER_SCRIPT="/tmp/claude-loop-runner-$$.sh"
+cat > "$RUNNER_SCRIPT" << 'RUNNER_EOF'
+#!/bin/bash
+STATUS_FILE="$1"
+SYSTEM_PROMPT="$2"
+ACTIVITY_TIMEOUT="$3"
+LOOP_PROMPT="$4"
+
+# Initialize status
+cat > "$STATUS_FILE" << EOF
+iteration=0
+start_time=$(date +%s)
+last_activity=$(date +%s)
+status=starting
+EOF
+
+update_status() {
+  sed -i "s/^$1=.*/$1=$2/" "$STATUS_FILE" 2>/dev/null || echo "$1=$2" >> "$STATUS_FILE"
+}
 
 iteration=0
 while [ -f PROMPT.md ]; do
   ((iteration++))
+  update_status "iteration" "$iteration"
+  update_status "status" "running"
+  update_status "last_activity" "$(date +%s)"
+
   echo ""
-  echo "──── Iteration $iteration | $(date '+%Y-%m-%d %H:%M:%S') ────"
+  echo "══════════════════════════════════════════════════════"
+  echo "  Iteration $iteration | $(date '+%Y-%m-%d %H:%M:%S')"
+  echo "══════════════════════════════════════════════════════"
   echo ""
 
-  # Create activity marker
   marker=$(mktemp)
   touch "$marker"
   no_activity=0
 
-  # Read PROMPT.md and pass to Claude
-  prompt_content=$(cat PROMPT.md)
+  update_status "status" "claude_running"
 
-  # Start Claude in background (IS_SANDBOX=1 allows --dangerously-skip-permissions as root)
-  IS_SANDBOX=1 claude --dangerously-skip-permissions --system-prompt "$SYSTEM_PROMPT" --append-system-prompt "$LOOP_PROMPT" -p "$prompt_content" &
-  claude_pid=$!
-
-  # Monitor loop
-  while kill -0 $claude_pid 2>/dev/null; do
-    sleep 60  # Check every minute
-
-    # Check for file changes (any file modified after marker)
-    if find . -type f -newer "$marker" ! -path './.git/*' | grep -q .; then
-      touch "$marker"  # Reset marker
-      no_activity=0
-    else
-      ((no_activity++))
-      if [ $no_activity -ge $ACTIVITY_TIMEOUT ]; then
-        echo ""
-        echo "──── No file changes for ${ACTIVITY_TIMEOUT} minutes ────"
-        echo "──── Restarting Claude... ────"
-        kill $claude_pid 2>/dev/null
-        break
+  # Activity monitoring in background
+  (
+    while [ -f "$marker" ]; do
+      sleep 30
+      if find . -type f -newer "$marker" ! -path './.git/*' 2>/dev/null | grep -q .; then
+        touch "$marker"
+        update_status "last_activity" "$(date +%s)"
       fi
-    fi
-  done
+    done
+  ) &
+  monitor_pid=$!
 
-  wait $claude_pid 2>/dev/null
+  # Run Claude with instruction to read PROMPT.md
+  echo "Read PROMPT.md and complete the task. When done, move it to PROMPT.done.md" | IS_SANDBOX=1 claude --dangerously-skip-permissions --system-prompt "$SYSTEM_PROMPT" --append-system-prompt "$LOOP_PROMPT"
+
+  # Cleanup
   rm -f "$marker"
+  kill $monitor_pid 2>/dev/null
 
   if [ -f PROMPT.md ]; then
+    update_status "status" "restarting"
     echo ""
-    echo "──── Claude exited, PROMPT.md still exists ────"
-    echo "──── Restarting in 3 seconds... (Ctrl+C to abort) ────"
+    echo "──── Claude exited, restarting in 3s... ────"
     sleep 3
   fi
 done
 
+update_status "status" "complete"
 echo ""
-echo "═══════════════════════════════════════════════════════════"
+echo "══════════════════════════════════════════════════════"
 echo "  Loop complete! PROMPT.md moved/removed."
-if [ -f PROMPT.done.md ]; then
-  echo "  Results in: PROMPT.done.md"
-elif [ -f PROMPT.blocked.md ]; then
-  echo "  Task blocked: PROMPT.blocked.md"
-fi
-echo "═══════════════════════════════════════════════════════════"
+[ -f PROMPT.done.md ] && echo "  Results in: PROMPT.done.md"
+[ -f PROMPT.blocked.md ] && echo "  Task blocked: PROMPT.blocked.md"
+echo "══════════════════════════════════════════════════════"
+sleep 30
+rm -f "$STATUS_FILE"
+RUNNER_EOF
+chmod +x "$RUNNER_SCRIPT"
+
+# Create nested tmux session with split panes
+SESSION_NAME="claude-loop-$$"
+
+TMUX= tmux new-session -d -s "$SESSION_NAME" -c "$WORKDIR"
+tmux send-keys -t "$SESSION_NAME" "$RUNNER_SCRIPT '$STATUS_FILE' '$SYSTEM_PROMPT' '$ACTIVITY_TIMEOUT' '$LOOP_PROMPT'" Enter
+
+# Split and run monitor
+tmux split-window -t "$SESSION_NAME" -h -l 42
+tmux send-keys -t "$SESSION_NAME" "$MONITOR_SCRIPT '$STATUS_FILE' '$WORKDIR'" Enter
+
+# Select left pane
+tmux select-pane -t "$SESSION_NAME":0.0
+
+# Attach (unset TMUX to allow nesting)
+TMUX= tmux attach-session -t "$SESSION_NAME"
