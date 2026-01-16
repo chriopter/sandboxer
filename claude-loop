@@ -79,43 +79,25 @@ while [ -f PROMPT.md ]; do
 
   update_status "status" "claude_running"
 
-  # Background watcher: monitors for completion and kills Claude
+  # Background activity tracker (for monitor display)
   (
-    no_activity=0
-    while true; do
-      sleep 5
-
-      # Check if task completed (PROMPT.md moved)
-      if [ ! -f PROMPT.md ]; then
-        sleep 2  # Give Claude a moment to finish any final output
-        # Find and kill the claude process for this runner
-        pkill -P $$ -f "claude.*--dangerously-skip-permissions" 2>/dev/null
-        break
-      fi
-
-      # Check for file activity
+    while [ -f "$marker" ]; do
+      sleep 30
       if find . -type f -newer "$marker" ! -path './.git/*' 2>/dev/null | grep -q .; then
         touch "$marker"
         update_status "last_activity" "$(date +%s)"
-        no_activity=0
-      else
-        ((no_activity++))
-        # Restart after ACTIVITY_TIMEOUT minutes of no activity
-        if [ $no_activity -ge $((ACTIVITY_TIMEOUT * 12)) ]; then
-          pkill -P $$ -f "claude.*--dangerously-skip-permissions" 2>/dev/null
-          break
-        fi
       fi
     done
   ) &
-  watcher_pid=$!
+  tracker_pid=$!
 
   # Run Claude (foreground for visible UI)
+  # Claude stays open until user exits - allows reviewing final output
   echo "Read PROMPT.md and complete the task. When done, move it to PROMPT.done.md" | IS_SANDBOX=1 claude --dangerously-skip-permissions --system-prompt "$SYSTEM_PROMPT" --append-system-prompt "$LOOP_PROMPT"
 
   # Cleanup
-  kill $watcher_pid 2>/dev/null
   rm -f "$marker"
+  kill $tracker_pid 2>/dev/null
 
   if [ -f PROMPT.md ]; then
     update_status "status" "restarting"
