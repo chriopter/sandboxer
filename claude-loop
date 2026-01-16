@@ -39,7 +39,7 @@ if [ ! -f PROMPT.md ]; then
   exit 1
 fi
 
-# Write runner script (runs in left pane)
+# Write runner script (the main loop logic)
 RUNNER_SCRIPT="/tmp/claude-loop-runner-$$.sh"
 cat > "$RUNNER_SCRIPT" << 'RUNNER_EOF'
 #!/bin/bash
@@ -118,18 +118,30 @@ rm -f "$STATUS_FILE"
 RUNNER_EOF
 chmod +x "$RUNNER_SCRIPT"
 
-# Create nested tmux session with split panes
-SESSION_NAME="claude-loop-$$"
+# Check if we're already inside tmux (sandboxer session)
+if [ -n "$TMUX" ]; then
+  # Inside sandboxer: split current pane, don't create new session
 
-TMUX= tmux new-session -d -s "$SESSION_NAME" -c "$WORKDIR"
-tmux send-keys -t "$SESSION_NAME" "$RUNNER_SCRIPT '$STATUS_FILE' '$SYSTEM_PROMPT' '$ACTIVITY_TIMEOUT' '$LOOP_PROMPT'" Enter
+  # Split right for monitor
+  tmux split-window -h -l 42 "$MONITOR_SCRIPT '$STATUS_FILE' '$WORKDIR'"
 
-# Split and run monitor
-tmux split-window -t "$SESSION_NAME" -h -l 42
-tmux send-keys -t "$SESSION_NAME" "$MONITOR_SCRIPT '$STATUS_FILE' '$WORKDIR'" Enter
+  # Select left pane and run loop
+  tmux select-pane -L
+  exec "$RUNNER_SCRIPT" "$STATUS_FILE" "$SYSTEM_PROMPT" "$ACTIVITY_TIMEOUT" "$LOOP_PROMPT"
+else
+  # Standalone: create new tmux session
+  SESSION_NAME="claude-loop-$$"
 
-# Select left pane
-tmux select-pane -t "$SESSION_NAME":0.0
+  tmux new-session -d -s "$SESSION_NAME" -c "$WORKDIR"
+  tmux send-keys -t "$SESSION_NAME" "$RUNNER_SCRIPT '$STATUS_FILE' '$SYSTEM_PROMPT' '$ACTIVITY_TIMEOUT' '$LOOP_PROMPT'" Enter
 
-# Attach (unset TMUX to allow nesting)
-TMUX= tmux attach-session -t "$SESSION_NAME"
+  # Split and run monitor
+  tmux split-window -t "$SESSION_NAME" -h -l 42
+  tmux send-keys -t "$SESSION_NAME" "$MONITOR_SCRIPT '$STATUS_FILE' '$WORKDIR'" Enter
+
+  # Select left pane
+  tmux select-pane -t "$SESSION_NAME":0.0
+
+  # Attach
+  tmux attach-session -t "$SESSION_NAME"
+fi
