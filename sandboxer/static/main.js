@@ -335,17 +335,83 @@ function onDirOrTypeChange() {
     resumeWrap.classList.remove("show");
   }
 
-  // Reload to new folder URL (server filters sessions)
-  const folderName = dir === "/" ? "" : dir.split("/").pop();
-  const newPath = folderName ? "/" + folderName : "/";
-  const hash = location.hash || "";  // Preserve #tactical
-  if (window.location.pathname !== newPath) {
-    window.location.href = newPath + hash;
-    return;
+  // Filter visible sessions by selected folder
+  filterSessionsByFolder(dir);
+
+  // Update sidebar list immediately
+  populateSidebar();
+
+  // Save selected folder to server
+  saveSelectedFolder(dir);
+}
+
+async function saveSelectedFolder(folder) {
+  try {
+    await fetch("/api/selected-folder", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ folder }),
+    });
+  } catch (err) {
+    console.warn("Failed to save selected folder:", err);
   }
 
-  // Same folder - just update sidebar
-  populateSidebar();
+  // Update URL to reflect folder (allows different tabs for different folders)
+  const folderName = folder === "/" ? "" : folder.split("/").pop();
+  const newPath = folderName ? "/" + folderName : "/";
+  if (window.location.pathname !== newPath) {
+    window.history.replaceState(null, "", newPath);
+  }
+}
+
+function filterSessionsByFolder(selectedDir) {
+  const cards = document.querySelectorAll(".card");
+  const grid = document.querySelector(".grid");
+  const emptyState = document.querySelector(".empty");
+  let visibleCount = 0;
+
+  cards.forEach((card) => {
+    const cardWorkdir = card.dataset.workdir;
+
+    // Show card if:
+    // 1. Selected "/" (show all)
+    // 2. Card has no workdir (legacy sessions before tracking)
+    // 3. Card workdir matches or starts with selected folder
+    const showCard =
+      selectedDir === "/" ||
+      !cardWorkdir ||
+      cardWorkdir === selectedDir ||
+      cardWorkdir.startsWith(selectedDir + "/");
+
+    card.style.display = showCard ? "" : "none";
+    if (showCard) visibleCount++;
+  });
+
+  // Recalculate terminal scales after filtering (cards may have resized)
+  setTimeout(updateTerminalScales, 50);
+
+  // Handle empty state - show message if no cards match
+  if (emptyState) {
+    emptyState.style.display = visibleCount === 0 ? "" : "none";
+  } else if (visibleCount === 0 && grid) {
+    // Create temporary empty state if none exists
+    const existingTemp = document.getElementById("temp-empty");
+    if (!existingTemp) {
+      const tempEmpty = document.createElement("div");
+      tempEmpty.id = "temp-empty";
+      tempEmpty.className = "empty";
+      tempEmpty.innerHTML = `
+        <div class="empty-icon">◇</div>
+        <p>no sessions in this folder</p>
+        <p class="hint">create one below or select another folder</p>
+      `;
+      grid.appendChild(tempEmpty);
+    }
+  } else {
+    // Remove temp empty state if we have visible cards
+    const existingTemp = document.getElementById("temp-empty");
+    if (existingTemp) existingTemp.remove();
+  }
 }
 
 // ═══ Drag & Drop Reordering ═══
@@ -563,19 +629,10 @@ function hideModal() {
 
 // ═══ System Stats ═══
 
-let serverWasDown = false;
-
 async function updateStats() {
   try {
     const res = await fetch("/api/stats");
     const data = await res.json();
-
-    // Server is back - reload if it was down
-    if (serverWasDown) {
-      console.log("[sandboxer] Server reconnected, reloading...");
-      location.reload();
-      return;
-    }
 
     // Parse values
     const cpuVal = parseInt(data.cpu) || 0;
@@ -593,11 +650,7 @@ async function updateStats() {
     if (memFill) memFill.style.width = memVal + "%";
     if (memText) memText.textContent = "mem " + memVal + "%";
   } catch (e) {
-    // Server down - mark for reload when it comes back
-    if (!serverWasDown) {
-      console.log("[sandboxer] Server disconnected, waiting for reconnect...");
-      serverWasDown = true;
-    }
+    // ignore
   }
 }
 
@@ -780,6 +833,9 @@ function initDirDropdown() {
     typeSelect.addEventListener("change", onDirOrTypeChange);
   }
 
+  // Apply initial folder filter
+  filterSessionsByFolder(getSelectedDir());
+
   // Trigger change handler to show resume dropdown if needed
   if (getSelectedType() === "resume") {
     document.getElementById("resumeWrap").classList.add("show");
@@ -827,11 +883,6 @@ function initDirDropdown() {
   // Start stats updates
   updateStats();
   setInterval(updateStats, 5000);
-
-  // Restore tactical view from URL hash
-  if (typeof restoreTacticalFromUrl === 'function') {
-    setTimeout(restoreTacticalFromUrl, 100);
-  }
 
   // Prevent beforeunload dialogs
   window.onbeforeunload = null;
