@@ -629,10 +629,19 @@ function hideModal() {
 
 // ═══ System Stats ═══
 
+let serverWasDown = false;
+
 async function updateStats() {
   try {
     const res = await fetch("/api/stats");
     const data = await res.json();
+
+    // Server is back - reload if it was down
+    if (serverWasDown) {
+      console.log("[sandboxer] Server reconnected, reloading...");
+      location.reload();
+      return;
+    }
 
     // Parse values
     const cpuVal = parseInt(data.cpu) || 0;
@@ -650,7 +659,11 @@ async function updateStats() {
     if (memFill) memFill.style.width = memVal + "%";
     if (memText) memText.textContent = "mem " + memVal + "%";
   } catch (e) {
-    // ignore
+    // Server down - mark for reload when it comes back
+    if (!serverWasDown) {
+      console.log("[sandboxer] Server disconnected, waiting for reconnect...");
+      serverWasDown = true;
+    }
   }
 }
 
@@ -884,6 +897,11 @@ function initDirDropdown() {
   updateStats();
   setInterval(updateStats, 5000);
 
+  // Restore tactical view from URL hash
+  if (typeof restoreTacticalFromUrl === 'function') {
+    setTimeout(restoreTacticalFromUrl, 100);
+  }
+
   // Prevent beforeunload dialogs
   window.onbeforeunload = null;
   window.addEventListener("beforeunload", (e) => {
@@ -898,6 +916,19 @@ function initDirDropdown() {
 function openFullscreen(sessionName) {
   window.open("/terminal?session=" + encodeURIComponent(sessionName), "_blank");
 }
+
+// ═══ Tactical View Integration ═══
+// Main logic is in /tactical/static/tactical.js
+// This just hooks folder changes to refresh tactical view
+
+const originalFilterSessionsByFolder = filterSessionsByFolder;
+filterSessionsByFolder = function(selectedDir) {
+  originalFilterSessionsByFolder(selectedDir);
+  // Refresh tactical view when folder changes
+  if (typeof refreshTactical === 'function') {
+    setTimeout(refreshTactical, 100);
+  }
+};
 
 // ═══ Image Upload from Mini Views ═══
 

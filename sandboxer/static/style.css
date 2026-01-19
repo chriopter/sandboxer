@@ -58,9 +58,24 @@ body.sidebar-closed .sidebar-bottom {
 }
 
 body.sidebar-closed .sidebar-row {
+  flex-direction: column;
   justify-content: center;
+  align-items: center;
   padding: 0.5ch;
+  gap: 0.3ch;
   border-bottom: none;
+}
+
+body.sidebar-closed .sidebar-row .sidebar-toggle,
+body.sidebar-closed .sidebar-row #tacticalToggle {
+  width: 28px;
+  height: 24px;
+  min-width: 28px;
+  padding: 0 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9em;
 }
 
 body.sidebar-closed .sidebar-new-collapsed {
@@ -68,6 +83,11 @@ body.sidebar-closed .sidebar-new-collapsed {
   justify-content: center;
   align-items: center;
   margin: 0 auto 0.5ch;
+  width: 28px !important;
+  height: 24px !important;
+  min-width: 28px !important;
+  padding: 0 !important;
+  font-size: 0.9em;
 }
 
 /* Toggle stays in same position when closed */
