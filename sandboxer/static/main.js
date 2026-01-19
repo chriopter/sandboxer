@@ -335,83 +335,17 @@ function onDirOrTypeChange() {
     resumeWrap.classList.remove("show");
   }
 
-  // Filter visible sessions by selected folder
-  filterSessionsByFolder(dir);
-
-  // Update sidebar list immediately
-  populateSidebar();
-
-  // Save selected folder to server
-  saveSelectedFolder(dir);
-}
-
-async function saveSelectedFolder(folder) {
-  try {
-    await fetch("/api/selected-folder", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ folder }),
-    });
-  } catch (err) {
-    console.warn("Failed to save selected folder:", err);
-  }
-
-  // Update URL to reflect folder (allows different tabs for different folders)
-  const folderName = folder === "/" ? "" : folder.split("/").pop();
+  // Reload to new folder URL (server filters sessions)
+  const folderName = dir === "/" ? "" : dir.split("/").pop();
   const newPath = folderName ? "/" + folderName : "/";
+  const hash = location.hash || "";  // Preserve #tactical
   if (window.location.pathname !== newPath) {
-    window.history.replaceState(null, "", newPath);
+    window.location.href = newPath + hash;
+    return;
   }
-}
 
-function filterSessionsByFolder(selectedDir) {
-  const cards = document.querySelectorAll(".card");
-  const grid = document.querySelector(".grid");
-  const emptyState = document.querySelector(".empty");
-  let visibleCount = 0;
-
-  cards.forEach((card) => {
-    const cardWorkdir = card.dataset.workdir;
-
-    // Show card if:
-    // 1. Selected "/" (show all)
-    // 2. Card has no workdir (legacy sessions before tracking)
-    // 3. Card workdir matches or starts with selected folder
-    const showCard =
-      selectedDir === "/" ||
-      !cardWorkdir ||
-      cardWorkdir === selectedDir ||
-      cardWorkdir.startsWith(selectedDir + "/");
-
-    card.style.display = showCard ? "" : "none";
-    if (showCard) visibleCount++;
-  });
-
-  // Recalculate terminal scales after filtering (cards may have resized)
-  setTimeout(updateTerminalScales, 50);
-
-  // Handle empty state - show message if no cards match
-  if (emptyState) {
-    emptyState.style.display = visibleCount === 0 ? "" : "none";
-  } else if (visibleCount === 0 && grid) {
-    // Create temporary empty state if none exists
-    const existingTemp = document.getElementById("temp-empty");
-    if (!existingTemp) {
-      const tempEmpty = document.createElement("div");
-      tempEmpty.id = "temp-empty";
-      tempEmpty.className = "empty";
-      tempEmpty.innerHTML = `
-        <div class="empty-icon">◇</div>
-        <p>no sessions in this folder</p>
-        <p class="hint">create one below or select another folder</p>
-      `;
-      grid.appendChild(tempEmpty);
-    }
-  } else {
-    // Remove temp empty state if we have visible cards
-    const existingTemp = document.getElementById("temp-empty");
-    if (existingTemp) existingTemp.remove();
-  }
+  // Same folder - just update sidebar
+  populateSidebar();
 }
 
 // ═══ Drag & Drop Reordering ═══
@@ -846,9 +780,6 @@ function initDirDropdown() {
     typeSelect.addEventListener("change", onDirOrTypeChange);
   }
 
-  // Apply initial folder filter
-  filterSessionsByFolder(getSelectedDir());
-
   // Trigger change handler to show resume dropdown if needed
   if (getSelectedType() === "resume") {
     document.getElementById("resumeWrap").classList.add("show");
@@ -916,19 +847,6 @@ function initDirDropdown() {
 function openFullscreen(sessionName) {
   window.open("/terminal?session=" + encodeURIComponent(sessionName), "_blank");
 }
-
-// ═══ Tactical View Integration ═══
-// Main logic is in /tactical/static/tactical.js
-// This just hooks folder changes to refresh tactical view
-
-const originalFilterSessionsByFolder = filterSessionsByFolder;
-filterSessionsByFolder = function(selectedDir) {
-  originalFilterSessionsByFolder(selectedDir);
-  // Refresh tactical view when folder changes
-  if (typeof refreshTactical === 'function') {
-    setTimeout(refreshTactical, 100);
-  }
-};
 
 // ═══ Image Upload from Mini Views ═══
 

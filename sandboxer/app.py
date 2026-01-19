@@ -20,12 +20,15 @@ from html import escape
 
 from . import sessions
 from . import db
+from . import tactical
+from . import hooks
 
 PORT = 8081
 
 # Paths
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(APP_DIR, "static")
+TACTICAL_STATIC_DIR = os.path.join(APP_DIR, "tactical", "static")
 TEMPLATES_DIR = os.path.join(APP_DIR, "templates")
 UPLOADS_DIR = "/tmp/sandboxer_uploads"
 PASSWORD_FILE = "/etc/sandboxer/password"
@@ -186,6 +189,20 @@ def build_session_cards(sessions_list: list[dict]) -> str:
     return "".join(build_single_card(s) for s in sessions_list)
 
 
+def filter_sessions_by_folder(sessions_list: list[dict], folder: str) -> list[dict]:
+    """Filter sessions to only those matching the selected folder."""
+    if folder == "/":
+        return sessions_list  # Show all
+
+    filtered = []
+    for s in sessions_list:
+        workdir = s.get("workdir") or ""
+        # Show if: no workdir (legacy), exact match, or subfolder
+        if not workdir or workdir == folder or workdir.startswith(folder + "/"):
+            filtered.append(s)
+    return filtered
+
+
 def build_dir_options(selected_folder: str | None = None) -> str:
     """Build HTML buttons for directory dropdown."""
     dirs = sessions.get_directories()
@@ -301,7 +318,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_redirect("/login", {"Set-Cookie": "sandboxer_session=; Path=/; Max-Age=0"})
             return
 
-        if not path.startswith("/static/") and not self.is_authenticated():
+        # Tactical API - before auth check (fetched by JS)
+        if path == "/api/tactical":
+            states = tactical.get_all_states()
+            self.send_json({"agents": states})
+            return
+
+        if not path.startswith("/static/") and not path.startswith("/tactical/static/") and not self.is_authenticated():
             self.send_redirect("/login")
             return
 
@@ -320,22 +343,40 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        if path.startswith("/tactical/static/"):
+            filename = path[17:]
+            filepath = os.path.join(TACTICAL_STATIC_DIR, filename)
+            if os.path.isfile(filepath) and ".." not in filename:
+                ext = os.path.splitext(filename)[1]
+                self.send_response(200)
+                self.send_header("Content-Type", MIME_TYPES.get(ext, "application/octet-stream"))
+                self.end_headers()
+                with open(filepath, "rb") as f:
+                    self.wfile.write(f.read())
+                return
+            self.send_response(404)
+            self.end_headers()
+            return
+
         folder_from_url = None
         if path == "/":
-            folder_from_url = None
+            folder_from_url = "/"  # Root = show all sessions
         elif path.startswith("/") and "/" not in path[1:]:
             folder_name = path[1:]
             folder_from_url = folder_name_to_path(folder_name)
 
         if path == "/" or folder_from_url is not None:
-            selected_folder = folder_from_url or get_selected_folder()
+            selected_folder = folder_from_url if folder_from_url else get_selected_folder()
             all_sessions = sessions.get_all_sessions()
             ordered = sessions.get_ordered_sessions(all_sessions)
-            for s in ordered:
+            # Filter to selected folder server-side (no flash on load)
+            visible = filter_sessions_by_folder(ordered, selected_folder)
+            # Only start ttyd for visible sessions
+            for s in visible:
                 sessions.start_ttyd(s["name"])
             html = render_template(
                 "index.html",
-                cards=build_session_cards(ordered),
+                cards=build_session_cards(visible),
                 dir_options=build_dir_options(selected_folder),
                 selected_folder=selected_folder,
                 selected_folder_name=get_folder_display_name(selected_folder, include_count=True),
@@ -459,6 +500,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.send_redirect("/", {"Set-Cookie": f"sandboxer_session={token}; Path=/; HttpOnly; SameSite=Strict; Max-Age={SESSION_DURATION}"})
             else:
                 self.send_redirect("/login?error=1")
+            return
+
+        # Hook endpoint - no auth required (internal use from hook script)
+        if path == "/api/hook":
+            try:
+                data = json.loads(body)
+                result = tactical.process_hook_event(data)
+                self.send_json(result)
+            except Exception as e:
+                self.send_json({"error": str(e)}, 500)
             return
 
         if not self.is_authenticated():
