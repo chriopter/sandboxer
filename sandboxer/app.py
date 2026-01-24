@@ -679,9 +679,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
                             "--dangerously-skip-permissions",
                         ]
 
-                        # Add session ID if we have one
+                        # Resume existing session if we have one
                         if claude_session_id:
-                            cmd.extend(["--session-id", claude_session_id])
+                            cmd.extend(["--resume", claude_session_id])
 
                         # Add system prompt
                         system_prompt_path = sessions.SYSTEM_PROMPT_PATH
