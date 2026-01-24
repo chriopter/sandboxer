@@ -11,6 +11,7 @@
 ## Features
 
 - **Live previews** - See all Claude sessions at a glance in a scalable grid layout
+- **Claude Chat** - Mobile-friendly chat UI as alternative to terminal view
 - **SSH takeover** - `ssh -t sandboxer@host sandboxer-shell` to take over any session from terminal
 - **Session persistence** - All sessions survive restarts via tmux
 - **Claude Loop** - Autonomous mode: create PROMPT.md, start loop, Claude works until done
@@ -59,9 +60,10 @@ All session and message data is stored in SQLite at `/etc/sandboxer/sandboxer.db
 CREATE TABLE sessions (
     name TEXT PRIMARY KEY,
     workdir TEXT NOT NULL,
-    type TEXT NOT NULL,        -- 'claude', 'bash', 'lazygit'
+    type TEXT NOT NULL,        -- 'claude', 'chat', 'bash', 'lazygit'
+    mode TEXT,                 -- 'cli' (terminal) or 'chat' (web UI)
     title TEXT,
-    claude_session_id TEXT,    -- For Claude's --resume
+    claude_session_id TEXT,    -- For Claude's --resume/--session-id
     created_at TEXT,
     updated_at TEXT
 );
