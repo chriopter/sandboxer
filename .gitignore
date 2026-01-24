@@ -5,11 +5,20 @@ __pycache__/
 .Python
 *.so
 
+# Node.js
+node_modules/
+
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/
+.playwright/
 
 # Secrets
 .sandbox-auth

@@ -214,8 +214,31 @@ _cleanup_orphan_ttyd()
 
 
 def get_all_sessions() -> list[dict]:
-    """Get all sessions from tmux."""
-    return get_tmux_sessions()
+    """Get all sessions from tmux + chat sessions from DB."""
+    from . import db
+
+    # Get tmux sessions
+    tmux_sessions = get_tmux_sessions()
+    tmux_names = {s["name"] for s in tmux_sessions}
+
+    # Get chat sessions from database
+    db_sessions = db.get_all_sessions()
+    chat_sessions = []
+
+    for s in db_sessions:
+        if s.get("mode") == "chat" and s["name"] not in tmux_names:
+            chat_sessions.append({
+                "name": s["name"],
+                "created": s.get("created_at", ""),
+                "windows": "0",
+                "attached": False,
+                "title": s.get("title") or s["name"],
+                "type": "chat",
+                "mode": "chat",
+                "workdir": s.get("workdir"),
+            })
+
+    return tmux_sessions + chat_sessions
 
 
 # ═══ tmux Operations ═══
@@ -333,9 +356,19 @@ def rename_session(old_name: str, new_name: str) -> bool:
 
 
 def kill_session(name: str):
-    """Kill a tmux session and its ttyd process."""
-    stop_ttyd(name)
-    subprocess.run(["tmux", "kill-session", "-t", name], capture_output=True)
+    """Kill a tmux session and its ttyd process, or a chat session."""
+    from . import db
+
+    # Check if it's a chat session
+    session = db.get_session(name)
+    if session and session.get("mode") == "chat":
+        # Delete from database (includes messages via CASCADE)
+        db.delete_session(name)
+    else:
+        # Kill tmux session
+        stop_ttyd(name)
+        subprocess.run(["tmux", "kill-session", "-t", name], capture_output=True)
+
     if name in session_order:
         session_order.remove(name)
     # Remove session metadata
@@ -346,6 +379,29 @@ def kill_session(name: str):
     if name in session_workdirs:
         del session_workdirs[name]
         _save_workdirs()
+
+
+def create_chat_session(name: str, workdir: str = "/home/sandboxer"):
+    """Create a new chat session (no tmux, just database entry)."""
+    from . import db
+
+    # Create database entry
+    db.upsert_session(
+        name=name,
+        workdir=workdir,
+        session_type="chat",
+        mode="chat"
+    )
+
+    # Add to order
+    if name not in session_order:
+        session_order.append(name)
+
+    # Track in session_meta for compatibility
+    session_meta[name] = {"workdir": workdir, "type": "chat", "mode": "chat"}
+    _save_session_meta()
+    session_workdirs[name] = workdir
+    _save_workdirs()
 
 
 # ═══ ttyd Management ═══
@@ -428,7 +484,8 @@ def generate_session_name(session_type: str = "claude", workdir: str = "/home/sa
     dir_name = sanitize_session_name(os.path.basename(workdir.rstrip("/")) or "root")
     prefix = f"{dir_name}-{session_type}-"
 
-    existing = get_tmux_sessions()
+    # Check ALL sessions (tmux + chat) for proper numbering
+    existing = get_all_sessions()
     max_num = 0
     for s in existing:
         if s["name"].startswith(prefix):

@@ -155,10 +155,40 @@ def render_template(name: str, **context) -> str:
 def build_single_card(s: dict) -> str:
     display_name = s.get("title") or s["name"]
     workdir = s.get("workdir") or ""
-    port = sessions.get_ttyd_port(s["name"])
-    terminal_url = f"/t/{port}/" if port else ""
+    is_chat = s.get("mode") == "chat" or s.get("type") == "chat"
 
-    return f"""<article class="card" draggable="true" data-session="{escape(s['name'])}" data-workdir="{escape(workdir)}">
+    if is_chat:
+        # Chat session card - show chat preview instead of terminal
+        messages = db.get_messages(s["name"], limit=3)
+        preview_html = ""
+        if messages:
+            for msg in messages[-3:]:
+                role = msg.get("role", "user")
+                content = escape(msg.get("content", "")[:100])
+                if len(msg.get("content", "")) > 100:
+                    content += "..."
+                preview_html += f'<div class="chat-preview-msg {role}">{content}</div>'
+        else:
+            preview_html = '<div class="chat-preview-empty">Start a conversation</div>'
+
+        return f"""<article class="card card-chat" draggable="true" data-session="{escape(s['name'])}" data-workdir="{escape(workdir)}">
+  <header>
+    <span class="card-title" onclick="renameSession('{escape(s['name'])}')">{escape(display_name)}</span>
+    <div class="card-actions">
+      <button size-="small" class="fullscreen-header-btn" onclick="event.stopPropagation(); openChat('{escape(s['name'])}')">&#9671;</button>
+      <button size-="small" variant-="red" class="kill-btn" onclick="event.stopPropagation(); killSession(this, '{escape(s['name'])}')">×</button>
+    </div>
+  </header>
+  <div class="chat-preview" onclick="openChat('{escape(s['name'])}')">
+    {preview_html}
+  </div>
+</article>"""
+    else:
+        # Terminal session card
+        port = sessions.get_ttyd_port(s["name"])
+        terminal_url = f"/t/{port}/" if port else ""
+
+        return f"""<article class="card" draggable="true" data-session="{escape(s['name'])}" data-workdir="{escape(workdir)}">
   <header>
     <span class="card-title" onclick="renameSession('{escape(s['name'])}')">{escape(display_name)}</span>
     <div class="card-actions">
@@ -347,6 +377,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if path == "/terminal":
             session_name = query.get("session", [""])[0]
             if session_name:
+                # Check if this is a chat session
+                session_info = db.get_session(session_name)
+                if session_info and session_info.get("mode") == "chat":
+                    # Redirect to chat page
+                    self.send_redirect(f"/chat?session={urllib.parse.quote(session_name)}")
+                    return
                 port = sessions.start_ttyd(session_name)
                 title = sessions.get_pane_title(session_name) or session_name
                 html = render_template(
@@ -354,6 +390,23 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     session_name=escape(session_name),
                     session_title=escape(title),
                     ttyd_url=f"/t/{port}/",
+                )
+                self.send_html(html)
+                return
+            self.send_redirect("/")
+            return
+
+        if path == "/chat":
+            session_name = query.get("session", [""])[0]
+            if session_name:
+                session_info = db.get_session(session_name)
+                title = session_info.get("title") if session_info else None
+                workdir = session_info.get("workdir") if session_info else "/home/sandboxer"
+                html = render_template(
+                    "chat.html",
+                    session_name=escape(session_name),
+                    session_title=escape(title or session_name),
+                    workdir=escape(workdir or "/home/sandboxer"),
                 )
                 self.send_html(html)
                 return
@@ -399,9 +452,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
             workdir = query.get("dir", ["/home/sandboxer/git/sandboxer"])[0]
             resume_id = query.get("resume_id", [None])[0]
             name = sessions.generate_session_name(session_type, workdir)
-            sessions.create_session(name, session_type, workdir, resume_id)
-            sessions.start_ttyd(name)
-            s = {"name": name, "title": name, "workdir": workdir}
+
+            if session_type == "chat":
+                # Chat session - no tmux/ttyd needed
+                sessions.create_chat_session(name, workdir)
+                s = {"name": name, "title": name, "workdir": workdir, "type": "chat", "mode": "chat"}
+            else:
+                # Terminal session - create tmux session and start ttyd
+                sessions.create_session(name, session_type, workdir, resume_id)
+                sessions.start_ttyd(name)
+                s = {"name": name, "title": name, "workdir": workdir}
+
             card_html = build_single_card(s)
             self.send_json({"ok": True, "name": name, "html": card_html})
             return
@@ -440,6 +501,25 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.send_json({"cpu": cpu_pct, "mem": mem_pct, "disk": disk_pct})
             except Exception:
                 self.send_json({"cpu": 0, "mem": 0, "disk": 0})
+            return
+
+        if path == "/api/chat/messages":
+            session_name = query.get("session", [""])[0]
+            if not session_name:
+                self.send_json({"error": "session required"}, 400)
+                return
+            messages = db.get_messages(session_name)
+            self.send_json({"messages": messages})
+            return
+
+        if path == "/api/chat/poll":
+            session_name = query.get("session", [""])[0]
+            since = int(query.get("since", ["0"])[0])
+            if not session_name:
+                self.send_json({"error": "session required"}, 400)
+                return
+            messages = db.get_messages_since(session_name, since)
+            self.send_json({"messages": messages})
             return
 
         self.send_response(404)
@@ -558,6 +638,137 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     subprocess.run(["tmux", "copy-mode", "-t", session_name], capture_output=True)
                 scroll_cmd = "scroll-up" if direction == "up" else "scroll-down"
                 subprocess.run(["tmux", "send-keys", "-t", session_name, "-X", "-N", "3", scroll_cmd], capture_output=True)
+                self.send_json({"ok": True})
+            except Exception as e:
+                self.send_json({"error": str(e)}, 500)
+            return
+
+        if path == "/api/chat/send":
+            try:
+                data = json.loads(body)
+                session_name = data.get("session", "")
+                message = data.get("message", "")
+                if not session_name or not message:
+                    self.send_json({"error": "session and message required"}, 400)
+                    return
+
+                # Get session info
+                session_info = db.get_session(session_name)
+                if not session_info:
+                    self.send_json({"error": "session not found"}, 404)
+                    return
+
+                workdir = session_info.get("workdir", "/home/sandboxer")
+                claude_session_id = session_info.get("claude_session_id")
+
+                # Add user message to database
+                db.add_message(session_name, "user", message)
+
+                # Create assistant message placeholder
+                assistant_msg_id = db.add_message(session_name, "assistant", "", status="thinking")
+
+                # Start background thread to run claude CLI
+                def run_claude():
+                    try:
+                        # Build command - use full path since systemd doesn't have user PATH
+                        claude_path = "/root/.local/bin/claude"
+                        cmd = [
+                            claude_path,
+                            "-p",  # Print mode (non-interactive)
+                            "--output-format", "json",
+                            "--dangerously-skip-permissions",
+                        ]
+
+                        # Add session ID if we have one
+                        if claude_session_id:
+                            cmd.extend(["--session-id", claude_session_id])
+
+                        # Add system prompt
+                        system_prompt_path = sessions.SYSTEM_PROMPT_PATH
+                        if os.path.isfile(system_prompt_path):
+                            cmd.extend(["--system-prompt", system_prompt_path])
+
+                        # Add the message as argument
+                        cmd.append(message)
+
+                        # Run claude
+                        result = subprocess.run(
+                            cmd,
+                            capture_output=True,
+                            text=True,
+                            cwd=workdir,
+                            timeout=300,  # 5 minute timeout
+                            env={**os.environ, "IS_SANDBOX": "1"}
+                        )
+
+                        # Parse JSON response
+                        response_text = ""
+                        new_session_id = claude_session_id
+
+                        if result.stdout:
+                            try:
+                                # Claude outputs one JSON object per line
+                                for line in result.stdout.strip().split("\n"):
+                                    if not line.strip():
+                                        continue
+                                    try:
+                                        data = json.loads(line)
+                                        # Extract session_id
+                                        if "session_id" in data:
+                                            new_session_id = data["session_id"]
+                                        elif "sessionId" in data:
+                                            new_session_id = data["sessionId"]
+                                        # Extract text content
+                                        if data.get("type") == "assistant":
+                                            msg_content = data.get("message", {}).get("content", [])
+                                            for item in msg_content:
+                                                if item.get("type") == "text":
+                                                    response_text += item.get("text", "")
+                                        elif data.get("type") == "result":
+                                            if "result" in data:
+                                                response_text = data["result"]
+                                    except json.JSONDecodeError:
+                                        continue
+                            except Exception as e:
+                                response_text = f"Error parsing response: {e}\n\nRaw output:\n{result.stdout[:1000]}"
+
+                        if not response_text and result.stderr:
+                            response_text = f"Error: {result.stderr[:1000]}"
+
+                        if not response_text:
+                            response_text = "(No response from Claude)"
+
+                        # Update assistant message
+                        db.update_message(assistant_msg_id, content=response_text, status="complete")
+
+                        # Save session_id if changed
+                        if new_session_id and new_session_id != claude_session_id:
+                            db.update_session_field(session_name, "claude_session_id", new_session_id)
+
+                    except subprocess.TimeoutExpired:
+                        db.update_message(assistant_msg_id, content="Error: Request timed out (5 minutes)", status="complete")
+                    except Exception as e:
+                        db.update_message(assistant_msg_id, content=f"Error: {str(e)}", status="complete")
+
+                # Start claude in background
+                thread = threading.Thread(target=run_claude, daemon=True)
+                thread.start()
+
+                self.send_json({"ok": True, "message_id": assistant_msg_id})
+            except Exception as e:
+                self.send_json({"error": str(e)}, 500)
+            return
+
+        if path == "/api/chat/clear":
+            try:
+                data = json.loads(body)
+                session_name = data.get("session", "")
+                if not session_name:
+                    self.send_json({"error": "session required"}, 400)
+                    return
+                db.clear_messages(session_name)
+                # Also clear the claude session ID to start fresh
+                db.update_session_field(session_name, "claude_session_id", None)
                 self.send_json({"ok": True})
             except Exception as e:
                 self.send_json({"error": str(e)}, 500)

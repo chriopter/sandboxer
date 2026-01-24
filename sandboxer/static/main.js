@@ -534,6 +534,7 @@ function populateSidebar() {
 
   // Group sessions by type
   const groups = {
+    chat: { label: "chat", color: "lavender", sessions: [] },
     claude: { label: "claude", color: "mauve", sessions: [] },
     loop: { label: "loop", color: "pink", sessions: [] },
     lazygit: { label: "lazygit", color: "peach", sessions: [] },
@@ -547,17 +548,19 @@ function populateSidebar() {
 
     const name = card.dataset.session;
     const title = card.querySelector(".card-title")?.textContent || name;
+    const isChat = card.classList.contains("card-chat");
 
-    // Detect session type from name patterns
+    // Detect session type from name patterns or card class
     let type = "other";
-    if (name.includes("-loop-") || name.startsWith("loop")) type = "loop";
+    if (isChat || name.includes("-chat-") || name.startsWith("chat")) type = "chat";
+    else if (name.includes("-loop-") || name.startsWith("loop")) type = "loop";
     else if (name.includes("-claude-") || name.startsWith("claude")) type = "claude";
     else if (name.includes("-gemini-") || name.startsWith("gemini")) type = "gemini";
     else if (name.includes("-bash-") || name.startsWith("bash")) type = "bash";
     else if (name.includes("-lazygit-") || name.startsWith("lazygit")) type = "lazygit";
     else if (name.includes("-resume-") || name.startsWith("resume")) type = "claude"; // resume is claude
 
-    groups[type].sessions.push({ name, title });
+    groups[type].sessions.push({ name, title, isChat });
   });
 
   list.innerHTML = "";
@@ -594,12 +597,16 @@ function populateSidebar() {
     const ul = document.createElement("ul");
     ul.className = "group-sessions";
 
-    group.sessions.forEach(({ name, title }) => {
+    group.sessions.forEach(({ name, title, isChat }) => {
       const li = document.createElement("li");
       li.textContent = title;
       li.title = name;
       li.onclick = () => {
-        window.open("/terminal?session=" + encodeURIComponent(name), "_blank");
+        if (isChat || type === "chat") {
+          window.open("/chat?session=" + encodeURIComponent(name), "_blank");
+        } else {
+          window.open("/terminal?session=" + encodeURIComponent(name), "_blank");
+        }
         toggleSidebar();
       };
       ul.appendChild(li);
@@ -897,6 +904,10 @@ function initDirDropdown() {
 
 function openFullscreen(sessionName) {
   window.open("/terminal?session=" + encodeURIComponent(sessionName), "_blank");
+}
+
+function openChat(sessionName) {
+  window.open("/chat?session=" + encodeURIComponent(sessionName), "_blank");
 }
 
 // ═══ Image Upload from Mini Views ═══

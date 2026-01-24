@@ -773,6 +773,57 @@ main {
 .card-actions .kill-btn.confirm { animation: pulse 0.3s ease; }
 @keyframes pulse { 50% { transform: scale(1.1); } }
 
+/* ═══ Chat Preview (for chat session cards) ═══ */
+
+.card-chat .chat-preview {
+  background: var(--crust);
+  padding: 1ch;
+  overflow: hidden;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5ch;
+  justify-content: center;
+  /* Match terminal card aspect ratio for equal height */
+  aspect-ratio: 830 / 450;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.card-chat .chat-preview:hover {
+  background: var(--base);
+}
+
+.chat-preview-msg {
+  font-size: 0.8em;
+  padding: 0.4ch 0.8ch;
+  border-radius: 6px;
+  max-width: 90%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-preview-msg.user {
+  align-self: flex-end;
+  background: var(--mauve);
+  color: var(--crust);
+}
+
+.chat-preview-msg.assistant {
+  align-self: flex-start;
+  background: var(--surface0);
+  color: var(--text);
+}
+
+.chat-preview-empty {
+  color: var(--overlay0);
+  font-size: 0.85em;
+  text-align: center;
+  padding: 2ch;
+  margin: auto;
+}
+
 /* ═══ Terminal Preview ═══ */
 
 .terminal {
