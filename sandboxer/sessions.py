@@ -89,9 +89,24 @@ def _cleanup_session_meta(existing_sessions: set[str]):
 
 def get_session_workdir(session_name: str) -> str | None:
     """Get the workdir for a session."""
+    # Check metadata first
     if session_name in session_meta:
         return session_meta[session_name].get("workdir")
-    return session_workdirs.get(session_name)
+    if session_name in session_workdirs:
+        return session_workdirs.get(session_name)
+
+    # Infer workdir from session name pattern: <folder>-<type>-<number>
+    # e.g., "valiido-claude-1" -> /home/sandboxer/git/valiido
+    known_types = {"claude", "bash", "lazygit", "gemini", "loop", "resume", "chat"}
+    for session_type in known_types:
+        marker = f"-{session_type}-"
+        if marker in session_name:
+            folder_name = session_name.split(marker)[0]
+            potential_path = f"{GIT_DIR}/{folder_name}"
+            if os.path.isdir(potential_path):
+                return potential_path
+            break
+    return None
 
 
 def restore_sessions():
