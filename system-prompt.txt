@@ -44,7 +44,7 @@ This is a persistent environment - your changes will remain until explicitly cle
 
 ## Playwright MCP Server
 
-Playwright is available for browser automation. Configure with `--isolated` flag to avoid browser lock conflicts:
+Playwright is available for browser automation. **Always use `--isolated` flag** to prevent browser lock conflicts between sessions:
 
 ```json
 "playwright": {
@@ -53,6 +53,19 @@ Playwright is available for browser automation. Configure with `--isolated` flag
   "args": ["@playwright/mcp@latest", "--isolated"]
 }
 ```
+
+### Browser Lock Error
+
+If you see: `Error: Browser is already in use for /root/.cache/ms-playwright/mcp-chrome-*`
+
+Run these commands to clean up stale browser processes:
+```bash
+pkill -f "playwright-mcp" 2>/dev/null
+pkill -f "mcp-chrome" 2>/dev/null
+rm -f /root/.cache/ms-playwright/mcp-chrome-*/SingletonLock 2>/dev/null
+```
+
+Then retry your Playwright operation.
 
 ## Gemini CLI
 
