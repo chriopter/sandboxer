@@ -4,7 +4,7 @@
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 SYSTEM_PROMPT="$SCRIPT_DIR/system-prompt.txt"
 MONITOR_SCRIPT="$SCRIPT_DIR/claude-loop-monitor"
-ACTIVITY_TIMEOUT=60
+ACTIVITY_TIMEOUT=1800  # 30 minutes in seconds
 STATUS_FILE="/tmp/claude-loop-status-$$"
 WORKDIR="$(pwd)"
 
@@ -12,25 +12,28 @@ LOOP_PROMPT='You are in AUTONOMOUS LOOP MODE.
 
 A PROMPT.md file exists in your working directory with your task. Work on it.
 
-## When you complete the task:
-1. Add a "## Results" section to PROMPT.md documenting what you did
-2. Run: mv PROMPT.md PROMPT.done.md
+## Progress tracking (IMPORTANT):
+- PROMPT.md contains your task list
+- Check off completed items frequently using [x] as you finish them
+- This is critical - update PROMPT.md often so progress is visible
+- If you hit context limits, you will be restarted with fresh context
+- Your checked-off items show the next instance what is already done
 
-The loop will automatically detect completion and restart or stop.
+## When finished or need fresh context:
+- Run /exit to end session - the loop will restart you automatically
+- Exit when: all tasks done, context getting long, or need a fresh start
+- Do not sit idle - either work or exit
 
-## If you hit context limits or need to continue later:
-Just exit normally. The loop will restart you with fresh context.
-Your previous work is saved in files/git - check git log and project state.
-
-## If you are blocked and cannot proceed:
-1. Add a "## Blocked" section explaining why
+## If you are fully blocked and cannot proceed:
+1. Add a "## Blocked" section to PROMPT.md explaining why
 2. Run: mv PROMPT.md PROMPT.blocked.md
 
 ## Important:
-- Check PROMPT.md first to understand your task
-- Check git status/log to see what has already been done
+- Check PROMPT.md first to understand your task and see what is already done
+- Check git status/log to see previous work
 - Work autonomously - make decisions, do not ask questions
-- Commit your work regularly with descriptive messages'
+- Commit your work regularly with descriptive messages
+- Update PROMPT.md checkboxes after each significant step'
 
 # Check for PROMPT.md
 if [ ! -f PROMPT.md ]; then
@@ -79,21 +82,41 @@ while [ -f PROMPT.md ]; do
 
   update_status "status" "claude_running"
 
-  # Background activity tracker (for monitor display)
+  # Run Claude in background so we can monitor and kill if idle
+  echo "Read PROMPT.md and work on the tasks. Check off each item with [x] as you complete it." | IS_SANDBOX=1 claude --dangerously-skip-permissions --system-prompt "$SYSTEM_PROMPT" --append-system-prompt "$LOOP_PROMPT" &
+  claude_pid=$!
+
+  # Background activity tracker - kills Claude if idle too long
   (
-    while [ -f "$marker" ]; do
+    while kill -0 $claude_pid 2>/dev/null; do
       sleep 30
+
+      # Check for any file changes (excluding .git)
       if find . -type f -newer "$marker" ! -path './.git/*' 2>/dev/null | grep -q .; then
         touch "$marker"
         update_status "last_activity" "$(date +%s)"
+      fi
+
+      # Check if idle for too long
+      source "$STATUS_FILE"
+      now=$(date +%s)
+      idle_time=$((now - last_activity))
+
+      if [ $idle_time -ge $ACTIVITY_TIMEOUT ]; then
+        update_status "status" "idle_restart"
+        echo ""
+        echo "──── No activity for 30min, restarting Claude... ────"
+        kill $claude_pid 2>/dev/null
+        sleep 2
+        kill -9 $claude_pid 2>/dev/null
+        break
       fi
     done
   ) &
   tracker_pid=$!
 
-  # Run Claude (foreground for visible UI)
-  # Claude stays open until user exits - allows reviewing final output
-  echo "Read PROMPT.md and complete the task. When done, move it to PROMPT.done.md" | IS_SANDBOX=1 claude --dangerously-skip-permissions --system-prompt "$SYSTEM_PROMPT" --append-system-prompt "$LOOP_PROMPT"
+  # Wait for Claude to exit (either naturally or killed by tracker)
+  wait $claude_pid 2>/dev/null
 
   # Cleanup
   rm -f "$marker"
@@ -110,9 +133,9 @@ done
 update_status "status" "complete"
 echo ""
 echo "══════════════════════════════════════════════════════"
-echo "  Loop complete! PROMPT.md moved/removed."
-[ -f PROMPT.done.md ] && echo "  Results in: PROMPT.done.md"
+echo "  Loop stopped - PROMPT.md removed or renamed"
 [ -f PROMPT.blocked.md ] && echo "  Task blocked: PROMPT.blocked.md"
+echo "  Check PROMPT.md for completed items"
 echo "══════════════════════════════════════════════════════"
 sleep 30
 rm -f "$STATUS_FILE"

@@ -46,16 +46,18 @@ while true; do
 
     echo ""
     echo "───────────────────────────────────────"
-    # Show restart conditions
+    # Show restart conditions (30 min idle timeout)
     idle_min=$((since_activity / 60))
-    remaining=$((60 - idle_min))
+    remaining=$((30 - idle_min))
     if [ "$status" = "complete" ]; then
       echo "  ✓ Task complete"
     elif [ "$status" = "restarting" ]; then
       echo "  ↻ Restarting now..."
+    elif [ "$status" = "idle_restart" ]; then
+      echo "  ↻ Idle restart triggered..."
     elif [ "$status" = "claude_running" ]; then
       echo "  ● Claude running"
-      if [ $remaining -le 10 ]; then
+      if [ $remaining -le 10 ] && [ $remaining -gt 0 ]; then
         echo "  ⚠ Idle restart in ${remaining}min"
       fi
     else
