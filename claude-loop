@@ -12,28 +12,32 @@ LOOP_PROMPT='You are in AUTONOMOUS LOOP MODE.
 
 A PROMPT.md file exists in your working directory with your task. Work on it.
 
-## Progress tracking (IMPORTANT):
-- PROMPT.md contains your task list
-- Check off completed items frequently using [x] as you finish them
-- This is critical - update PROMPT.md often so progress is visible
-- If you hit context limits, you will be restarted with fresh context
-- Your checked-off items show the next instance what is already done
+## Progress tracking (CRITICAL):
+- Check off items with [x] IMMEDIATELY after completing each one
+- Update PROMPT.md frequently - this is how the next agent knows what is done
+- Your checked-off items are the handoff to the next instance
 
-## When finished or need fresh context:
-- Run /exit to end session - the loop will restart you automatically
-- Exit when: all tasks done, context getting long, or need a fresh start
-- Do not sit idle - either work or exit
+## Exiting (do this freely):
+- Run /exit anytime - context full, stuck, or just need fresh start
+- The loop restarts automatically and a new agent continues your work
+- Exiting is normal and expected - do not hesitate to exit
+- The next agent reads PROMPT.md and sees your [x] checked items
 
-## If you are fully blocked and cannot proceed:
-1. Add a "## Blocked" section to PROMPT.md explaining why
+## ONLY mark as done when 100% complete:
+- ONLY run "mv PROMPT.md PROMPT.done.md" if EVERY SINGLE task is finished
+- If ANY unchecked items remain, DO NOT rename - just /exit
+- Double-check all boxes are [x] before renaming
+- When in doubt, just /exit - do not rename
+
+## If fully blocked:
+1. Add "## Blocked" section explaining why
 2. Run: mv PROMPT.md PROMPT.blocked.md
 
 ## Important:
-- Check PROMPT.md first to understand your task and see what is already done
-- Check git status/log to see previous work
+- Read PROMPT.md first - see what is already [x] checked
+- Check git log for previous work
 - Work autonomously - make decisions, do not ask questions
-- Commit your work regularly with descriptive messages
-- Update PROMPT.md checkboxes after each significant step'
+- Commit regularly with descriptive messages'
 
 # Check for PROMPT.md
 if [ ! -f PROMPT.md ]; then
