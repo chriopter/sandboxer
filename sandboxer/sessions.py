@@ -9,8 +9,6 @@ import subprocess
 # Configuration
 TTYD_BASE_PORT = 7700
 TTYD_MAX_PORT = 7799  # Max 100 sessions
-SESSION_MAX_AGE_HOURS = 6  # Auto-kill sessions older than this
-CLEANUP_INTERVAL_SECONDS = 3600  # Check for old sessions every hour
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SYSTEM_PROMPT_PATH = os.path.join(BASE_DIR, "system-prompt.txt")
@@ -27,9 +25,6 @@ session_workdirs: dict[str, str] = {}
 
 # Persisted state: session_name -> {workdir, type}
 session_meta: dict[str, dict] = {}
-
-# Cleanup state
-_last_cleanup_time: float = 0
 
 
 # ═══ Session Metadata Persistence ═══
@@ -227,39 +222,6 @@ def _cleanup_orphan_ttyd():
         pass
 
 
-def _cleanup_old_sessions():
-    """Kill sessions older than SESSION_MAX_AGE_HOURS."""
-    import time
-    import glob
-    global _last_cleanup_time
-
-    now = time.time()
-
-    # Throttle: only run once per CLEANUP_INTERVAL_SECONDS
-    if now - _last_cleanup_time < CLEANUP_INTERVAL_SECONDS:
-        return
-    _last_cleanup_time = now
-
-    max_age_seconds = SESSION_MAX_AGE_HOURS * 3600
-    killed = 0
-
-    try:
-        sessions = get_tmux_sessions()
-        for s in sessions:
-            created = int(s["created"]) if s["created"].isdigit() else 0
-            if created and (now - created) > max_age_seconds:
-                age_hours = (now - created) / 3600
-                print(f"[sandboxer] Auto-killing old session: {s['name']} (age: {age_hours:.1f}h)")
-                kill_session(s["name"])
-                killed += 1
-
-        # Also cleanup stale Playwright browser processes
-        _cleanup_playwright_browsers()
-
-        if killed:
-            print(f"[sandboxer] Cleaned up {killed} old session(s)")
-    except Exception as e:
-        print(f"[sandboxer] Session cleanup error: {e}")
 
 
 def _cleanup_playwright_browsers():
@@ -282,7 +244,6 @@ def _cleanup_playwright_browsers():
 
 def get_all_sessions() -> list[dict]:
     """Get all sessions from tmux + chat sessions from DB."""
-    _cleanup_old_sessions()  # Periodic cleanup check
     from . import db
 
     # Get tmux sessions
@@ -661,4 +622,3 @@ def get_resumable_sessions(workdir: str) -> list[dict]:
 _load_session_meta()
 _load_session_order()
 _cleanup_orphan_ttyd()
-_cleanup_old_sessions()
