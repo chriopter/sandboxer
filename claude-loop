@@ -4,7 +4,7 @@
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 SYSTEM_PROMPT="$SCRIPT_DIR/system-prompt.txt"
 MONITOR_SCRIPT="$SCRIPT_DIR/claude-loop-monitor"
-ACTIVITY_TIMEOUT=1800  # 30 minutes in seconds
+ACTIVITY_TIMEOUT=900  # 15 minutes in seconds
 STATUS_FILE="/tmp/claude-loop-status-$$"
 WORKDIR="$(pwd)"
 
@@ -109,7 +109,7 @@ while [ -f PROMPT.md ]; do
       if [ $idle_time -ge $ACTIVITY_TIMEOUT ]; then
         update_status "status" "idle_restart"
         echo ""
-        echo "──── No activity for 30min, restarting Claude... ────"
+        echo "──── No activity for 15min, restarting Claude... ────"
         kill $claude_pid 2>/dev/null
         sleep 2
         kill -9 $claude_pid 2>/dev/null
