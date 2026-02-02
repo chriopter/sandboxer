@@ -604,15 +604,26 @@ def start_ttyd(session_name: str) -> int:
 
     # Catppuccin Mocha theme (JSON format for xterm.js)
     theme_json = '{"background":"#1e1e2e","foreground":"#cdd6f4","cursor":"#f5e0dc","cursorAccent":"#1e1e2e","selectionBackground":"#585b70","selectionForeground":"#cdd6f4","black":"#45475a","red":"#f38ba8","green":"#a6e3a1","yellow":"#f9e2af","blue":"#89b4fa","magenta":"#f5c2e7","cyan":"#94e2d5","white":"#bac2de","brightBlack":"#585b70","brightRed":"#f38ba8","brightGreen":"#a6e3a1","brightYellow":"#f9e2af","brightBlue":"#89b4fa","brightMagenta":"#f5c2e7","brightCyan":"#94e2d5","brightWhite":"#a6adc8"}'
+
+    # xterm.js client options optimized for Claude Code heavy redraws
     client_opts = [
         "-t", f"theme={theme_json}",
-        "-t", "scrollback=1000",  # Limited scrollback to prevent browser RAM issues
-        "-t", "scrollSensitivity=3",  # More responsive scrolling
+        "-t", "scrollback=500",           # Reduced - Claude Code redraws entire buffer
+        "-t", "scrollSensitivity=3",
+        "-t", "fastScrollSensitivity=10", # Faster scroll in alt mode
+        "-t", "rendererType=canvas",      # Canvas handles redraws better than WebGL
+    ]
+
+    # ttyd server options
+    server_opts = [
+        "-W",                    # Writable (allow input)
+        "-i", "127.0.0.1",       # Bind to localhost only
+        "-p", str(port),
     ]
 
     # Start ttyd with higher priority (nice -5) for responsive terminal I/O
     proc = subprocess.Popen(
-        ["nice", "-n", "-5", "ttyd", "-W", "-i", "127.0.0.1", "-p", str(port)] + client_opts + ["tmux", "attach-session", "-t", session_name],
+        ["nice", "-n", "-5", "ttyd"] + server_opts + client_opts + ["tmux", "attach-session", "-t", session_name],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
     )
 
