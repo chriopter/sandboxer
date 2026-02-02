@@ -135,3 +135,13 @@ condition: "! curl -sf http://localhost:3000/health"  # Only run if check fails
 **Condition scripts:** Add `condition` to only run when the script exits 0. Saves tokens.
 
 Sandboxer auto-discovers these files and runs jobs on schedule. Click cron in sidebar to edit.
+
+## Installing Sandboxer
+
+If asked to install Sandboxer on a new machine, read the installation instructions from the README.md in the sandboxer repo:
+
+```bash
+curl -s https://raw.githubusercontent.com/chriopter/sandboxer/main/README.md
+```
+
+Follow the instructions there - they are always up to date.
