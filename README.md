@@ -1,9 +1,8 @@
 <p align="center">
   <img src="logo.png" width="100" /><br><br>
   <b>Sandboxer</b><br><br>
-  Give Claude root access to a disposable machine and let it run autonomously.<br>
-  Monitor multiple agents live, take over via SSH, or switch to chat UI on mobile.
-  Combine with OpenClaw skill to work on your code inside sandboxer and use OpenClaw to ask for status, reiterate on sessions etc.. 
+  Give Claude root access to a disposable machine and let it run autonomously, manage via web or take over via ssh.<br>
+  Combine with OpenClaw skill to let Claw see the state of Claude Code sessions or let them kick off for you.
 </p>
 
 ---
