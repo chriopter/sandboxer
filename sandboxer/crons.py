@@ -123,6 +123,7 @@ def parse_cron_file(file_path: str) -> dict | None:
             'prompt': cron.get('prompt'),
             'command': cron.get('command'),
             'condition': cron.get('condition'),
+            'condition_script': cron.get('condition_script'),
             'enabled': cron.get('enabled', True),
         }
     except Exception as e:
@@ -218,6 +219,7 @@ def sync_crons_to_db():
                 prompt=cron.get('prompt'),
                 command=cron.get('command'),
                 condition=cron.get('condition'),
+                condition_script=cron.get('condition_script'),
                 enabled=enabled,
                 next_run=next_run
             )
@@ -233,14 +235,26 @@ def sync_crons_to_db():
 def check_condition(cron: dict) -> tuple[bool, str]:
     """Check if cron condition is met. Returns (should_run, reason)."""
     condition = cron.get('condition')
-    if not condition:
+    condition_script = cron.get('condition_script')
+
+    if not condition and not condition_script:
         return True, "no condition"
 
     repo_path = cron['repo_path']
-    cron_id = cron['id']
+    script_path = None
 
     try:
         import subprocess
+        import tempfile
+
+        # If condition_script is provided, write to temp file
+        if condition_script:
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.sh', delete=False) as f:
+                f.write(condition_script)
+                script_path = f.name
+            os.chmod(script_path, 0o755)
+            condition = script_path
+
         # Run condition script in repo directory
         result = subprocess.run(
             condition,
@@ -261,6 +275,13 @@ def check_condition(cron: dict) -> tuple[bool, str]:
         return False, "condition timeout"
     except Exception as e:
         return False, f"condition error: {str(e)[:100]}"
+    finally:
+        # Clean up temp script file
+        if script_path and os.path.exists(script_path):
+            try:
+                os.unlink(script_path)
+            except Exception:
+                pass
 
 
 def execute_cron(cron: dict):

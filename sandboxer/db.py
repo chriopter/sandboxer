@@ -106,6 +106,12 @@ def init_db():
         except:
             pass  # Column already exists
 
+        # Migration: add condition_script column to cron_jobs if missing
+        try:
+            conn.execute("ALTER TABLE cron_jobs ADD COLUMN condition_script TEXT")
+        except:
+            pass  # Column already exists
+
 
 # ═══ Session Operations ═══
 
@@ -303,12 +309,13 @@ def get_due_crons(now: str) -> list[dict]:
 
 def upsert_cron(cron_id: str, repo_path: str, name: str, schedule: str,
                 cron_type: str, prompt: str = None, command: str = None,
-                condition: str = None, enabled: bool = True, next_run: str = None):
+                condition: str = None, condition_script: str = None,
+                enabled: bool = True, next_run: str = None):
     """Insert or update a cron job."""
     with get_db() as conn:
         conn.execute("""
-            INSERT INTO cron_jobs (id, repo_path, name, schedule, type, prompt, command, condition, enabled, next_run, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            INSERT INTO cron_jobs (id, repo_path, name, schedule, type, prompt, command, condition, condition_script, enabled, next_run, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             ON CONFLICT(id) DO UPDATE SET
                 repo_path = excluded.repo_path,
                 name = excluded.name,
@@ -317,10 +324,11 @@ def upsert_cron(cron_id: str, repo_path: str, name: str, schedule: str,
                 prompt = COALESCE(excluded.prompt, cron_jobs.prompt),
                 command = COALESCE(excluded.command, cron_jobs.command),
                 condition = excluded.condition,
+                condition_script = excluded.condition_script,
                 enabled = excluded.enabled,
                 next_run = excluded.next_run,
                 updated_at = CURRENT_TIMESTAMP
-        """, (cron_id, repo_path, name, schedule, cron_type, prompt, command, condition, 1 if enabled else 0, next_run))
+        """, (cron_id, repo_path, name, schedule, cron_type, prompt, command, condition, condition_script, 1 if enabled else 0, next_run))
 
 
 def update_cron_field(cron_id: str, field: str, value):
