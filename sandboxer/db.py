@@ -62,11 +62,47 @@ def init_db():
 
             CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_name);
             CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(session_name, created_at);
+
+            -- Cronjob tables
+            CREATE TABLE IF NOT EXISTS cron_jobs (
+                id TEXT PRIMARY KEY,        -- repo_name:cron_name
+                repo_path TEXT NOT NULL,
+                name TEXT NOT NULL,
+                schedule TEXT NOT NULL,
+                type TEXT NOT NULL,         -- claude | bash | loop
+                prompt TEXT,
+                command TEXT,
+                condition TEXT,             -- Optional: script that must exit 0 for job to run
+                enabled INTEGER DEFAULT 1,
+                last_run TEXT,
+                next_run TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS cron_executions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                cron_id TEXT NOT NULL,
+                session_name TEXT,
+                status TEXT,                -- started | completed | failed
+                started_at TEXT,
+                ended_at TEXT,
+                FOREIGN KEY (cron_id) REFERENCES cron_jobs(id) ON DELETE CASCADE
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_cron_executions_cron ON cron_executions(cron_id);
+            CREATE INDEX IF NOT EXISTS idx_cron_jobs_next_run ON cron_jobs(next_run);
         """)
 
         # Migration: add status column if missing
         try:
             conn.execute("ALTER TABLE messages ADD COLUMN status TEXT DEFAULT 'complete'")
+        except:
+            pass  # Column already exists
+
+        # Migration: add condition column to cron_jobs if missing
+        try:
+            conn.execute("ALTER TABLE cron_jobs ADD COLUMN condition TEXT")
         except:
             pass  # Column already exists
 
@@ -224,6 +260,140 @@ def clear_messages(session_name: str):
     """Clear all messages for a session."""
     with get_db() as conn:
         conn.execute("DELETE FROM messages WHERE session_name = ?", (session_name,))
+
+
+# ═══ Cron Operations ═══
+
+def get_cron(cron_id: str) -> dict | None:
+    """Get a cron job by ID."""
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT * FROM cron_jobs WHERE id = ?", (cron_id,)
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def get_all_crons() -> list[dict]:
+    """Get all cron jobs."""
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT * FROM cron_jobs ORDER BY repo_path, name"
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+
+def get_enabled_crons() -> list[dict]:
+    """Get all enabled cron jobs."""
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT * FROM cron_jobs WHERE enabled = 1 ORDER BY next_run"
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+
+def get_due_crons(now: str) -> list[dict]:
+    """Get cron jobs that are due to run (next_run <= now and enabled)."""
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT * FROM cron_jobs WHERE enabled = 1 AND next_run IS NOT NULL AND next_run <= ?",
+            (now,)
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+
+def upsert_cron(cron_id: str, repo_path: str, name: str, schedule: str,
+                cron_type: str, prompt: str = None, command: str = None,
+                condition: str = None, enabled: bool = True, next_run: str = None):
+    """Insert or update a cron job."""
+    with get_db() as conn:
+        conn.execute("""
+            INSERT INTO cron_jobs (id, repo_path, name, schedule, type, prompt, command, condition, enabled, next_run, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(id) DO UPDATE SET
+                repo_path = excluded.repo_path,
+                name = excluded.name,
+                schedule = excluded.schedule,
+                type = excluded.type,
+                prompt = COALESCE(excluded.prompt, cron_jobs.prompt),
+                command = COALESCE(excluded.command, cron_jobs.command),
+                condition = excluded.condition,
+                enabled = excluded.enabled,
+                next_run = excluded.next_run,
+                updated_at = CURRENT_TIMESTAMP
+        """, (cron_id, repo_path, name, schedule, cron_type, prompt, command, condition, 1 if enabled else 0, next_run))
+
+
+def update_cron_field(cron_id: str, field: str, value):
+    """Update a single field on a cron job."""
+    allowed_fields = {'enabled', 'last_run', 'next_run', 'schedule', 'prompt', 'command'}
+    if field not in allowed_fields:
+        raise ValueError(f"Field {field} not allowed")
+
+    with get_db() as conn:
+        conn.execute(f"""
+            UPDATE cron_jobs SET {field} = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        """, (value, cron_id))
+
+
+def delete_cron(cron_id: str):
+    """Delete a cron job and its executions."""
+    with get_db() as conn:
+        conn.execute("DELETE FROM cron_executions WHERE cron_id = ?", (cron_id,))
+        conn.execute("DELETE FROM cron_jobs WHERE id = ?", (cron_id,))
+
+
+def delete_crons_for_repo(repo_path: str):
+    """Delete all cron jobs for a repo."""
+    with get_db() as conn:
+        conn.execute("DELETE FROM cron_executions WHERE cron_id IN (SELECT id FROM cron_jobs WHERE repo_path = ?)", (repo_path,))
+        conn.execute("DELETE FROM cron_jobs WHERE repo_path = ?", (repo_path,))
+
+
+def add_cron_execution(cron_id: str, session_name: str = None, status: str = "started") -> int:
+    """Add a cron execution record. Returns the execution ID."""
+    with get_db() as conn:
+        cursor = conn.execute("""
+            INSERT INTO cron_executions (cron_id, session_name, status, started_at)
+            VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+        """, (cron_id, session_name, status))
+        return cursor.lastrowid
+
+
+def update_cron_execution(execution_id: int, status: str, ended_at: str = None):
+    """Update a cron execution status."""
+    with get_db() as conn:
+        if ended_at:
+            conn.execute(
+                "UPDATE cron_executions SET status = ?, ended_at = ? WHERE id = ?",
+                (status, ended_at, execution_id)
+            )
+        else:
+            conn.execute(
+                "UPDATE cron_executions SET status = ?, ended_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (status, execution_id)
+            )
+
+
+def get_cron_executions(cron_id: str, limit: int = 10) -> list[dict]:
+    """Get recent executions for a cron job."""
+    with get_db() as conn:
+        rows = conn.execute("""
+            SELECT * FROM cron_executions
+            WHERE cron_id = ?
+            ORDER BY started_at DESC
+            LIMIT ?
+        """, (cron_id, limit)).fetchall()
+        return [dict(row) for row in rows]
+
+
+def get_cron_ids_for_repo(repo_path: str) -> set[str]:
+    """Get all cron IDs for a repo."""
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT id FROM cron_jobs WHERE repo_path = ?", (repo_path,)
+        ).fetchall()
+        return {row['id'] for row in rows}
 
 
 # ═══ Migration from JSON files ═══

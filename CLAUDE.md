@@ -265,3 +265,66 @@ Only add custom CSS for:
 4. Responsive breakpoints
 
 **Never duplicate** what WebTUI provides (buttons, badges, inputs, separators).
+
+## Cronjobs
+
+Sandboxer supports scheduled tasks via `.sandboxer/crons.yaml` files in repos.
+
+### Config Format
+
+```yaml
+crons:
+  - name: task-name           # Unique within repo
+    schedule: "0 9 * * *"     # Standard cron syntax
+    type: claude              # claude | bash | loop
+    prompt: "Task description" # For claude/loop types
+    command: "./script.sh"    # For bash type
+    condition: "./check.sh"   # Optional: only run if exits 0
+    enabled: true             # Optional, default true
+```
+
+### Condition Scripts
+
+The `condition` field runs a script before the job. If it exits non-zero, the job is skipped (saving tokens).
+
+```yaml
+# Only run if API is down
+condition: "! curl -sf http://localhost:3000/health"
+
+# Only run if there are changes
+condition: "git status --porcelain | grep -q ."
+```
+
+### Architecture
+
+| File | Purpose |
+|------|---------|
+| `sandboxer/crons.py` | Scheduler, discovery, execution |
+| `sandboxer/db.py` | `cron_jobs` and `cron_executions` tables |
+
+### How It Works
+
+1. **Discovery**: Every 60s, scans `/home/sandboxer/git/*/\.sandboxer/crons.yaml`
+2. **Sync**: Parses YAML, updates database (add/update/remove jobs)
+3. **Scheduling**: Every 30s, checks for due jobs (`next_run <= now`)
+4. **Execution**: Creates tmux session, injects prompt/command via `send-keys`
+5. **Tracking**: Records execution in `cron_executions` table
+
+### Session Naming
+
+Cron sessions are named: `cron-{repo}-{name}-{HHMM}`
+
+### API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/crons` | List all crons with status |
+| POST | `/api/crons/{id}/trigger` | Manual trigger |
+| POST | `/api/crons/{id}/toggle` | Enable/disable |
+
+### Dependencies
+
+Requires `croniter` and `pyyaml`:
+```bash
+pip install croniter pyyaml
+```

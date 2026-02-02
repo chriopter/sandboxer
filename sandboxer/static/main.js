@@ -338,7 +338,7 @@ function onDirOrTypeChange() {
   // Filter visible sessions by selected folder
   filterSessionsByFolder(dir);
 
-  // Update sidebar list immediately
+  // Update sidebar list (includes crons)
   populateSidebar();
 
   // Save selected folder to server
@@ -525,7 +525,8 @@ function initSidebar() {
   if (saved === "closed" || (isMobile && saved !== "open")) {
     document.body.classList.add("sidebar-closed");
   }
-  populateSidebar();
+  // Load crons first, then populate sidebar (crons are shown in sidebar groups)
+  loadCrons().then(() => populateSidebar());
 }
 
 function populateSidebar() {
@@ -541,6 +542,7 @@ function populateSidebar() {
     bash: { label: "bash", color: "green", sessions: [] },
     gemini: { label: "gemini", color: "blue", sessions: [] },
     other: { label: "other", color: "overlay1", sessions: [] },
+    cron: { label: "cron", color: "yellow", sessions: [] },
   };
 
   cards.forEach(card => {
@@ -559,14 +561,31 @@ function populateSidebar() {
     else if (name.includes("-bash-") || name.startsWith("bash")) type = "bash";
     else if (name.includes("-lazygit-") || name.startsWith("lazygit")) type = "lazygit";
     else if (name.includes("-resume-") || name.startsWith("resume")) type = "claude"; // resume is claude
+    else if (name.startsWith("cron-")) type = "cron"; // cron sessions
 
     groups[type].sessions.push({ name, title, isChat });
+  });
+
+  // Add crons from cronsCache (filter by selected folder)
+  const selectedDir = getSelectedDir();
+  const filteredCrons = cronsCache.filter(cron => {
+    if (selectedDir === "/") return true;
+    return cron.repo_path === selectedDir || cron.repo_path.startsWith(selectedDir + "/");
+  });
+
+  filteredCrons.forEach(cron => {
+    groups.cron.sessions.push({
+      name: cron.id,
+      title: cron.name + (cron.enabled ? "" : " (off)"),
+      isCron: true,
+      cron: cron
+    });
   });
 
   list.innerHTML = "";
 
   // Load expanded state from localStorage
-  const expandedGroups = JSON.parse(localStorage.getItem("sandboxer_expanded_groups") || '["claude","lazygit","bash","gemini","other"]');
+  const expandedGroups = JSON.parse(localStorage.getItem("sandboxer_expanded_groups") || '["claude","lazygit","bash","gemini","other","cron"]');
 
   // Render each group with sessions
   Object.entries(groups).forEach(([type, group]) => {
@@ -597,18 +616,35 @@ function populateSidebar() {
     const ul = document.createElement("ul");
     ul.className = "group-sessions";
 
-    group.sessions.forEach(({ name, title, isChat }) => {
+    group.sessions.forEach(({ name, title, isChat, isCron, cron }) => {
       const li = document.createElement("li");
-      li.textContent = title;
-      li.title = name;
-      li.onclick = () => {
-        if (isChat || type === "chat") {
-          window.open("/chat?session=" + encodeURIComponent(name), "_blank");
-        } else {
-          window.open("/terminal?session=" + encodeURIComponent(name), "_blank");
-        }
-        toggleSidebar();
-      };
+
+      if (isCron) {
+        // Cron item with actions
+        li.className = cron.enabled ? "" : "disabled";
+        li.innerHTML = `
+          <span class="cron-name">${escapeHtml(title)}</span>
+          <span class="cron-next" style="color: var(--overlay1); font-size: 0.8em;">${cron.enabled ? (cron.next_run_display || '...') : ''}</span>
+          <span class="cron-actions">
+            <button class="cron-btn" onclick="event.stopPropagation(); triggerCron('${escapeHtml(cron.id)}')" title="Run now">▶</button>
+            <button class="cron-btn" onclick="event.stopPropagation(); toggleCron('${escapeHtml(cron.id)}')" title="${cron.enabled ? 'Disable' : 'Enable'}">${cron.enabled ? '●' : '○'}</button>
+          </span>
+        `;
+        li.style.display = "flex";
+        li.style.alignItems = "center";
+        li.style.gap = "0.5ch";
+      } else {
+        li.textContent = title;
+        li.title = name;
+        li.onclick = () => {
+          if (isChat || type === "chat") {
+            window.open("/chat?session=" + encodeURIComponent(name), "_blank");
+          } else {
+            window.open("/terminal?session=" + encodeURIComponent(name), "_blank");
+          }
+          toggleSidebar();
+        };
+      }
       ul.appendChild(li);
     });
 
@@ -891,6 +927,12 @@ function initDirDropdown() {
   updateStats();
   setInterval(updateStats, 5000);
 
+  // Refresh crons periodically (every 60 seconds)
+  setInterval(async () => {
+    await loadCrons();
+    populateSidebar();
+  }, 60000);
+
   // Prevent beforeunload dialogs
   window.onbeforeunload = null;
   window.addEventListener("beforeunload", (e) => {
@@ -904,6 +946,77 @@ function initDirDropdown() {
 
 function openFullscreen(sessionName) {
   window.open("/terminal?session=" + encodeURIComponent(sessionName), "_blank");
+}
+
+// ═══ Cronjobs ═══
+
+let cronsCache = [];
+
+async function loadCrons() {
+  try {
+    const res = await fetch("/api/crons");
+    const data = await res.json();
+    cronsCache = data.crons || [];
+  } catch (err) {
+    console.warn("Failed to load crons:", err);
+    cronsCache = [];
+  }
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+}
+
+async function triggerCron(cronId) {
+  try {
+    const res = await fetch("/api/crons/" + encodeURIComponent(cronId) + "/trigger", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}"
+    });
+    const data = await res.json();
+    if (data.ok) {
+      showToast("Cron triggered: " + cronId, "success");
+      // Reload sessions to show new cron session
+      setTimeout(cleanupAndReload, 1000);
+    } else {
+      showToast("Error: " + (data.error || "Failed to trigger"), "error");
+    }
+  } catch (err) {
+    showToast("Error triggering cron: " + err.message, "error");
+  }
+}
+
+async function toggleCron(cronId) {
+  try {
+    const res = await fetch("/api/crons/" + encodeURIComponent(cronId) + "/toggle", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}"
+    });
+    const data = await res.json();
+    if (data.ok) {
+      // Update cache and re-render sidebar
+      const cron = cronsCache.find(c => c.id === cronId);
+      if (cron) {
+        cron.enabled = data.enabled;
+        if (!data.enabled) {
+          cron.next_run_display = null;
+        }
+      }
+      populateSidebar();
+      showToast(data.enabled ? "Cron enabled" : "Cron disabled", "info");
+    } else {
+      showToast("Error: " + (data.error || "Failed to toggle"), "error");
+    }
+  } catch (err) {
+    showToast("Error toggling cron: " + err.message, "error");
+  }
 }
 
 function openChat(sessionName) {

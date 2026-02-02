@@ -20,6 +20,7 @@ from html import escape
 
 from . import sessions
 from . import db
+from . import crons
 
 PORT = 8081
 
@@ -522,6 +523,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_json({"messages": messages})
             return
 
+        if path == "/api/crons":
+            cron_list = crons.get_crons_for_ui()
+            self.send_json({"crons": cron_list})
+            return
+
         self.send_response(404)
         self.end_headers()
 
@@ -774,6 +780,26 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.send_json({"error": str(e)}, 500)
             return
 
+        if path.startswith("/api/crons/") and path.endswith("/trigger"):
+            cron_id = path[11:-8]  # Extract ID from /api/crons/{id}/trigger
+            cron_id = urllib.parse.unquote(cron_id)
+            success, message = crons.trigger_cron(cron_id)
+            if success:
+                self.send_json({"ok": True, "message": message})
+            else:
+                self.send_json({"error": message}, 404)
+            return
+
+        if path.startswith("/api/crons/") and path.endswith("/toggle"):
+            cron_id = path[11:-7]  # Extract ID from /api/crons/{id}/toggle
+            cron_id = urllib.parse.unquote(cron_id)
+            success, message, new_state = crons.toggle_cron(cron_id)
+            if success:
+                self.send_json({"ok": True, "message": message, "enabled": new_state})
+            else:
+                self.send_json({"error": message}, 404)
+            return
+
         self.send_response(404)
         self.end_headers()
 
@@ -816,6 +842,10 @@ def main():
     restored = sessions.restore_sessions()
     if restored:
         print(f"restored {restored} session(s) from last run")
+
+    # Start cron scheduler
+    crons.start_scheduler()
+
     watchdog_usec = os.environ.get("WATCHDOG_USEC")
     if watchdog_usec:
         interval = int(watchdog_usec) / 1_000_000 / 2

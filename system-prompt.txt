@@ -106,3 +106,47 @@ Tips:
 - Keep it focused - one feature/task per PROMPT.md
 
 After creating PROMPT.md, user starts a "claude loop" session from sandboxer.
+
+## Cronjobs
+
+Create scheduled tasks by adding `.sandboxer/crons.yaml` to any repo:
+
+```yaml
+crons:
+  - name: morning-review
+    schedule: "0 9 * * *"      # Standard cron syntax
+    type: claude               # claude | bash | loop
+    prompt: "Review recent commits and suggest improvements"
+    enabled: true              # Optional, defaults to true
+
+  - name: nightly-backup
+    schedule: "0 3 * * *"
+    type: bash
+    command: "./scripts/backup.sh"
+
+  - name: api-monitor
+    schedule: "*/15 * * * *"   # Every 15 minutes
+    type: claude
+    prompt: "The API health check failed. Investigate and fix the issue."
+    condition: "! curl -sf http://localhost:3000/health"  # Only run if health check fails
+```
+
+**Session types:**
+- `claude` - Start Claude session, inject prompt automatically
+- `bash` - Run shell command in tmux session
+- `loop` - Start claude-loop session with prompt
+
+**Condition scripts:** Add `condition` to only run the job when the script exits 0. This saves tokens by skipping the job when conditions aren't met.
+
+```yaml
+# Only run if there are uncommitted changes
+condition: "git status --porcelain | grep -q ."
+
+# Only run if API returns error
+condition: "! curl -sf http://api.example.com/health"
+
+# Only run if file exists
+condition: "test -f ./NEEDS_REVIEW"
+```
+
+Sandboxer auto-discovers these files and runs jobs on schedule. View and manage crons in the sidebar.

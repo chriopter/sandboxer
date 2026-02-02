@@ -331,6 +331,36 @@ def create_session(name: str, session_type: str = "claude", workdir: str = "/hom
     if session_type == "claude":
         cmd = f"IS_SANDBOX=1 claude --dangerously-skip-permissions --system-prompt {SYSTEM_PROMPT_PATH}"
         subprocess.run(["tmux", "send-keys", "-t", name, cmd, "Enter"], capture_output=True)
+    elif session_type == "cronjob":
+        # Start claude with cronjob creation prompt
+        cmd = f"IS_SANDBOX=1 claude --dangerously-skip-permissions --system-prompt {SYSTEM_PROMPT_PATH}"
+        subprocess.run(["tmux", "send-keys", "-t", name, cmd, "Enter"], capture_output=True)
+        # Wait for claude to start, then inject the cronjob creation prompt
+        import time
+        time.sleep(2)
+        cronjob_prompt = """Help me create a cronjob for Sandboxer. Interview me to understand what I need, then create the .sandboxer/crons.yaml file.
+
+Cronjob format:
+```yaml
+crons:
+  - name: task-name           # Unique name
+    schedule: "0 9 * * *"     # Cron syntax
+    type: claude|bash|loop    # Session type
+    prompt: "Task for claude" # For claude/loop
+    command: "./script.sh"    # For bash
+    condition: "./check.sh"   # Optional: only run if exits 0
+    enabled: true
+```
+
+The `condition` field is optional - if set, it runs the script first and only executes the job if it exits with code 0. This saves tokens when conditions aren't met.
+
+Ask me:
+1. What should this cronjob do?
+2. When should it run? (schedule)
+3. Should it be a claude session, bash script, or claude-loop?
+4. Does it need a condition check before running?"""
+        subprocess.run(["tmux", "send-keys", "-t", name, "-l", cronjob_prompt], capture_output=True)
+        subprocess.run(["tmux", "send-keys", "-t", name, "Enter"], capture_output=True)
     elif session_type == "resume":
         if resume_id:
             cmd = f"IS_SANDBOX=1 claude --dangerously-skip-permissions --resume {resume_id} --system-prompt {SYSTEM_PROMPT_PATH}"

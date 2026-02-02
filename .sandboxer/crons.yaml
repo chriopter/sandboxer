@@ -1,0 +1,17 @@
+# Example cron configuration for Sandboxer
+# This file demonstrates the cronjob feature
+
+crons:
+  # Test cron - runs in 2 minutes (disabled by default)
+  - name: test-echo
+    schedule: "*/5 * * * *"  # Every 5 minutes
+    type: bash
+    command: "echo 'Cron test: Hello from sandboxer cronjob!'"
+    enabled: false
+
+  # Example: Daily code review (disabled)
+  # Uncomment and set enabled: true to activate
+  # - name: morning-review
+  #   schedule: "0 9 * * *"
+  #   type: claude
+  #   prompt: "Review recent commits in this repo and suggest improvements"
