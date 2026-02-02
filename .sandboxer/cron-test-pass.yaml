@@ -1,0 +1,6 @@
+# Example: condition PASSES - job runs
+schedule: "0 9 * * *"
+type: claude
+prompt: "Hello! Condition passed. Just say hi."
+condition: "true"
+enabled: false

@@ -130,23 +130,22 @@ Detach: `Ctrl-B d` | Switch: `Ctrl-B s`
 
 ## Cronjobs
 
-Scheduled tasks defined in `.sandboxer/crons.yaml` files. Sandboxer auto-discovers and executes them.
+Scheduled tasks defined as `.sandboxer/cron-{name}.yaml` files. Sandboxer auto-discovers and executes them.
 
 ### Quick Start
 
 1. Select "cronjob" from session type dropdown - launches Claude to help create one
-2. Or manually create `.sandboxer/crons.yaml` in any repo
+2. Or manually create `.sandboxer/cron-{name}.yaml` in any repo
 
 ### Config Format
 
+**File:** `.sandboxer/cron-morning-review.yaml`
 ```yaml
-crons:
-  - name: morning-review
-    schedule: "0 9 * * *"      # Standard cron syntax
-    type: claude               # claude | bash | loop
-    prompt: "Review recent commits"
-    condition: "./check.sh"    # Optional: only run if exits 0
-    enabled: true
+schedule: "0 9 * * *"      # Standard cron syntax
+type: claude               # claude | bash | loop
+prompt: "Review recent commits"
+condition: "./check.sh"    # Optional: only run if exits 0
+enabled: true
 ```
 
 ### Condition Scripts
@@ -163,7 +162,7 @@ condition: "git status --porcelain | grep -q ."
 
 ### Sidebar
 
-Crons appear in sidebar under "cron" group. Click to edit the crons.yaml file.
+Crons appear in sidebar under "cron" group. Click to edit the cron file.
 
 ## WebTUI Usage Rules
 

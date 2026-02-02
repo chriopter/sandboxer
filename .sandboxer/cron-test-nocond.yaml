@@ -1,0 +1,5 @@
+# Example: no condition - always runs on schedule
+schedule: "0 9 * * *"
+type: claude
+prompt: "Hello! No condition. Just say hi."
+enabled: false

@@ -622,9 +622,9 @@ function populateSidebar() {
       li.title = name;
 
       if (isCron) {
-        // Clicking cron opens nano to edit the crons.yaml
+        // Clicking cron opens nano to edit the cron file
         li.onclick = () => {
-          openCronEditor(cron.repo_path);
+          openCronEditor(cron.repo_path, cron.name);
           toggleSidebar();
         };
       } else {

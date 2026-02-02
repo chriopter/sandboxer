@@ -1,0 +1,6 @@
+# Example: condition FAILS - job is skipped
+schedule: "0 9 * * *"
+type: claude
+prompt: "This should NOT run"
+condition: "test -f /tmp/this-file-does-not-exist"
+enabled: false
