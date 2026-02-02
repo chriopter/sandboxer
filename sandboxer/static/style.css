@@ -291,6 +291,18 @@ select-dropdown column button[aria-selected="true"] {
   font-weight: 600;
 }
 
+/* Cron child sessions - indented under parent cron job */
+.group-sessions li.cron-child {
+  padding-left: 2ch;
+  font-size: 0.9em;
+  color: var(--overlay1);
+}
+
+.group-sessions li.cron-child::before {
+  content: ""; /* Remove default tree character, we add └ in JS */
+  color: var(--surface2);
+}
+
 .sidebar-empty {
   padding: 1lh 1ch;
   text-align: center;

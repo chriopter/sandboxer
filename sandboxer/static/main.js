@@ -545,6 +545,9 @@ function populateSidebar() {
     cron: { label: "cron", color: "yellow", sessions: [] },
   };
 
+  // Collect cron-created sessions separately to attach as children
+  const cronSessions = [];
+
   cards.forEach(card => {
     if (card.style.display === "none") return;
 
@@ -561,7 +564,11 @@ function populateSidebar() {
     else if (name.includes("-bash-") || name.startsWith("bash")) type = "bash";
     else if (name.includes("-lazygit-") || name.startsWith("lazygit")) type = "lazygit";
     else if (name.includes("-resume-") || name.startsWith("resume")) type = "claude"; // resume is claude
-    else if (name.startsWith("cron-")) type = "cron"; // cron sessions
+    else if (name.startsWith("cron-")) {
+      // Collect cron sessions to attach as children later
+      cronSessions.push({ name, title, isChat });
+      return; // Don't add to groups yet
+    }
 
     groups[type].sessions.push({ name, title, isChat });
   });
@@ -574,11 +581,18 @@ function populateSidebar() {
   });
 
   filteredCrons.forEach(cron => {
+    // Find child sessions for this cron
+    // Session naming: cron-{repo}-{cronName}-{timestamp}
+    const repoName = cron.repo_path.split("/").pop();
+    const prefix = `cron-${repoName}-${cron.name}-`;
+    const children = cronSessions.filter(s => s.name.startsWith(prefix));
+
     groups.cron.sessions.push({
       name: cron.id,
       title: cron.name + (cron.enabled ? "" : " (off)"),
       isCron: true,
-      cron: cron
+      cron: cron,
+      children: children
     });
   });
 
@@ -616,7 +630,7 @@ function populateSidebar() {
     const ul = document.createElement("ul");
     ul.className = "group-sessions";
 
-    group.sessions.forEach(({ name, title, isChat, isCron, cron }) => {
+    group.sessions.forEach(({ name, title, isChat, isCron, cron, children }) => {
       const li = document.createElement("li");
       li.textContent = title;
       li.title = name;
@@ -627,6 +641,25 @@ function populateSidebar() {
           openCronEditor(cron.repo_path, cron.name);
           toggleSidebar();
         };
+
+        ul.appendChild(li);
+
+        // Add child sessions indented under the cron
+        if (children && children.length > 0) {
+          children.forEach(child => {
+            const childLi = document.createElement("li");
+            childLi.className = "cron-child";
+            // Show just the timestamp part for brevity
+            const timestamp = child.name.split("-").pop();
+            childLi.textContent = "└ " + timestamp;
+            childLi.title = child.name;
+            childLi.onclick = () => {
+              window.open("/terminal?session=" + encodeURIComponent(child.name), "_blank");
+              toggleSidebar();
+            };
+            ul.appendChild(childLi);
+          });
+        }
       } else {
         li.onclick = () => {
           if (isChat || type === "chat") {
@@ -636,8 +669,8 @@ function populateSidebar() {
           }
           toggleSidebar();
         };
+        ul.appendChild(li);
       }
-      ul.appendChild(li);
     });
 
     details.appendChild(ul);
