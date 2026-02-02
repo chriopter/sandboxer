@@ -1461,3 +1461,103 @@ button:active {
   }
 }
 
+
+/* ═══ Keyboard Navigation ═══ */
+
+/* Focus indicators */
+.card.keyboard-focus {
+  outline: 2px solid var(--mauve);
+  outline-offset: 2px;
+}
+
+#sidebarList .keyboard-focus {
+  background: var(--surface0);
+  color: var(--text);
+}
+
+.sidebar.has-keyboard-focus {
+  border-right-color: var(--mauve);
+}
+
+.grid.has-keyboard-focus {
+  outline: 1px dashed var(--surface2);
+  outline-offset: -1px;
+}
+
+/* Keyboard help modal */
+.keyboard-help {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.keyboard-help-content {
+  background: var(--base);
+  padding: 1.5rem;
+  max-width: 700px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.keyboard-help-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--surface0);
+}
+
+.keyboard-help-header h3 {
+  margin: 0;
+  color: var(--mauve);
+}
+
+.keyboard-help-sections {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1.5rem;
+}
+
+.keyboard-help-section h4 {
+  margin: 0 0 0.5rem 0;
+  color: var(--lavender);
+  font-size: 0.9em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.keyboard-help-section dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 1rem;
+  margin: 0;
+}
+
+.keyboard-help-section dt {
+  font-family: monospace;
+  background: var(--surface0);
+  padding: 0.1em 0.4em;
+  border-radius: 3px;
+  color: var(--peach);
+  font-size: 0.85em;
+  text-align: center;
+}
+
+.keyboard-help-section dd {
+  margin: 0;
+  color: var(--subtext1);
+  font-size: 0.9em;
+  line-height: 1.6;
+}
+
+@media (max-width: 600px) {
+  .keyboard-help-sections {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1328,3 +1328,413 @@ document.addEventListener('change', (e) => {
   input.value = ''; // Reset for next upload
 });
 
+// ═══ Keyboard Navigation ═══
+
+let focusedCardIndex = -1;
+let focusedSidebarItem = null;
+let keyboardHelpVisible = false;
+
+function getVisibleCards() {
+  return [...document.querySelectorAll(".card")].filter(c => c.style.display !== "none");
+}
+
+function focusCard(index) {
+  const cards = getVisibleCards();
+  if (cards.length === 0) return;
+
+  // Remove previous focus
+  document.querySelectorAll(".card.keyboard-focus").forEach(c => c.classList.remove("keyboard-focus"));
+
+  // Clamp index
+  focusedCardIndex = Math.max(0, Math.min(index, cards.length - 1));
+  const card = cards[focusedCardIndex];
+  card.classList.add("keyboard-focus");
+  card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function moveFocusInGrid(direction) {
+  const cards = getVisibleCards();
+  if (cards.length === 0) return;
+
+  // Get current grid columns from CSS
+  const grid = document.querySelector(".grid");
+  const gridStyle = getComputedStyle(grid);
+  const cols = gridStyle.gridTemplateColumns.split(" ").length || 2;
+
+  if (focusedCardIndex < 0) {
+    focusCard(0);
+    return;
+  }
+
+  let newIndex = focusedCardIndex;
+  switch (direction) {
+    case "up": newIndex = Math.max(0, focusedCardIndex - cols); break;
+    case "down": newIndex = Math.min(cards.length - 1, focusedCardIndex + cols); break;
+    case "left": newIndex = Math.max(0, focusedCardIndex - 1); break;
+    case "right": newIndex = Math.min(cards.length - 1, focusedCardIndex + 1); break;
+  }
+  focusCard(newIndex);
+}
+
+function getFocusedCard() {
+  const cards = getVisibleCards();
+  if (focusedCardIndex >= 0 && focusedCardIndex < cards.length) {
+    return cards[focusedCardIndex];
+  }
+  return null;
+}
+
+function getSidebarItems() {
+  // Get all focusable sidebar items: folder summaries and session list items
+  const items = [];
+  document.querySelectorAll("#sidebarList .sidebar-folder").forEach(folder => {
+    items.push({ type: "folder", element: folder.querySelector("summary"), folder });
+    if (folder.open) {
+      folder.querySelectorAll(".sidebar-type").forEach(typeGroup => {
+        items.push({ type: "type", element: typeGroup.querySelector("summary"), typeGroup });
+        if (typeGroup.open) {
+          typeGroup.querySelectorAll(".type-sessions li").forEach(li => {
+            items.push({ type: "session", element: li });
+          });
+        }
+      });
+    }
+  });
+  return items;
+}
+
+function focusSidebarItem(index) {
+  const items = getSidebarItems();
+  if (items.length === 0) return;
+
+  // Remove previous focus
+  document.querySelectorAll("#sidebarList .keyboard-focus").forEach(el => el.classList.remove("keyboard-focus"));
+
+  // Clamp index
+  const newIndex = Math.max(0, Math.min(index, items.length - 1));
+  focusedSidebarItem = newIndex;
+
+  const item = items[newIndex];
+  item.element.classList.add("keyboard-focus");
+  item.element.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function moveSidebarFocus(direction) {
+  const items = getSidebarItems();
+  if (items.length === 0) return;
+
+  if (focusedSidebarItem === null) {
+    focusSidebarItem(0);
+    return;
+  }
+
+  let newIndex = focusedSidebarItem;
+  if (direction === "up") newIndex = Math.max(0, focusedSidebarItem - 1);
+  else if (direction === "down") newIndex = Math.min(items.length - 1, focusedSidebarItem + 1);
+
+  focusSidebarItem(newIndex);
+}
+
+function activateSidebarItem() {
+  const items = getSidebarItems();
+  if (focusedSidebarItem === null || focusedSidebarItem >= items.length) return;
+
+  const item = items[focusedSidebarItem];
+  if (item.type === "folder") {
+    item.folder.open = !item.folder.open;
+    // Re-focus after toggle (item list changed)
+    setTimeout(() => focusSidebarItem(focusedSidebarItem), 10);
+  } else if (item.type === "type") {
+    item.typeGroup.open = !item.typeGroup.open;
+    setTimeout(() => focusSidebarItem(focusedSidebarItem), 10);
+  } else if (item.type === "session") {
+    item.element.click();
+  }
+}
+
+function collapseSidebarItem() {
+  const items = getSidebarItems();
+  if (focusedSidebarItem === null || focusedSidebarItem >= items.length) return;
+
+  const item = items[focusedSidebarItem];
+  if (item.type === "folder" && item.folder.open) {
+    item.folder.open = false;
+  } else if (item.type === "type" && item.typeGroup.open) {
+    item.typeGroup.open = false;
+  }
+  setTimeout(() => focusSidebarItem(focusedSidebarItem), 10);
+}
+
+function expandSidebarItem() {
+  const items = getSidebarItems();
+  if (focusedSidebarItem === null || focusedSidebarItem >= items.length) return;
+
+  const item = items[focusedSidebarItem];
+  if (item.type === "folder" && !item.folder.open) {
+    item.folder.open = true;
+  } else if (item.type === "type" && !item.typeGroup.open) {
+    item.typeGroup.open = true;
+  }
+  setTimeout(() => focusSidebarItem(focusedSidebarItem), 10);
+}
+
+function showKeyboardHelp() {
+  // Remove existing help
+  const existing = document.getElementById("keyboard-help");
+  if (existing) {
+    existing.remove();
+    keyboardHelpVisible = false;
+    return;
+  }
+
+  keyboardHelpVisible = true;
+  const help = document.createElement("div");
+  help.id = "keyboard-help";
+  help.className = "keyboard-help";
+  help.innerHTML = `
+    <div class="keyboard-help-content" box-="round">
+      <div class="keyboard-help-header">
+        <h3>Keyboard Shortcuts</h3>
+        <button onclick="document.getElementById('keyboard-help').remove()" size-="small">×</button>
+      </div>
+      <div class="keyboard-help-sections">
+        <div class="keyboard-help-section">
+          <h4>Global</h4>
+          <dl>
+            <dt>?</dt><dd>Toggle this help</dd>
+            <dt>n</dt><dd>New session</dd>
+            <dt>s</dt><dd>Focus sidebar</dd>
+            <dt>g</dt><dd>Focus grid</dd>
+            <dt>Esc</dt><dd>Clear focus / close</dd>
+            <dt>1-9</dt><dd>Open card by number</dd>
+          </dl>
+        </div>
+        <div class="keyboard-help-section">
+          <h4>Grid Navigation</h4>
+          <dl>
+            <dt>↑/k</dt><dd>Move up</dd>
+            <dt>↓/j</dt><dd>Move down</dd>
+            <dt>←/h</dt><dd>Move left</dd>
+            <dt>→/l</dt><dd>Move right</dd>
+            <dt>Enter/o</dt><dd>Open session</dd>
+            <dt>x</dt><dd>Kill session</dd>
+            <dt>c</dt><dd>Copy SSH command</dd>
+          </dl>
+        </div>
+        <div class="keyboard-help-section">
+          <h4>Sidebar Navigation</h4>
+          <dl>
+            <dt>↑/k</dt><dd>Move up</dd>
+            <dt>↓/j</dt><dd>Move down</dd>
+            <dt>←/h</dt><dd>Collapse</dd>
+            <dt>→/l</dt><dd>Expand</dd>
+            <dt>Enter</dt><dd>Toggle/Open</dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(help);
+}
+
+// Track which area has focus
+let focusArea = null; // "grid" | "sidebar" | null
+
+function setFocusArea(area) {
+  focusArea = area;
+  document.body.dataset.focusArea = area || "";
+
+  // Visual feedback
+  document.getElementById("sidebar")?.classList.toggle("has-keyboard-focus", area === "sidebar");
+  document.querySelector(".grid")?.classList.toggle("has-keyboard-focus", area === "grid");
+
+  // Initialize focus if needed
+  if (area === "grid" && focusedCardIndex < 0) {
+    focusCard(0);
+  } else if (area === "sidebar" && focusedSidebarItem === null) {
+    focusSidebarItem(0);
+  }
+}
+
+function clearFocus() {
+  focusArea = null;
+  focusedCardIndex = -1;
+  focusedSidebarItem = null;
+  document.body.dataset.focusArea = "";
+  document.querySelectorAll(".keyboard-focus").forEach(el => el.classList.remove("keyboard-focus"));
+  document.getElementById("sidebar")?.classList.remove("has-keyboard-focus");
+  document.querySelector(".grid")?.classList.remove("has-keyboard-focus");
+}
+
+// Main keyboard handler
+document.addEventListener("keydown", (e) => {
+  // Ignore if typing in input/textarea
+  if (e.target.matches("input, textarea, [contenteditable]")) return;
+
+  // Ignore if modal is open (except Escape)
+  const modal = document.getElementById("modal");
+  if (modal?.classList.contains("show") && e.key !== "Escape") return;
+
+  const key = e.key.toLowerCase();
+
+  // Global shortcuts
+  switch (key) {
+    case "?":
+      e.preventDefault();
+      showKeyboardHelp();
+      return;
+
+    case "escape":
+      e.preventDefault();
+      if (keyboardHelpVisible) {
+        document.getElementById("keyboard-help")?.remove();
+        keyboardHelpVisible = false;
+      } else if (modal?.classList.contains("show")) {
+        hideModal();
+      } else {
+        clearFocus();
+      }
+      return;
+
+    case "n":
+      if (!e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        createSession();
+      }
+      return;
+
+    case "s":
+      if (!e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        setFocusArea("sidebar");
+        // Open sidebar if closed
+        if (document.body.classList.contains("sidebar-closed")) {
+          toggleSidebar();
+        }
+      }
+      return;
+
+    case "g":
+      if (!e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        setFocusArea("grid");
+      }
+      return;
+  }
+
+  // Number keys 1-9: open card by position
+  if (/^[1-9]$/.test(key) && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    e.preventDefault();
+    const cards = getVisibleCards();
+    const index = parseInt(key) - 1;
+    if (index < cards.length) {
+      const sessionName = cards[index].dataset.session;
+      if (sessionName) {
+        openFullscreen(sessionName);
+      }
+    }
+    return;
+  }
+
+  // Area-specific navigation
+  if (focusArea === "grid") {
+    handleGridKeyboard(e, key);
+  } else if (focusArea === "sidebar") {
+    handleSidebarKeyboard(e, key);
+  }
+});
+
+function handleGridKeyboard(e, key) {
+  switch (key) {
+    case "arrowup":
+    case "k":
+      e.preventDefault();
+      moveFocusInGrid("up");
+      break;
+
+    case "arrowdown":
+    case "j":
+      e.preventDefault();
+      moveFocusInGrid("down");
+      break;
+
+    case "arrowleft":
+    case "h":
+      e.preventDefault();
+      moveFocusInGrid("left");
+      break;
+
+    case "arrowright":
+    case "l":
+      e.preventDefault();
+      moveFocusInGrid("right");
+      break;
+
+    case "enter":
+    case "o":
+      e.preventDefault();
+      const card = getFocusedCard();
+      if (card) {
+        const sessionName = card.dataset.session;
+        if (card.classList.contains("card-chat")) {
+          openChat(sessionName);
+        } else {
+          openFullscreen(sessionName);
+        }
+      }
+      break;
+
+    case "x":
+      e.preventDefault();
+      const cardToKill = getFocusedCard();
+      if (cardToKill) {
+        const killBtn = cardToKill.querySelector(".card-kill");
+        if (killBtn) killBtn.click();
+      }
+      break;
+
+    case "c":
+      e.preventDefault();
+      const cardToCopy = getFocusedCard();
+      if (cardToCopy) {
+        const sessionName = cardToCopy.dataset.session;
+        if (sessionName) copySSH(sessionName);
+      }
+      break;
+  }
+}
+
+function handleSidebarKeyboard(e, key) {
+  switch (key) {
+    case "arrowup":
+    case "k":
+      e.preventDefault();
+      moveSidebarFocus("up");
+      break;
+
+    case "arrowdown":
+    case "j":
+      e.preventDefault();
+      moveSidebarFocus("down");
+      break;
+
+    case "arrowleft":
+    case "h":
+      e.preventDefault();
+      collapseSidebarItem();
+      break;
+
+    case "arrowright":
+    case "l":
+      e.preventDefault();
+      expandSidebarItem();
+      break;
+
+    case "enter":
+    case " ":
+      e.preventDefault();
+      activateSidebarItem();
+      break;
+  }
+}
+
