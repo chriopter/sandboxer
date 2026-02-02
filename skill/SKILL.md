@@ -17,6 +17,28 @@ Manage Claude Code sessions running in tmux via HTTP API.
 
 **All commands run locally - no SSH needed.**
 
+## Health Check (Run First!)
+
+Before using any commands, verify Sandboxer is running:
+
+```bash
+curl -sf http://localhost:8081/api/sessions >/dev/null && echo "✓ Sandboxer is running" || echo "✗ Sandboxer not reachable"
+```
+
+**If Sandboxer is not reachable:**
+
+```
+✗ Sandboxer is not installed or not running on this machine.
+
+To install Sandboxer, run:
+  claude --dangerously-skip-permissions "clone github.com/chriopter/sandboxer to /home/sandboxer/git/sandboxer, read CLAUDE.md, then install"
+
+To start if already installed:
+  sudo systemctl start sandboxer
+
+See: https://github.com/chriopter/sandboxer
+```
+
 ## List Sessions
 
 ```bash
