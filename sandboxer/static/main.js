@@ -704,7 +704,7 @@ function populateSidebar() {
       const typeDetails = document.createElement("details");
       typeDetails.className = "sidebar-type";
       typeDetails.dataset.type = type;
-      typeDetails.open = true; // Types always expanded within open folder
+      typeDetails.open = type !== "cron"; // Cron collapsed by default
 
       const typeSummary = document.createElement("summary");
       typeSummary.innerHTML = `<span class="type-label" style="color: var(--${info.color})">${info.label}</span>`;
