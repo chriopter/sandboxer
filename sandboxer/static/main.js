@@ -857,20 +857,34 @@ function updateTerminalScales() {
 
 // Debounced version for resize events
 let scaleTimeout;
+let lastResizeTime = 0;
 function debouncedUpdateScales() {
+  // Throttle: ignore rapid consecutive calls
+  const now = Date.now();
+  if (now - lastResizeTime < 50) return;
+  lastResizeTime = now;
+
   clearTimeout(scaleTimeout);
-  scaleTimeout = setTimeout(updateTerminalScales, 100);
+  scaleTimeout = setTimeout(updateTerminalScales, 150);
 }
 
 // Use ResizeObserver to detect when cards/terminals resize
-const cardResizeObserver = new ResizeObserver(debouncedUpdateScales);
+// Only observe cards, not individual terminals (reduces callback frequency)
+const cardResizeObserver = new ResizeObserver((entries) => {
+  // Only trigger if width actually changed (not just content scroll)
+  for (const entry of entries) {
+    const { width } = entry.contentRect;
+    const lastWidth = entry.target._lastObservedWidth || 0;
+    if (Math.abs(width - lastWidth) > 5) {
+      entry.target._lastObservedWidth = width;
+      debouncedUpdateScales();
+      break; // Only need to trigger once
+    }
+  }
+});
+
 function observeCardResize(card) {
   cardResizeObserver.observe(card);
-  // Also observe the terminal container directly
-  const terminal = card.querySelector('.terminal');
-  if (terminal) {
-    cardResizeObserver.observe(terminal);
-  }
 }
 
 // ═══ View & Zoom Dropdowns ═══
@@ -1502,6 +1516,7 @@ function showKeyboardHelp() {
           <h4>Global</h4>
           <dl>
             <dt>?</dt><dd>Toggle this help</dd>
+            <dt>Tab</dt><dd>Cycle focus areas</dd>
             <dt>n</dt><dd>New session</dd>
             <dt>s</dt><dd>Focus sidebar</dd>
             <dt>g</dt><dd>Focus grid</dd>
@@ -1568,14 +1583,39 @@ function clearFocus() {
 
 // Main keyboard handler
 document.addEventListener("keydown", (e) => {
-  // Ignore if typing in input/textarea
-  if (e.target.matches("input, textarea, [contenteditable]")) return;
+  // Ignore if typing in input/textarea or iframe has focus
+  if (e.target.matches("input, textarea, [contenteditable], iframe")) return;
+  // Also ignore if active element is inside the grid cards (clicking on terminal preview)
+  if (document.activeElement?.closest(".card .terminal")) return;
 
   // Ignore if modal is open (except Escape)
   const modal = document.getElementById("modal");
   if (modal?.classList.contains("show") && e.key !== "Escape") return;
 
   const key = e.key.toLowerCase();
+
+  // Tab key: cycle between sidebar and grid
+  if (key === "tab") {
+    e.preventDefault();
+    if (e.shiftKey) {
+      // Shift+Tab: reverse cycle
+      if (focusArea === "grid") {
+        setFocusArea("sidebar");
+        if (document.body.classList.contains("sidebar-closed")) toggleSidebar();
+      } else {
+        setFocusArea("grid");
+      }
+    } else {
+      // Tab: forward cycle
+      if (focusArea === "sidebar") {
+        setFocusArea("grid");
+      } else {
+        setFocusArea("sidebar");
+        if (document.body.classList.contains("sidebar-closed")) toggleSidebar();
+      }
+    }
+    return;
+  }
 
   // Global shortcuts
   switch (key) {
