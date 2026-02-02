@@ -51,7 +51,6 @@ body.sidebar-closed .sidebar {
 body.sidebar-closed .sidebar-row select-dropdown,
 body.sidebar-closed .sidebar-row .new-btn,
 body.sidebar-closed .sidebar-row #resumeWrap,
-body.sidebar-closed .sidebar-new-row,
 body.sidebar-closed .sidebar-list,
 body.sidebar-closed .sidebar-bottom {
   display: none;
@@ -88,7 +87,7 @@ body.sidebar-closed main {
 
 .sidebar-row select-dropdown {
   flex: 1;
-  min-width: 10ch;
+  min-width: 0;
 }
 
 .sidebar-row select-dropdown summary {
@@ -221,16 +220,81 @@ select-dropdown column button[aria-selected="true"] {
   padding: 1lh 1ch;
 }
 
-/* Grouped sidebar navigation - WebTUI docs style */
-.sidebar-group {
-  margin-top: 1lh;
+/* Folder tree navigation - folders > types > sessions */
+.sidebar-folder {
+  margin-top: 0.5lh;
 }
 
-.sidebar-group:first-child {
+.sidebar-folder:first-child {
   margin-top: 0;
 }
 
-.sidebar-group summary {
+.sidebar-folder > summary {
+  display: block;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  line-height: 1lh;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.sidebar-folder > summary::-webkit-details-marker,
+.sidebar-type > summary::-webkit-details-marker {
+  display: none;
+}
+
+.sidebar-folder > summary::marker,
+.sidebar-type > summary::marker {
+  content: "";
+}
+
+.sidebar-folder > summary::before {
+  content: "▾ ";
+  color: var(--overlay1);
+}
+
+.sidebar-folder:not([open]) > summary::before {
+  content: "▸ ";
+}
+
+.folder-label {
+  color: var(--lavender);
+}
+
+.folder-count {
+  color: var(--overlay1);
+  font-weight: normal;
+  font-size: 0.9em;
+}
+
+/* Collapsed folders are dimmed */
+.sidebar-folder:not([open]) > summary {
+  font-weight: normal;
+  color: var(--overlay1);
+}
+
+.sidebar-folder:not([open]) .folder-label,
+.sidebar-folder:not([open]) .folder-count {
+  color: var(--overlay1);
+}
+
+.sidebar-folder:not([open]) > summary:hover {
+  color: var(--subtext0);
+}
+
+.sidebar-folder:not([open]) > summary:hover .folder-label,
+.sidebar-folder:not([open]) > summary:hover .folder-count {
+  color: var(--subtext0);
+}
+
+/* Type groups inside folders */
+.sidebar-type {
+  margin-left: 1ch;
+  margin-top: 0.25lh;
+}
+
+.sidebar-type > summary {
   display: block;
   cursor: pointer;
   list-style: none;
@@ -239,30 +303,24 @@ select-dropdown column button[aria-selected="true"] {
   color: var(--subtext0);
 }
 
-.sidebar-group summary::-webkit-details-marker {
-  display: none;
+.sidebar-type > summary::before {
+  content: "▾ ";
+  color: var(--surface2);
 }
 
-.sidebar-group summary::marker {
-  content: "";
+.sidebar-type:not([open]) > summary::before {
+  content: "▸ ";
 }
 
-.sidebar-group summary::before {
-  content: "v ";
-  color: var(--overlay1);
-}
-
-.sidebar-group:not([open]) summary::before {
-  content: "> ";
-}
-
-.group-sessions {
+/* Session list inside type */
+.type-sessions {
   list-style: none;
   margin: 0;
   padding: 0;
+  margin-left: 1ch;
 }
 
-.group-sessions li {
+.type-sessions li {
   cursor: pointer;
   color: var(--subtext0);
   white-space: nowrap;
@@ -271,35 +329,35 @@ select-dropdown column button[aria-selected="true"] {
   line-height: 1lh;
 }
 
-.group-sessions li::before {
+.type-sessions li::before {
   content: "├ ";
-  color: var(--overlay1);
+  color: var(--surface2);
 }
 
-.group-sessions li:last-child::before {
+.type-sessions li:last-child::before {
   content: "└ ";
 }
 
-.group-sessions li:hover {
+.type-sessions li:hover {
   color: var(--text);
   background: var(--surface0);
 }
 
-.group-sessions li.active {
+.type-sessions li.active {
   color: var(--text);
   text-decoration: underline;
   font-weight: 600;
 }
 
 /* Cron child sessions - indented under parent cron job */
-.group-sessions li.cron-child {
+.type-sessions li.cron-child {
   padding-left: 2ch;
   font-size: 0.9em;
   color: var(--overlay1);
 }
 
-.group-sessions li.cron-child::before {
-  content: ""; /* Remove default tree character, we add └ in JS */
+.type-sessions li.cron-child::before {
+  content: "";
   color: var(--surface2);
 }
 
@@ -324,22 +382,6 @@ select-dropdown column button[aria-selected="true"] {
   display: none !important;
 }
 
-.sidebar-new-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5ch;
-  padding: 0.5ch 0.8ch;
-  border-bottom: 1px solid var(--surface0);
-}
-
-.sidebar-new-row > select-dropdown:first-child {
-  flex: 1;
-  min-width: 0;
-}
-
-.sidebar-new-row .new-btn {
-  flex-shrink: 0;
-}
 
 .sidebar-actions {
   display: flex;
@@ -567,16 +609,17 @@ select-dropdown column button[aria-selected="true"] {
     overflow-y: auto;
   }
 
-  /* Mobile grouped navigation */
-  .sidebar-group {
-    margin-top: 1.2lh;
+  /* Mobile tree navigation */
+  .sidebar-folder {
+    margin-top: 0.8lh;
   }
 
-  .sidebar-group summary {
+  .sidebar-folder > summary,
+  .sidebar-type > summary {
     line-height: 1.2lh;
   }
 
-  .group-sessions li {
+  .type-sessions li {
     line-height: 1.2lh;
   }
 

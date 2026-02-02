@@ -245,10 +245,12 @@ def build_dir_options(selected_folder: str | None = None) -> str:
     dirs = sessions.get_directories()
     selected = selected_folder or get_selected_folder()
 
-    # Count sessions per folder
+    # Count sessions per folder (only AI sessions: claude/gemini/chat/loop/resume/cronjob, not lazygit/bash)
     folder_counts = {}
-    for workdir in sessions.session_workdirs.values():
-        folder_counts[workdir] = folder_counts.get(workdir, 0) + 1
+    ai_markers = ("-claude-", "-gemini-", "-chat-", "-loop-", "-resume-", "-cronjob-")
+    for name, workdir in sessions.session_workdirs.items():
+        if any(m in name for m in ai_markers):
+            folder_counts[workdir] = folder_counts.get(workdir, 0) + 1
 
     buttons = []
     for d in dirs:
@@ -269,7 +271,10 @@ def get_folder_display_name(folder: str, max_len: int = 10, include_count: bool 
         name = name[:max_len-1] + "…"
 
     if include_count:
-        count = sum(1 for w in sessions.session_workdirs.values() if w == folder)
+        # Only count AI sessions: claude/gemini/chat/loop/resume/cronjob, not lazygit/bash
+        ai_markers = ("-claude-", "-gemini-", "-chat-", "-loop-", "-resume-", "-cronjob-")
+        count = sum(1 for n, w in sessions.session_workdirs.items()
+                    if w == folder and any(m in n for m in ai_markers))
         if count > 0:
             name = f"{name} ({count})"
 
@@ -390,9 +395,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             html = render_template(
                 "index.html",
                 cards=build_session_cards(ordered),
-                dir_options=build_dir_options(selected_folder),
                 selected_folder=selected_folder,
-                selected_folder_name=get_folder_display_name(selected_folder, include_count=True),
                 system_prompt_path=sessions.SYSTEM_PROMPT_PATH,
             )
             self.send_html(html)

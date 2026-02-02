@@ -67,8 +67,30 @@ customElements.define("select-dropdown", SelectDropdown);
 // ═══ Dropdown Helpers ═══
 
 function getSelectedDir() {
-  const el = document.getElementById("dirSelect");
-  return el?.value || "/";
+  const list = document.getElementById("sidebarList");
+  return list?.dataset.selectedFolder || "/";
+}
+
+function setSelectedDir(folder) {
+  const list = document.getElementById("sidebarList");
+  if (list) list.dataset.selectedFolder = folder;
+}
+
+function switchToFolder(folder) {
+  // Update stored selection
+  setSelectedDir(folder);
+
+  // Filter visible sessions
+  filterSessionsByFolder(folder);
+
+  // Handle resume type
+  const type = getSelectedType();
+  if (type === "resume") {
+    loadResumeSessions(folder);
+  }
+
+  // Save to server and update URL
+  saveSelectedFolder(folder);
 }
 
 function getSelectedType() {
@@ -323,7 +345,7 @@ async function loadResumeSessions(dir) {
   }
 }
 
-function onDirOrTypeChange() {
+function onTypeChange() {
   const type = getSelectedType();
   const dir = getSelectedDir();
   const resumeWrap = document.getElementById("resumeWrap");
@@ -334,15 +356,6 @@ function onDirOrTypeChange() {
   } else {
     resumeWrap.classList.remove("show");
   }
-
-  // Filter visible sessions by selected folder
-  filterSessionsByFolder(dir);
-
-  // Update sidebar list (includes crons)
-  populateSidebar();
-
-  // Save selected folder to server
-  saveSelectedFolder(dir);
 }
 
 async function saveSelectedFolder(folder) {
@@ -533,27 +546,28 @@ function populateSidebar() {
   const list = document.getElementById("sidebarList");
   const cards = document.querySelectorAll(".card");
 
-  // Group sessions by type
-  const groups = {
-    chat: { label: "chat", color: "lavender", sessions: [] },
-    claude: { label: "claude", color: "mauve", sessions: [] },
-    loop: { label: "loop", color: "pink", sessions: [] },
-    lazygit: { label: "lazygit", color: "peach", sessions: [] },
-    bash: { label: "bash", color: "green", sessions: [] },
-    gemini: { label: "gemini", color: "blue", sessions: [] },
-    other: { label: "other", color: "overlay1", sessions: [] },
-    cron: { label: "cron", color: "yellow", sessions: [] },
+  // Type metadata
+  const typeInfo = {
+    chat: { label: "chat", color: "lavender" },
+    claude: { label: "claude", color: "mauve" },
+    loop: { label: "loop", color: "pink" },
+    lazygit: { label: "lazygit", color: "peach" },
+    bash: { label: "bash", color: "green" },
+    gemini: { label: "gemini", color: "blue" },
+    other: { label: "other", color: "overlay1" },
+    cron: { label: "cron", color: "yellow" },
   };
 
-  // Collect cron-created sessions separately to attach as children
-  const cronSessions = [];
+  // Group sessions by folder, then by type
+  // Structure: { folderPath: { type: [sessions] } }
+  const folders = {};
+  const cronSessions = []; // Collect cron-created sessions
 
   cards.forEach(card => {
-    if (card.style.display === "none") return;
-
     const name = card.dataset.session;
     const title = card.querySelector(".card-title")?.textContent || name;
     const isChat = card.classList.contains("card-chat");
+    const workdir = card.dataset.workdir || "/";
 
     // Detect session type from name patterns or card class
     let type = "other";
@@ -563,31 +577,31 @@ function populateSidebar() {
     else if (name.includes("-gemini-") || name.startsWith("gemini")) type = "gemini";
     else if (name.includes("-bash-") || name.startsWith("bash")) type = "bash";
     else if (name.includes("-lazygit-") || name.startsWith("lazygit")) type = "lazygit";
-    else if (name.includes("-resume-") || name.startsWith("resume")) type = "claude"; // resume is claude
+    else if (name.includes("-resume-") || name.startsWith("resume")) type = "claude";
     else if (name.startsWith("cron-")) {
-      // Collect cron sessions to attach as children later
-      cronSessions.push({ name, title, isChat });
-      return; // Don't add to groups yet
+      cronSessions.push({ name, title, isChat, workdir });
+      return;
     }
 
-    groups[type].sessions.push({ name, title, isChat });
+    // Initialize folder and type groups
+    if (!folders[workdir]) folders[workdir] = {};
+    if (!folders[workdir][type]) folders[workdir][type] = [];
+
+    folders[workdir][type].push({ name, title, isChat });
   });
 
-  // Add crons from cronsCache (filter by selected folder)
-  const selectedDir = getSelectedDir();
-  const filteredCrons = cronsCache.filter(cron => {
-    if (selectedDir === "/") return true;
-    return cron.repo_path === selectedDir || cron.repo_path.startsWith(selectedDir + "/");
-  });
+  // Add crons from cronsCache grouped by folder
+  cronsCache.forEach(cron => {
+    const workdir = cron.repo_path;
+    if (!folders[workdir]) folders[workdir] = {};
+    if (!folders[workdir].cron) folders[workdir].cron = [];
 
-  filteredCrons.forEach(cron => {
     // Find child sessions for this cron
-    // Session naming: cron-{repo}-{cronName}-{timestamp}
-    const repoName = cron.repo_path.split("/").pop();
+    const repoName = workdir.split("/").pop();
     const prefix = `cron-${repoName}-${cron.name}-`;
     const children = cronSessions.filter(s => s.name.startsWith(prefix));
 
-    groups.cron.sessions.push({
+    folders[workdir].cron.push({
       name: cron.id,
       title: cron.name + (cron.enabled ? "" : " (off)"),
       isCron: true,
@@ -598,83 +612,123 @@ function populateSidebar() {
 
   list.innerHTML = "";
 
-  // Load expanded state from localStorage
-  const expandedGroups = JSON.parse(localStorage.getItem("sandboxer_expanded_groups") || '["claude","lazygit","bash","gemini","other","cron"]');
+  // Get currently selected folder - only that one will be expanded
+  const selectedDir = getSelectedDir();
 
-  // Render each group with sessions
-  Object.entries(groups).forEach(([type, group]) => {
-    if (group.sessions.length === 0) return;
+  // Sort folders alphabetically, but "/" last
+  const sortedFolders = Object.keys(folders).sort((a, b) => {
+    if (a === "/") return 1;
+    if (b === "/") return -1;
+    return a.localeCompare(b);
+  });
 
-    const details = document.createElement("details");
-    details.className = "sidebar-group";
-    details.dataset.type = type;
-    if (expandedGroups.includes(type)) {
-      details.open = true;
+  // Track all folder details elements for accordion behavior
+  const allFolderDetails = [];
+
+  // Render folder tree
+  sortedFolders.forEach(folderPath => {
+    const folderTypes = folders[folderPath];
+    const folderName = folderPath === "/" ? "/" : folderPath.split("/").pop();
+
+    // Count AI sessions (claude, chat, loop, gemini, cron - not lazygit/bash)
+    const aiTypes = ["claude", "chat", "loop", "gemini", "cron"];
+    const aiCount = aiTypes.reduce((sum, type) => {
+      return sum + (folderTypes[type]?.length || 0);
+    }, 0);
+
+    const folderDetails = document.createElement("details");
+    folderDetails.className = "sidebar-folder";
+    folderDetails.dataset.folder = folderPath;
+    allFolderDetails.push(folderDetails);
+
+    // Only expand the currently selected folder
+    if (folderPath === selectedDir || (selectedDir === "/" && sortedFolders.length === 1)) {
+      folderDetails.open = true;
     }
 
-    const summary = document.createElement("summary");
-    summary.innerHTML = `<span class="group-label" style="color: var(--${group.color})">${group.label}</span>`;
-    details.appendChild(summary);
+    const folderSummary = document.createElement("summary");
+    const countBadge = aiCount > 0 ? ` <span class="folder-count">(${aiCount})</span>` : "";
+    folderSummary.innerHTML = `<span class="folder-label">${folderName}</span>${countBadge}`;
+    folderDetails.appendChild(folderSummary);
 
-    // Save expanded state on toggle
-    details.addEventListener("toggle", () => {
-      const expanded = JSON.parse(localStorage.getItem("sandboxer_expanded_groups") || "[]");
-      if (details.open && !expanded.includes(type)) {
-        expanded.push(type);
-      } else if (!details.open && expanded.includes(type)) {
-        expanded.splice(expanded.indexOf(type), 1);
+    // Accordion behavior: collapse others when one is opened, and switch view
+    folderDetails.addEventListener("toggle", () => {
+      if (folderDetails.open) {
+        allFolderDetails.forEach(other => {
+          if (other !== folderDetails) other.open = false;
+        });
+        // Switch the main view to this folder
+        switchToFolder(folderPath);
       }
-      localStorage.setItem("sandboxer_expanded_groups", JSON.stringify(expanded));
     });
 
-    const ul = document.createElement("ul");
-    ul.className = "group-sessions";
+    // Type order for consistent display
+    const typeOrder = ["claude", "chat", "loop", "gemini", "lazygit", "bash", "cron", "other"];
 
-    group.sessions.forEach(({ name, title, isChat, isCron, cron, children }) => {
-      const li = document.createElement("li");
-      li.textContent = title;
-      li.title = name;
+    typeOrder.forEach(type => {
+      const sessions = folderTypes[type];
+      if (!sessions || sessions.length === 0) return;
 
-      if (isCron) {
-        // Clicking cron opens nano to edit the cron file
-        li.onclick = () => {
-          openCronEditor(cron.repo_path, cron.name);
-          toggleSidebar();
-        };
+      const info = typeInfo[type];
+      const typeKey = `${folderPath}:${type}`;
 
-        ul.appendChild(li);
+      const typeDetails = document.createElement("details");
+      typeDetails.className = "sidebar-type";
+      typeDetails.dataset.type = type;
+      typeDetails.open = true; // Types always expanded within open folder
 
-        // Add child sessions indented under the cron
-        if (children && children.length > 0) {
-          children.forEach(child => {
-            const childLi = document.createElement("li");
-            childLi.className = "cron-child";
-            // Show just the timestamp part for brevity
-            const timestamp = child.name.split("-").pop();
-            childLi.textContent = "└ " + timestamp;
-            childLi.title = child.name;
-            childLi.onclick = () => {
-              window.open("/terminal?session=" + encodeURIComponent(child.name), "_blank");
-              toggleSidebar();
-            };
-            ul.appendChild(childLi);
-          });
-        }
-      } else {
-        li.onclick = () => {
-          if (isChat || type === "chat") {
-            window.open("/chat?session=" + encodeURIComponent(name), "_blank");
-          } else {
-            window.open("/terminal?session=" + encodeURIComponent(name), "_blank");
+      const typeSummary = document.createElement("summary");
+      typeSummary.innerHTML = `<span class="type-label" style="color: var(--${info.color})">${info.label}</span>`;
+      typeDetails.appendChild(typeSummary);
+
+      const ul = document.createElement("ul");
+      ul.className = "type-sessions";
+
+      sessions.forEach(({ name, title, isChat, isCron, cron, children }) => {
+        const li = document.createElement("li");
+        li.textContent = title;
+        li.title = name;
+
+        if (isCron) {
+          li.onclick = () => {
+            openCronEditor(cron.repo_path, cron.name);
+            toggleSidebar();
+          };
+          ul.appendChild(li);
+
+          // Add cron child sessions
+          if (children && children.length > 0) {
+            children.forEach(child => {
+              const childLi = document.createElement("li");
+              childLi.className = "cron-child";
+              const timestamp = child.name.split("-").pop();
+              childLi.textContent = "└ " + timestamp;
+              childLi.title = child.name;
+              childLi.onclick = () => {
+                window.open("/terminal?session=" + encodeURIComponent(child.name), "_blank");
+                toggleSidebar();
+              };
+              ul.appendChild(childLi);
+            });
           }
-          toggleSidebar();
-        };
-        ul.appendChild(li);
-      }
+        } else {
+          li.onclick = () => {
+            if (isChat || type === "chat") {
+              window.open("/chat?session=" + encodeURIComponent(name), "_blank");
+            } else {
+              window.open("/terminal?session=" + encodeURIComponent(name), "_blank");
+            }
+            toggleSidebar();
+          };
+          ul.appendChild(li);
+        }
+      });
+
+      typeDetails.appendChild(ul);
+      folderDetails.appendChild(typeDetails);
     });
 
-    details.appendChild(ul);
-    list.appendChild(details);
+    list.appendChild(folderDetails);
   });
 
   if (list.children.length === 0) {
@@ -890,13 +944,8 @@ function initDirDropdown() {
 // ═══ Initialization ═══
 
 (function init() {
-  // Set up change listeners for custom dropdowns
-  const dirSelect = document.getElementById("dirSelect");
+  // Set up change listener for type dropdown
   const typeSelect = document.getElementById("typeSelect");
-
-  if (dirSelect) {
-    dirSelect.addEventListener("change", onDirOrTypeChange);
-  }
 
   if (typeSelect) {
     // Restore type preference
@@ -904,7 +953,7 @@ function initDirDropdown() {
     if (savedType) {
       typeSelect.value = savedType;
     }
-    typeSelect.addEventListener("change", onDirOrTypeChange);
+    typeSelect.addEventListener("change", onTypeChange);
   }
 
   // Apply initial folder filter

@@ -22,17 +22,6 @@
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-row">
     <button size-="small" class="sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">≡</button>
-    <select-dropdown id="dirSelect" data-value="{{selected_folder}}">
-      <details is-="popover" position-="bottom">
-        <summary tabindex="0" is-="button" size-="small">{{selected_folder_name}} <span class="dropdown-indicator">˅</span></summary>
-        <column id="dirOptions">
-          {{dir_options}}
-        </column>
-      </details>
-    </select-dropdown>
-  </div>
-  <button variant-="green" size-="small" class="sidebar-new-collapsed" onclick="createSession()" title="New session">+</button>
-  <div class="sidebar-new-row">
     <select-dropdown id="typeSelect" data-value="claude">
       <details is-="popover" position-="bottom">
         <summary tabindex="0" is-="button" size-="small">claude <span class="dropdown-indicator">˅</span></summary>
@@ -57,9 +46,10 @@
         </details>
       </select-dropdown>
     </span>
-    <button variant-="green" size-="small" onclick="createSession()" class="new-btn">+ new</button>
+    <button variant-="green" size-="small" onclick="createSession()" class="new-btn" title="New session">+</button>
   </div>
-  <ul class="sidebar-list" id="sidebarList">
+  <button variant-="green" size-="small" class="sidebar-new-collapsed" onclick="createSession()" title="New session">+</button>
+  <ul class="sidebar-list" id="sidebarList" data-selected-folder="{{selected_folder}}">
   </ul>
   <div class="sidebar-bottom">
     <div id="versionLabel" class="version-label"></div>
