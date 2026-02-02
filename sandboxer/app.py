@@ -32,7 +32,6 @@ TEMPLATES_DIR = os.path.join(APP_DIR, "templates")
 UPLOADS_DIR = "/tmp/sandboxer_uploads"
 PASSWORD_FILE = "/etc/sandboxer/password"
 SESSIONS_FILE = "/etc/sandboxer/sessions.json"
-SELECTED_FOLDER_FILE = "/etc/sandboxer/selected_folder"
 
 # Session duration: 30 days in seconds
 SESSION_DURATION = 30 * 24 * 60 * 60
@@ -133,21 +132,8 @@ def destroy_session(token: str):
 
 
 def get_selected_folder() -> str:
-    if os.path.isfile(SELECTED_FOLDER_FILE):
-        try:
-            with open(SELECTED_FOLDER_FILE) as f:
-                return f.read().strip() or "/home/sandboxer/git/sandboxer"
-        except IOError:
-            pass
+    """Default folder when no URL path specified."""
     return "/home/sandboxer/git/sandboxer"
-
-
-def save_selected_folder(folder: str):
-    try:
-        with open(SELECTED_FOLDER_FILE, "w") as f:
-            f.write(folder)
-    except IOError:
-        pass
 
 
 MIME_TYPES = {
@@ -238,47 +224,6 @@ def build_session_cards(sessions_list: list[dict]) -> str:
   <p class="hint">create one below</p>
 </div>"""
     return "".join(build_single_card(s) for s in sessions_list)
-
-
-def build_dir_options(selected_folder: str | None = None) -> str:
-    """Build HTML buttons for directory dropdown."""
-    dirs = sessions.get_directories()
-    selected = selected_folder or get_selected_folder()
-
-    # Count sessions per folder (only AI sessions: claude/gemini/chat/loop/resume/cronjob, not lazygit/bash)
-    folder_counts = {}
-    ai_markers = ("-claude-", "-gemini-", "-chat-", "-loop-", "-resume-", "-cronjob-")
-    for name, workdir in sessions.session_workdirs.items():
-        if any(m in name for m in ai_markers):
-            folder_counts[workdir] = folder_counts.get(workdir, 0) + 1
-
-    buttons = []
-    for d in dirs:
-        name = d.split("/")[-1] if d != "/" else "/"
-        count = folder_counts.get(d, 0)
-        label = f"{name} ({count})" if count > 0 else name
-        aria = "true" if d == selected else "false"
-        buttons.append(f'<button data-value="{escape(d)}" size-="small" aria-selected="{aria}">{escape(label)}</button>')
-    return "\n          ".join(buttons)
-
-
-def get_folder_display_name(folder: str, max_len: int = 10, include_count: bool = False) -> str:
-    """Get display name for a folder path, truncated if needed."""
-    if folder == "/":
-        return "/"
-    name = folder.split("/")[-1] or folder
-    if len(name) > max_len:
-        name = name[:max_len-1] + "…"
-
-    if include_count:
-        # Only count AI sessions: claude/gemini/chat/loop/resume/cronjob, not lazygit/bash
-        ai_markers = ("-claude-", "-gemini-", "-chat-", "-loop-", "-resume-", "-cronjob-")
-        count = sum(1 for n, w in sessions.session_workdirs.items()
-                    if w == folder and any(m in n for m in ai_markers))
-        if count > 0:
-            name = f"{name} ({count})"
-
-    return name
 
 
 def folder_name_to_path(name: str) -> str | None:
@@ -622,19 +567,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     self.send_json({"ok": True})
                 else:
                     self.send_json({"error": "order must be a list"}, 400)
-            except Exception as e:
-                self.send_json({"error": str(e)}, 500)
-            return
-
-        if path == "/api/selected-folder":
-            try:
-                data = json.loads(body)
-                folder = data.get("folder", "")
-                if folder:
-                    save_selected_folder(folder)
-                    self.send_json({"ok": True})
-                else:
-                    self.send_json({"error": "folder required"}, 400)
             except Exception as e:
                 self.send_json({"error": str(e)}, 500)
             return

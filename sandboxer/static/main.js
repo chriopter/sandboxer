@@ -67,7 +67,22 @@ customElements.define("select-dropdown", SelectDropdown);
 // ═══ Dropdown Helpers ═══
 
 function getSelectedDir() {
+  // Get folder from URL path (e.g., /sandboxer -> sandboxer)
+  const pathName = window.location.pathname.slice(1); // remove leading /
+  if (!pathName) return "/";
+
+  // Find matching folder by name
   const list = document.getElementById("sidebarList");
+  const folders = list?.querySelectorAll(".sidebar-folder");
+  if (folders) {
+    for (const f of folders) {
+      const folderPath = f.dataset.folder;
+      const folderName = folderPath === "/" ? "" : folderPath.split("/").pop();
+      if (folderName === pathName) return folderPath;
+    }
+  }
+
+  // Fallback: try to match from data attribute (for initial load before sidebar renders)
   return list?.dataset.selectedFolder || "/";
 }
 
@@ -358,18 +373,8 @@ function onTypeChange() {
   }
 }
 
-async function saveSelectedFolder(folder) {
-  try {
-    await fetch("/api/selected-folder", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ folder }),
-    });
-  } catch (err) {
-    console.warn("Failed to save selected folder:", err);
-  }
-
-  // Update URL to reflect folder (allows different tabs for different folders)
+function saveSelectedFolder(folder) {
+  // Update URL to reflect folder (each tab can have its own folder view)
   const folderName = folder === "/" ? "" : folder.split("/").pop();
   const newPath = folderName ? "/" + folderName : "/";
   if (window.location.pathname !== newPath) {
