@@ -187,7 +187,7 @@ def restore_sessions():
 
             # Start the appropriate command
             if session_type == "claude":
-                cmd = f"IS_SANDBOX=1 claude --dangerously-skip-permissions --system-prompt {SYSTEM_PROMPT_PATH}"
+                cmd = f"nice -n 10 IS_SANDBOX=1 claude --dangerously-skip-permissions --system-prompt {SYSTEM_PROMPT_PATH}"
                 subprocess.run(["tmux", "send-keys", "-t", name, cmd, "Enter"], capture_output=True)
             elif session_type == "gemini":
                 cmd = f"cd {workdir} && gemini"
@@ -427,11 +427,11 @@ def create_session(name: str, session_type: str = "claude", workdir: str = "/hom
     subprocess.run(["tmux", "set", "-t", name, "mouse", "on"], capture_output=True)
 
     if session_type == "claude":
-        cmd = f"IS_SANDBOX=1 claude --dangerously-skip-permissions --system-prompt {SYSTEM_PROMPT_PATH}"
+        cmd = f"nice -n 10 IS_SANDBOX=1 claude --dangerously-skip-permissions --system-prompt {SYSTEM_PROMPT_PATH}"
         subprocess.run(["tmux", "send-keys", "-t", name, cmd, "Enter"], capture_output=True)
     elif session_type == "cronjob":
         # Start claude with cronjob creation prompt
-        cmd = f"IS_SANDBOX=1 claude --dangerously-skip-permissions --system-prompt {SYSTEM_PROMPT_PATH}"
+        cmd = f"nice -n 10 IS_SANDBOX=1 claude --dangerously-skip-permissions --system-prompt {SYSTEM_PROMPT_PATH}"
         subprocess.run(["tmux", "send-keys", "-t", name, cmd, "Enter"], capture_output=True)
         # Wait for claude to start, then inject the cronjob creation prompt
         import time
@@ -461,9 +461,9 @@ Ask me:
         subprocess.run(["tmux", "send-keys", "-t", name, "Enter"], capture_output=True)
     elif session_type == "resume":
         if resume_id:
-            cmd = f"IS_SANDBOX=1 claude --dangerously-skip-permissions --resume {resume_id} --system-prompt {SYSTEM_PROMPT_PATH}"
+            cmd = f"nice -n 10 IS_SANDBOX=1 claude --dangerously-skip-permissions --resume {resume_id} --system-prompt {SYSTEM_PROMPT_PATH}"
         else:
-            cmd = f"IS_SANDBOX=1 claude --dangerously-skip-permissions --resume --system-prompt {SYSTEM_PROMPT_PATH}"
+            cmd = f"nice -n 10 IS_SANDBOX=1 claude --dangerously-skip-permissions --resume --system-prompt {SYSTEM_PROMPT_PATH}"
         subprocess.run(["tmux", "send-keys", "-t", name, cmd, "Enter"], capture_output=True)
     elif session_type == "gemini":
         cmd = f"cd {workdir} && gemini"
@@ -610,8 +610,9 @@ def start_ttyd(session_name: str) -> int:
         "-t", "scrollSensitivity=3",  # More responsive scrolling
     ]
 
+    # Start ttyd with higher priority (nice -5) for responsive terminal I/O
     proc = subprocess.Popen(
-        ["ttyd", "-W", "-i", "127.0.0.1", "-p", str(port)] + client_opts + ["tmux", "attach-session", "-t", session_name],
+        ["nice", "-n", "-5", "ttyd", "-W", "-i", "127.0.0.1", "-p", str(port)] + client_opts + ["tmux", "attach-session", "-t", session_name],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
     )
 
