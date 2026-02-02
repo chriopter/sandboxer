@@ -66,29 +66,48 @@ customElements.define("select-dropdown", SelectDropdown);
 
 // ═══ Dropdown Helpers ═══
 
-function getSelectedDir() {
-  // Get folder from URL path (e.g., /sandboxer -> sandboxer)
-  const pathName = window.location.pathname.slice(1); // remove leading /
-  if (!pathName) return "/";
+// Cache for selected directory to avoid repeated DOM queries
+let _selectedDirCache = null;
+let _folderPathMap = null; // Maps folder name -> full path
 
-  // Find matching folder by name
-  const list = document.getElementById("sidebarList");
-  const folders = list?.querySelectorAll(".sidebar-folder");
-  if (folders) {
-    for (const f of folders) {
-      const folderPath = f.dataset.folder;
-      const folderName = folderPath === "/" ? "" : folderPath.split("/").pop();
-      if (folderName === pathName) return folderPath;
+function buildFolderPathMap() {
+  _folderPathMap = {};
+  const cards = document.querySelectorAll(".card[data-workdir]");
+  cards.forEach(card => {
+    const workdir = card.dataset.workdir;
+    if (workdir && workdir !== "/") {
+      const name = workdir.split("/").pop();
+      _folderPathMap[name] = workdir;
     }
+  });
+}
+
+function getSelectedDir() {
+  if (_selectedDirCache !== null) return _selectedDirCache;
+
+  // Get folder from URL path (e.g., /sandboxer -> sandboxer)
+  const pathName = window.location.pathname.slice(1);
+  if (!pathName) {
+    _selectedDirCache = "/";
+    return _selectedDirCache;
   }
 
-  // Fallback: try to match from data attribute (for initial load before sidebar renders)
-  return list?.dataset.selectedFolder || "/";
+  // Build map if needed
+  if (!_folderPathMap) buildFolderPathMap();
+
+  // Look up in map
+  _selectedDirCache = _folderPathMap[pathName] || "/";
+  return _selectedDirCache;
 }
 
 function setSelectedDir(folder) {
-  const list = document.getElementById("sidebarList");
-  if (list) list.dataset.selectedFolder = folder;
+  _selectedDirCache = folder;
+  // Also update folder path map
+  if (folder && folder !== "/") {
+    if (!_folderPathMap) _folderPathMap = {};
+    const name = folder.split("/").pop();
+    _folderPathMap[name] = folder;
+  }
 }
 
 function switchToFolder(folder) {
@@ -156,7 +175,7 @@ async function createSession(forceType) {
       observeCardResize(newCard);
 
       // Update terminal scales for new card
-      setTimeout(updateTerminalScales, 50);
+      requestAnimationFrame(updateTerminalScales);
 
       // Update sidebar
       populateSidebar();
@@ -405,8 +424,7 @@ function filterSessionsByFolder(selectedDir) {
     if (showCard) visibleCount++;
   });
 
-  // Recalculate terminal scales after filtering (cards may have resized)
-  setTimeout(updateTerminalScales, 50);
+  // Note: No need to recalculate scales - hiding cards doesn't change visible card sizes
 
   // Handle empty state - show message if no cards match
   if (emptyState) {
@@ -531,8 +549,8 @@ function toggleSidebar() {
     localStorage.setItem("sandboxer_sidebar", "closed");
   }
 
-  // Recalculate terminal scales after sidebar animation
-  setTimeout(updateTerminalScales, 250);
+  // Recalculate terminal scales after sidebar animation completes
+  setTimeout(updateTerminalScales, 300);
 }
 
 function initSidebar() {
@@ -615,9 +633,16 @@ function populateSidebar() {
     });
   });
 
-  list.innerHTML = "";
+  // Build folder path map from collected data (avoids DOM queries later)
+  _folderPathMap = {};
+  Object.keys(folders).forEach(path => {
+    if (path && path !== "/") {
+      const name = path.split("/").pop();
+      _folderPathMap[name] = path;
+    }
+  });
 
-  // Get currently selected folder - only that one will be expanded
+  // Get currently selected folder
   const selectedDir = getSelectedDir();
 
   // Sort folders alphabetically, but "/" last
@@ -626,6 +651,9 @@ function populateSidebar() {
     if (b === "/") return -1;
     return a.localeCompare(b);
   });
+
+  // Use DocumentFragment for batched DOM updates
+  const fragment = document.createDocumentFragment();
 
   // Track all folder details elements for accordion behavior
   const allFolderDetails = [];
@@ -733,15 +761,19 @@ function populateSidebar() {
       folderDetails.appendChild(typeDetails);
     });
 
-    list.appendChild(folderDetails);
+    fragment.appendChild(folderDetails);
   });
 
-  if (list.children.length === 0) {
+  if (fragment.children.length === 0) {
     const empty = document.createElement("div");
     empty.className = "sidebar-empty";
     empty.textContent = "No sessions";
-    list.appendChild(empty);
+    fragment.appendChild(empty);
   }
+
+  // Single DOM update - clear and append
+  list.innerHTML = "";
+  list.appendChild(fragment);
 }
 
 // ═══ Modal ═══
@@ -997,26 +1029,23 @@ function initDirDropdown() {
   // Initialize view and zoom dropdowns
   initViewZoomDropdowns();
 
-  // Initialize terminal scaling - call multiple times to catch late-rendering cards
-  updateTerminalScales();
-  setTimeout(updateTerminalScales, 100);
-  setTimeout(updateTerminalScales, 500);
-  setTimeout(updateTerminalScales, 1000);
-  window.addEventListener("load", () => {
-    updateTerminalScales();
-    setTimeout(updateTerminalScales, 100);
-  });
+  // Initialize terminal scaling once on load
+  window.addEventListener("load", updateTerminalScales);
   window.addEventListener("resize", debouncedUpdateScales);
+  // Single delayed call to catch any late-rendering
+  requestAnimationFrame(() => {
+    updateTerminalScales();
+  });
 
   // Start stats updates - relaxed polling for single-user system
   // Stats update every 15s (was 5s), crons every 2min (was 60s)
   updateStats();
   let statsInterval = setInterval(updateStats, 15000);
 
-  // Refresh crons periodically
+  // Refresh crons periodically (only rebuild sidebar if changed)
   let cronsInterval = setInterval(async () => {
-    await loadCrons();
-    populateSidebar();
+    const changed = await loadCrons();
+    if (changed) populateSidebar();
   }, 120000);
 
   // Pause polling completely when tab is not visible
@@ -1027,11 +1056,13 @@ function initDirDropdown() {
     } else {
       // Resume polling and immediately update
       updateStats();
-      loadCrons().then(() => populateSidebar());
+      loadCrons().then(changed => {
+        if (changed) populateSidebar();
+      });
       statsInterval = setInterval(updateStats, 15000);
       cronsInterval = setInterval(async () => {
-        await loadCrons();
-        populateSidebar();
+        const changed = await loadCrons();
+        if (changed) populateSidebar();
       }, 120000);
     }
   });
@@ -1054,15 +1085,26 @@ function openFullscreen(sessionName) {
 // ═══ Cronjobs ═══
 
 let cronsCache = [];
+let cronsCacheHash = "";
 
 async function loadCrons() {
   try {
     const res = await fetch("/api/crons");
     const data = await res.json();
-    cronsCache = data.crons || [];
+    const newCrons = data.crons || [];
+    // Only update if changed (compare by JSON hash)
+    const newHash = JSON.stringify(newCrons);
+    if (newHash !== cronsCacheHash) {
+      cronsCache = newCrons;
+      cronsCacheHash = newHash;
+      return true; // Changed
+    }
+    return false; // No change
   } catch (err) {
     console.warn("Failed to load crons:", err);
     cronsCache = [];
+    cronsCacheHash = "";
+    return true; // Assume changed on error
   }
 }
 
