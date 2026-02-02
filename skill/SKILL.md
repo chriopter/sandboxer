@@ -31,7 +31,7 @@ curl -sf http://localhost:8081/api/sessions >/dev/null && echo "✓ Sandboxer is
 ✗ Sandboxer is not installed or not running on this machine.
 
 To install Sandboxer, run:
-  claude --dangerously-skip-permissions "clone github.com/chriopter/sandboxer to /home/sandboxer/git/sandboxer, read CLAUDE.md, then install"
+  claude --dangerously-skip-permissions "clone github.com/chriopter/sandboxer to /home/sandboxer/git/sandboxer, read README.md for install instructions, then install sandboxer"
 
 To start if already installed:
   sudo systemctl start sandboxer
@@ -101,4 +101,4 @@ Shows live terminal previews. May require password.
 
 ## Installation
 
-See [GitHub README](https://github.com/chriopter/sandboxer#installation) for setup instructions.
+See [GitHub README](https://github.com/chriopter/sandboxer#install) for setup instructions.
