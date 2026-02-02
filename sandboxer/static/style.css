@@ -379,7 +379,8 @@ select-dropdown column button[aria-selected="true"] {
 .version-label {
   font-size: 0.7em;
   color: var(--overlay0);
-  white-space: nowrap;
+  text-align: center;
+  padding-bottom: 0.3ch;
 }
 
 .sidebar-stats {
