@@ -514,10 +514,6 @@ select-dropdown column button[aria-selected="true"] {
     padding-top: 70px !important; /* 50px header + 20px gap */
   }
 
-  .grid-header {
-    display: none;
-  }
-
   /* Sidebar full screen - compact TUI style */
   .sidebar {
     width: 100%;
@@ -755,22 +751,6 @@ main {
 
 
 /* ═══ Grid ═══ */
-
-.grid-header {
-  display: grid;
-  grid-template-columns: 1fr 2fr auto;
-  gap: 2ch;
-  padding: 0.5ch 1ch;
-  margin-bottom: 0.5ch;
-  color: var(--overlay1);
-  font-size: 0.9em;
-  border-bottom: 1px solid var(--surface0);
-}
-
-.grid-header .col-actions {
-  min-width: 12ch;
-  text-align: right;
-}
 
 .grid {
   display: grid;
@@ -1124,35 +1104,6 @@ body.terminal-page {
   }
 }
 
-/* ═══ Mobile Input Area (terminal-specific fixed positioning) ═══ */
-
-.mobile-input-area {
-  display: none;
-}
-
-@media (pointer: coarse) {
-  .mobile-input-area {
-    display: flex;
-    flex-direction: column;
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    width: 100%;
-    z-index: 1000;
-    box-sizing: border-box;
-  }
-
-  /* Make room for fixed input area (touch bar ~60px + input bar ~64px + safe area) */
-  .terminal-wrap {
-    margin-bottom: 130px;
-  }
-
-  /* Hide [img] button on mobile - use attach button instead */
-  #paste-btn {
-    display: none;
-  }
-}
 
 /* ═══ Mobile Responsive ═══ */
 
@@ -1319,36 +1270,6 @@ button:active {
   50% { opacity: 1; }
 }
 
-/* Touch bar for terminal mode - special keys row */
-.composer-touch-bar {
-  display: none;
-}
-
-@media (pointer: coarse) {
-  .composer-touch-bar {
-    display: flex;
-    padding: 8px 10px;
-    gap: 6px;
-    overflow-x: auto;
-    border-bottom: 1px solid var(--surface0);
-    width: 100%;
-    box-sizing: border-box;
-  }
-
-  .composer-touch-bar button {
-    flex: 1;
-    min-width: 44px;
-    height: 44px;
-    font-size: 0.9em;
-    font-weight: 600;
-    border-radius: 8px;
-  }
-
-  .composer-touch-bar .mod-btn.active {
-    background: var(--mauve) !important;
-    color: var(--crust) !important;
-  }
-}
 
 /* Main input row: [attach] [input] [send] */
 .composer-input {
