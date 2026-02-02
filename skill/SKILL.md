@@ -76,3 +76,7 @@ When user says "do X" or "implement Y":
 URL: `https://YOUR_SERVER:8080`
 
 Shows live terminal previews. May require password.
+
+## Installation
+
+See [GitHub README](https://github.com/chriopter/sandboxer#installation) for setup instructions.
