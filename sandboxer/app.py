@@ -23,6 +23,7 @@ from . import db
 from . import crons
 
 PORT = 8081
+REPO_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Paths
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -46,6 +47,24 @@ _auth_sessions: dict[str, float] = {}
 # Stats cache - avoid recalculating on every request (stale-while-revalidate)
 _stats_cache = {"data": None, "expires": 0, "refreshing": False}
 _stats_lock = threading.Lock()
+
+# Version cache (computed once at startup)
+_version = None
+
+
+def get_version() -> str:
+    """Get version from git describe."""
+    global _version
+    if _version is None:
+        try:
+            result = subprocess.run(
+                ["git", "describe", "--tags", "--always"],
+                cwd=REPO_DIR, capture_output=True, text=True
+            )
+            _version = result.stdout.strip() if result.returncode == 0 else "dev"
+        except Exception:
+            _version = "dev"
+    return _version
 
 
 def _load_sessions():
@@ -527,7 +546,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     disk_total = stat.f_blocks * stat.f_frsize
                     disk_free = stat.f_bavail * stat.f_frsize
                     disk_pct = 100 - (disk_free * 100 // disk_total) if disk_total else 0
-                    stats = {"cpu": cpu_pct, "mem": mem_pct, "disk": disk_pct}
+                    stats = {"cpu": cpu_pct, "mem": mem_pct, "disk": disk_pct, "version": get_version()}
 
                     with _stats_lock:
                         _stats_cache["data"] = stats

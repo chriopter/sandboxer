@@ -375,6 +375,13 @@ select-dropdown column button[aria-selected="true"] {
   padding-left: 0.5ch;
 }
 
+/* Version label in sidebar */
+.version-label {
+  font-size: 0.7em;
+  color: var(--overlay0);
+  white-space: nowrap;
+}
+
 .sidebar-stats {
   display: flex;
   flex-direction: row;

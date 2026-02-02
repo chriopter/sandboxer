@@ -1,0 +1,9 @@
+# Auto-update Sandboxer daily at 4am
+schedule: "0 4 * * *"
+type: bash
+command: |
+  cd /home/sandboxer/git/sandboxer
+  git pull --ff-only
+  sudo systemctl restart sandboxer
+condition: "cd /home/sandboxer/git/sandboxer && git fetch && [ $(git rev-parse HEAD) != $(git rev-parse @{u}) ]"
+enabled: true

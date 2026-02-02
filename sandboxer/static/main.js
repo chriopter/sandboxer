@@ -717,6 +717,12 @@ async function updateStats() {
     const memText = document.querySelector("#memStat .progress-text");
     if (memFill) memFill.style.width = memVal + "%";
     if (memText) memText.textContent = "mem " + memVal + "%";
+
+    // Update version label (only once)
+    const versionLabel = document.getElementById("versionLabel");
+    if (versionLabel && data.version && !versionLabel.textContent) {
+      versionLabel.textContent = data.version;
+    }
   } catch (e) {
     // ignore
   }
