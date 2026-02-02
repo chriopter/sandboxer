@@ -309,13 +309,15 @@ def execute_cron(cron: dict):
         elif cron_type == 'claude':
             # Create claude session
             sessions.create_session(session_name, 'claude', repo_path)
-            # Wait a moment for claude to start, then inject prompt
-            time.sleep(2)
-            # Escape the prompt for tmux
+            # Wait for claude to fully start up before injecting prompt
+            time.sleep(4)
+            # Send prompt text
             subprocess.run(
                 ["tmux", "send-keys", "-t", session_name, "-l", prompt],
                 capture_output=True
             )
+            # Small delay to ensure text is received before Enter
+            time.sleep(0.5)
             subprocess.run(
                 ["tmux", "send-keys", "-t", session_name, "Enter"],
                 capture_output=True
@@ -323,12 +325,15 @@ def execute_cron(cron: dict):
         elif cron_type == 'loop':
             # Create loop session
             sessions.create_session(session_name, 'loop', repo_path)
-            # Wait a moment for claude-loop to start, then inject prompt
-            time.sleep(2)
+            # Wait for claude-loop to fully start up before injecting prompt
+            time.sleep(4)
+            # Send prompt text
             subprocess.run(
                 ["tmux", "send-keys", "-t", session_name, "-l", prompt],
                 capture_output=True
             )
+            # Small delay to ensure text is received before Enter
+            time.sleep(0.5)
             subprocess.run(
                 ["tmux", "send-keys", "-t", session_name, "Enter"],
                 capture_output=True
