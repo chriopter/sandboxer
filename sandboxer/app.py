@@ -43,6 +43,10 @@ os.makedirs(os.path.dirname(SESSIONS_FILE), exist_ok=True)
 # Session storage: {token: expiry_timestamp}
 _auth_sessions: dict[str, float] = {}
 
+# Stats cache - avoid recalculating on every request (stale-while-revalidate)
+_stats_cache = {"data": None, "expires": 0, "refreshing": False}
+_stats_lock = threading.Lock()
+
 
 def _load_sessions():
     """Load sessions from disk."""
@@ -483,25 +487,61 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return
 
         if path == "/api/stats":
-            try:
-                with open("/proc/stat") as f:
-                    cpu_line = f.readline()
-                cpu_parts = cpu_line.split()[1:5]
-                idle = int(cpu_parts[3])
-                total = sum(int(x) for x in cpu_parts)
-                cpu_pct = 100 - (idle * 100 // total) if total else 0
-                with open("/proc/meminfo") as f:
-                    lines = f.readlines()
-                mem_total = int(lines[0].split()[1])
-                mem_avail = int(lines[2].split()[1])
-                mem_pct = 100 - (mem_avail * 100 // mem_total) if mem_total else 0
-                stat = os.statvfs("/")
-                disk_total = stat.f_blocks * stat.f_frsize
-                disk_free = stat.f_bavail * stat.f_frsize
-                disk_pct = 100 - (disk_free * 100 // disk_total) if disk_total else 0
-                self.send_json({"cpu": cpu_pct, "mem": mem_pct, "disk": disk_pct})
-            except Exception:
-                self.send_json({"cpu": 0, "mem": 0, "disk": 0})
+            # Use cached stats with stale-while-revalidate pattern
+            now = time.time()
+            should_refresh = False
+            stale_data = None
+
+            with _stats_lock:
+                if _stats_cache["data"]:
+                    if _stats_cache["expires"] > now:
+                        # Fresh - return immediately
+                        self.send_json(_stats_cache["data"])
+                        return
+                    elif _stats_cache["refreshing"]:
+                        # Stale but another thread is refreshing - return stale
+                        self.send_json(_stats_cache["data"])
+                        return
+                    else:
+                        # Stale, we'll refresh
+                        _stats_cache["refreshing"] = True
+                        stale_data = _stats_cache["data"]
+                        should_refresh = True
+                else:
+                    should_refresh = True
+
+            if should_refresh:
+                try:
+                    with open("/proc/stat") as f:
+                        cpu_line = f.readline()
+                    cpu_parts = cpu_line.split()[1:5]
+                    idle = int(cpu_parts[3])
+                    total = sum(int(x) for x in cpu_parts)
+                    cpu_pct = 100 - (idle * 100 // total) if total else 0
+                    with open("/proc/meminfo") as f:
+                        lines = f.readlines()
+                    mem_total = int(lines[0].split()[1])
+                    mem_avail = int(lines[2].split()[1])
+                    mem_pct = 100 - (mem_avail * 100 // mem_total) if mem_total else 0
+                    stat = os.statvfs("/")
+                    disk_total = stat.f_blocks * stat.f_frsize
+                    disk_free = stat.f_bavail * stat.f_frsize
+                    disk_pct = 100 - (disk_free * 100 // disk_total) if disk_total else 0
+                    stats = {"cpu": cpu_pct, "mem": mem_pct, "disk": disk_pct}
+
+                    with _stats_lock:
+                        _stats_cache["data"] = stats
+                        _stats_cache["expires"] = now + 2  # 2 second TTL
+                        _stats_cache["refreshing"] = False
+
+                    self.send_json(stats)
+                except Exception:
+                    with _stats_lock:
+                        _stats_cache["refreshing"] = False
+                    if stale_data:
+                        self.send_json(stale_data)
+                    else:
+                        self.send_json({"cpu": 0, "mem": 0, "disk": 0})
             return
 
         if path == "/api/chat/messages":

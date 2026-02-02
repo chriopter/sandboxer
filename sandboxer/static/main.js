@@ -948,15 +948,32 @@ function initDirDropdown() {
   });
   window.addEventListener("resize", debouncedUpdateScales);
 
-  // Start stats updates
+  // Start stats updates - with visibility awareness to reduce server load
   updateStats();
-  setInterval(updateStats, 5000);
+  let statsInterval = setInterval(updateStats, 5000);
 
   // Refresh crons periodically (every 60 seconds)
-  setInterval(async () => {
+  let cronsInterval = setInterval(async () => {
     await loadCrons();
     populateSidebar();
   }, 60000);
+
+  // Pause polling when tab is not visible to reduce server load
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      clearInterval(statsInterval);
+      clearInterval(cronsInterval);
+    } else {
+      // Resume polling and immediately update
+      updateStats();
+      loadCrons().then(() => populateSidebar());
+      statsInterval = setInterval(updateStats, 5000);
+      cronsInterval = setInterval(async () => {
+        await loadCrons();
+        populateSidebar();
+      }, 60000);
+    }
+  });
 
   // Prevent beforeunload dialogs
   window.onbeforeunload = null;

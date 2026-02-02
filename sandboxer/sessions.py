@@ -5,6 +5,73 @@ import os
 import signal
 import socket
 import subprocess
+import time
+import threading
+
+# ═══ Caching Layer ═══
+# Cache expensive operations to reduce subprocess/DB calls under load
+# Uses "stale-while-revalidate" pattern to avoid thundering herd
+
+_cache = {}  # key -> (value, expires, is_refreshing)
+_cache_lock = threading.Lock()
+
+
+def cached(ttl_seconds: float):
+    """Decorator to cache function results for a given TTL.
+
+    Uses stale-while-revalidate: if cache is expired, return stale value
+    immediately while ONE thread refreshes in background.
+    """
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            key = (func.__name__, args, tuple(sorted(kwargs.items())))
+            now = time.time()
+
+            with _cache_lock:
+                if key in _cache:
+                    value, expires, is_refreshing = _cache[key]
+                    if now < expires:
+                        # Fresh - return cached value
+                        return value
+                    elif is_refreshing:
+                        # Another thread is refreshing - return stale value
+                        return value
+                    else:
+                        # Expired, we'll refresh - mark as refreshing
+                        _cache[key] = (value, expires, True)
+                        stale_value = value
+                else:
+                    stale_value = None
+
+            # Call function outside lock
+            try:
+                result = func(*args, **kwargs)
+                with _cache_lock:
+                    _cache[key] = (result, now + ttl_seconds, False)
+                return result
+            except Exception:
+                # On error, unmark refreshing and return stale if available
+                with _cache_lock:
+                    if key in _cache:
+                        value, expires, _ = _cache[key]
+                        _cache[key] = (value, expires, False)
+                if stale_value is not None:
+                    return stale_value
+                raise
+
+        return wrapper
+    return decorator
+
+
+def invalidate_cache(func_name: str = None):
+    """Invalidate cached results. If func_name is None, clear all."""
+    with _cache_lock:
+        if func_name is None:
+            _cache.clear()
+        else:
+            keys_to_delete = [k for k in _cache if k[0] == func_name]
+            for k in keys_to_delete:
+                del _cache[k]
 
 # Configuration
 TTYD_BASE_PORT = 7700
@@ -242,11 +309,12 @@ def _cleanup_playwright_browsers():
         pass
 
 
+@cached(ttl_seconds=2.0)
 def get_all_sessions() -> list[dict]:
     """Get all sessions from tmux + chat sessions from DB."""
     from . import db
 
-    # Get tmux sessions
+    # Get tmux sessions (also cached)
     tmux_sessions = get_tmux_sessions()
     tmux_names = {s["name"] for s in tmux_sessions}
 
@@ -272,6 +340,33 @@ def get_all_sessions() -> list[dict]:
 
 # ═══ tmux Operations ═══
 
+def _get_all_pane_titles() -> dict[str, str]:
+    """Get all pane titles in a single tmux call. Returns {session_name: title}."""
+    try:
+        # Get all pane titles in one call instead of N separate calls
+        result = subprocess.run(
+            ["tmux", "list-panes", "-a", "-F", "#{session_name}|#{pane_title}"],
+            capture_output=True, text=True
+        )
+        if result.returncode != 0:
+            return {}
+
+        titles = {}
+        for line in result.stdout.strip().split("\n"):
+            if "|" in line:
+                parts = line.split("|", 1)
+                name = parts[0]
+                title = parts[1] if len(parts) > 1 else ""
+                if title.startswith("\u2733 "):  # ✳
+                    title = title[2:]
+                if title and title != "Window Title":
+                    titles[name] = title
+        return titles
+    except Exception:
+        return {}
+
+
+@cached(ttl_seconds=2.0)  # Cache for 2 seconds - coalesces concurrent requests
 def get_tmux_sessions() -> list[dict]:
     """Get list of all tmux sessions."""
     try:
@@ -281,6 +376,9 @@ def get_tmux_sessions() -> list[dict]:
         )
         if result.returncode != 0:
             return []
+
+        # Get all titles in ONE call instead of N calls
+        all_titles = _get_all_pane_titles()
 
         sessions = []
         for line in result.stdout.strip().split("\n"):
@@ -295,7 +393,7 @@ def get_tmux_sessions() -> list[dict]:
                     "created": parts[1] if len(parts) > 1 else "",
                     "windows": parts[2] if len(parts) > 2 else "1",
                     "attached": parts[3] == "1" if len(parts) > 3 else False,
-                    "title": get_pane_title(name),
+                    "title": all_titles.get(name),  # Use batch-fetched title
                 })
         # Sort by creation time (oldest first) so new sessions appear at end
         sessions.sort(key=lambda s: int(s["created"]) if s["created"].isdigit() else 0)
@@ -390,6 +488,10 @@ Ask me:
     session_workdirs[name] = workdir
     _save_workdirs()
 
+    # Invalidate session caches so new session appears immediately
+    invalidate_cache("get_tmux_sessions")
+    invalidate_cache("get_all_sessions")
+
 
 def rename_session(old_name: str, new_name: str) -> bool:
     """Rename a tmux session."""
@@ -438,6 +540,10 @@ def kill_session(name: str):
     if name in session_workdirs:
         del session_workdirs[name]
         _save_workdirs()
+
+    # Invalidate session caches so deleted session disappears immediately
+    invalidate_cache("get_tmux_sessions")
+    invalidate_cache("get_all_sessions")
 
 
 def create_chat_session(name: str, workdir: str = "/home/sandboxer"):
