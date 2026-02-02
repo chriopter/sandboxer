@@ -22,8 +22,22 @@ from . import sessions
 GIT_DIR = "/home/sandboxer/git"
 CRON_DIR = ".sandboxer"
 CRON_FILE_PREFIX = "cron-"
+CRON_LOG_FILE = "/var/log/sandboxer/crons.log"
 SCAN_INTERVAL = 60  # Scan repos for cron files every 60 seconds
 CHECK_INTERVAL = 30  # Check for due jobs every 30 seconds
+
+
+def log(message: str):
+    """Write a log message to the cron log file."""
+    try:
+        os.makedirs(os.path.dirname(CRON_LOG_FILE), exist_ok=True)
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with open(CRON_LOG_FILE, "a") as f:
+            f.write(f"[{timestamp}] {message}\n")
+    except Exception:
+        pass  # Silent fail
+    # Also print to stdout for systemd journal
+    print(f"[crons] {message}")
 
 # Module state
 _scheduler_thread = None
@@ -41,7 +55,7 @@ def get_next_run(schedule: str, from_time: datetime = None) -> datetime | None:
         cron = croniter(schedule, base)
         return cron.get_next(datetime)
     except Exception as e:
-        print(f"[crons] Invalid schedule '{schedule}': {e}")
+        log(f"Invalid schedule '{schedule}': {e}")
         return None
 
 
@@ -63,7 +77,7 @@ def parse_datetime(s: str) -> datetime | None:
 def parse_cron_file(file_path: str) -> dict | None:
     """Parse a single cron-*.yaml file and return cron definition."""
     if yaml is None:
-        print(f"[crons] PyYAML not installed, cannot parse {file_path}")
+        log(f"PyYAML not installed, cannot parse {file_path}")
         return None
 
     try:
@@ -86,20 +100,20 @@ def parse_cron_file(file_path: str) -> dict | None:
 
         # Validate required fields
         if not schedule or not cron_type:
-            print(f"[crons] Skipping {file_path}: missing schedule or type")
+            log(f"Skipping {file_path}: missing schedule or type")
             return None
 
         # Validate type
         if cron_type not in ('claude', 'bash', 'loop'):
-            print(f"[crons] Skipping {file_path}: invalid type '{cron_type}'")
+            log(f"Skipping {file_path}: invalid type '{cron_type}'")
             return None
 
         # Validate prompt/command based on type
         if cron_type in ('claude', 'loop') and not cron.get('prompt'):
-            print(f"[crons] Skipping {file_path}: {cron_type} type requires prompt")
+            log(f"Skipping {file_path}: {cron_type} type requires prompt")
             return None
         if cron_type == 'bash' and not cron.get('command'):
-            print(f"[crons] Skipping {file_path}: bash type requires command")
+            log(f"Skipping {file_path}: bash type requires command")
             return None
 
         return {
@@ -112,7 +126,7 @@ def parse_cron_file(file_path: str) -> dict | None:
             'enabled': cron.get('enabled', True),
         }
     except Exception as e:
-        print(f"[crons] Error parsing {file_path}: {e}")
+        log(f"Error parsing {file_path}: {e}")
         return None
 
 
@@ -144,7 +158,7 @@ def discover_crons() -> dict[str, list[dict]]:
             if crons:
                 discovered[repo_path] = crons
     except Exception as e:
-        print(f"[crons] Error scanning repos: {e}")
+        log(f"Error scanning repos: {e}")
 
     return discovered
 
@@ -212,7 +226,7 @@ def sync_crons_to_db():
     all_db_crons = db.get_all_crons()
     for cron in all_db_crons:
         if cron['id'] not in valid_ids:
-            print(f"[crons] Removing stale cron: {cron['id']}")
+            log(f"Removing stale cron: {cron['id']}")
             db.delete_cron(cron['id'])
 
 
@@ -260,7 +274,7 @@ def execute_cron(cron: dict):
     # Check condition first
     should_run, reason = check_condition(cron)
     if not should_run:
-        print(f"[crons] Skipping cron {cron_id}: {reason}")
+        log(f"Skipping cron {cron_id}: {reason}")
         # Update next_run time even if skipped
         now = datetime.now()
         next_dt = get_next_run(cron['schedule'], now)
@@ -276,7 +290,7 @@ def execute_cron(cron: dict):
     # Sanitize session name (tmux doesn't like dots)
     session_name = sessions.sanitize_session_name(session_name)
 
-    print(f"[crons] Executing cron {cron_id}: creating session {session_name}")
+    log(f"Executing cron {cron_id}: creating session {session_name}")
 
     # Record execution start
     execution_id = db.add_cron_execution(cron_id, session_name, "started")
@@ -334,10 +348,10 @@ def execute_cron(cron: dict):
         if next_dt:
             db.update_cron_field(cron_id, 'next_run', format_datetime(next_dt))
 
-        print(f"[crons] Cron {cron_id} executed successfully, next run: {next_dt}")
+        log(f"Cron {cron_id} executed successfully, next run: {next_dt}")
 
     except Exception as e:
-        print(f"[crons] Error executing cron {cron_id}: {e}")
+        log(f"Error executing cron {cron_id}: {e}")
         db.update_cron_execution(execution_id, "failed")
 
 
@@ -350,7 +364,7 @@ def check_due_crons():
         try:
             execute_cron(cron)
         except Exception as e:
-            print(f"[crons] Error processing cron {cron['id']}: {e}")
+            log(f"Error processing cron {cron['id']}: {e}")
 
 
 def scheduler_loop():
@@ -370,7 +384,7 @@ def scheduler_loop():
             try:
                 sync_crons_to_db()
             except Exception as e:
-                print(f"[crons] Error syncing crons: {e}")
+                log(f"Error syncing crons: {e}")
             last_scan = now
 
         # Check for due jobs
@@ -378,7 +392,7 @@ def scheduler_loop():
             try:
                 check_due_crons()
             except Exception as e:
-                print(f"[crons] Error checking due crons: {e}")
+                log(f"Error checking due crons: {e}")
             last_check = now
 
         # Sleep briefly to avoid busy waiting
@@ -414,7 +428,7 @@ def start_scheduler():
     try:
         sync_crons_to_db()
     except Exception as e:
-        print(f"[crons] Error during initial sync: {e}")
+        log(f"Error during initial sync: {e}")
 
 
 def stop_scheduler():

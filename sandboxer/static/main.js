@@ -965,17 +965,19 @@ function escapeHtml(str) {
 }
 
 async function openCronEditor(repoPath, cronName) {
-  // Create a bash session that opens nano to edit the cron file
+  // Create a bash session with split: nano left, logs right
   const cronFile = repoPath + "/.sandboxer/cron-" + cronName + ".yaml";
+  const logFile = "/var/log/sandboxer/crons.log";
   try {
     const res = await fetch("/api/create?type=bash&dir=" + encodeURIComponent(repoPath));
     const data = await res.json();
     if (data.ok && data.name) {
-      // Inject nano command to edit the cron file
+      // Create split panes: nano on left, tail logs on right
+      const cmd = `tmux split-window -h -t ${data.name} "tail -f ${logFile}" && nano ${cronFile}`;
       await fetch("/api/inject", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session: data.name, text: "nano " + cronFile + "\n" })
+        body: JSON.stringify({ session: data.name, text: cmd + "\n" })
       });
       // Open terminal
       window.open("/terminal?session=" + encodeURIComponent(data.name), "_blank");
