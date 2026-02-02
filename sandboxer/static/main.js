@@ -722,6 +722,10 @@ function populateSidebar() {
         li.textContent = title;
         li.title = name;
 
+        // Build URL with folder prefix
+        const folderUrlName = folderPath === "/" ? "" : folderPath.split("/").pop();
+        const basePath = folderUrlName ? "/" + folderUrlName : "";
+
         if (isCron) {
           li.onclick = () => {
             openCronEditor(cron.repo_path, cron.name);
@@ -738,7 +742,7 @@ function populateSidebar() {
               childLi.textContent = "└ " + timestamp;
               childLi.title = child.name;
               childLi.onclick = () => {
-                window.open("/terminal?session=" + encodeURIComponent(child.name), "_blank");
+                window.open(basePath + "/terminal?session=" + encodeURIComponent(child.name), "_blank");
                 toggleSidebar();
               };
               ul.appendChild(childLi);
@@ -747,9 +751,9 @@ function populateSidebar() {
         } else {
           li.onclick = () => {
             if (isChat || type === "chat") {
-              window.open("/chat?session=" + encodeURIComponent(name), "_blank");
+              window.open(basePath + "/chat?session=" + encodeURIComponent(name), "_blank");
             } else {
-              window.open("/terminal?session=" + encodeURIComponent(name), "_blank");
+              window.open(basePath + "/terminal?session=" + encodeURIComponent(name), "_blank");
             }
             toggleSidebar();
           };
@@ -1093,7 +1097,11 @@ function initDirDropdown() {
 })();
 
 function openFullscreen(sessionName) {
-  window.open("/terminal?session=" + encodeURIComponent(sessionName), "_blank");
+  // Include folder prefix in URL
+  const dir = getSelectedDir();
+  const folderName = dir === "/" ? "" : dir.split("/").pop();
+  const basePath = folderName ? "/" + folderName : "";
+  window.open(basePath + "/terminal?session=" + encodeURIComponent(sessionName), "_blank");
 }
 
 // ═══ Cronjobs ═══
@@ -1146,8 +1154,10 @@ async function openCronEditor(repoPath, cronName) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ session: data.name, text: cmd + "\n" })
       });
-      // Open terminal
-      window.open("/terminal?session=" + encodeURIComponent(data.name), "_blank");
+      // Open terminal with folder prefix
+      const folderName = repoPath.split("/").pop();
+      const basePath = folderName ? "/" + folderName : "";
+      window.open(basePath + "/terminal?session=" + encodeURIComponent(data.name), "_blank");
     }
   } catch (err) {
     showToast("Error opening cron editor: " + err.message, "error");
@@ -1155,7 +1165,11 @@ async function openCronEditor(repoPath, cronName) {
 }
 
 function openChat(sessionName) {
-  window.open("/chat?session=" + encodeURIComponent(sessionName), "_blank");
+  // Include folder prefix in URL
+  const dir = getSelectedDir();
+  const folderName = dir === "/" ? "" : dir.split("/").pop();
+  const basePath = folderName ? "/" + folderName : "";
+  window.open(basePath + "/chat?session=" + encodeURIComponent(sessionName), "_blank");
 }
 
 // ═══ Image Upload from Mini Views ═══

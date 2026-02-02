@@ -324,36 +324,35 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        # Parse path: /{folder}/terminal, /{folder}/chat, /{folder}, or /
+        path_parts = [p for p in path.split("/") if p]
         folder_from_url = None
-        if path == "/":
-            folder_from_url = None
-        elif path.startswith("/") and "/" not in path[1:]:
-            folder_name = path[1:]
-            folder_from_url = folder_name_to_path(folder_name)
+        endpoint = None
 
-        if path == "/" or folder_from_url is not None:
-            selected_folder = folder_from_url or get_selected_folder()
-            all_sessions = sessions.get_all_sessions()
-            ordered = sessions.get_ordered_sessions(all_sessions)
-            for s in ordered:
-                sessions.start_ttyd(s["name"])
-            html = render_template(
-                "index.html",
-                cards=build_session_cards(ordered),
-                selected_folder=selected_folder,
-                system_prompt_path=sessions.SYSTEM_PROMPT_PATH,
-            )
-            self.send_html(html)
-            return
+        if len(path_parts) == 0:
+            # Root: /
+            pass
+        elif len(path_parts) == 1:
+            # Either /{folder} or /terminal or /chat
+            if path_parts[0] in ("terminal", "chat"):
+                endpoint = path_parts[0]
+            else:
+                folder_from_url = folder_name_to_path(path_parts[0])
+        elif len(path_parts) == 2:
+            # /{folder}/terminal or /{folder}/chat
+            folder_from_url = folder_name_to_path(path_parts[0])
+            endpoint = path_parts[1]
 
-        if path == "/terminal":
+        # Handle terminal page: /terminal or /{folder}/terminal
+        if endpoint == "terminal":
             session_name = query.get("session", [""])[0]
             if session_name:
                 # Check if this is a chat session
                 session_info = db.get_session(session_name)
                 if session_info and session_info.get("mode") == "chat":
-                    # Redirect to chat page
-                    self.send_redirect(f"/chat?session={urllib.parse.quote(session_name)}")
+                    # Redirect to chat page (preserve folder prefix)
+                    folder_prefix = f"/{path_to_folder_name(folder_from_url)}" if folder_from_url else ""
+                    self.send_redirect(f"{folder_prefix}/chat?session={urllib.parse.quote(session_name)}")
                     return
                 port = sessions.start_ttyd(session_name)
                 title = sessions.get_pane_title(session_name) or session_name
@@ -365,10 +364,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 )
                 self.send_html(html)
                 return
-            self.send_redirect("/")
+            # Redirect to folder or root
+            folder_prefix = f"/{path_to_folder_name(folder_from_url)}" if folder_from_url else ""
+            self.send_redirect(folder_prefix or "/")
             return
 
-        if path == "/chat":
+        # Handle chat page: /chat or /{folder}/chat
+        if endpoint == "chat":
             session_name = query.get("session", [""])[0]
             if session_name:
                 session_info = db.get_session(session_name)
@@ -382,7 +384,35 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 )
                 self.send_html(html)
                 return
-            self.send_redirect("/")
+            # Redirect to folder or root
+            folder_prefix = f"/{path_to_folder_name(folder_from_url)}" if folder_from_url else ""
+            self.send_redirect(folder_prefix or "/")
+            return
+
+        # Handle dashboard: / or /{folder}
+        if endpoint is None and (len(path_parts) == 0 or folder_from_url):
+            # Get all sessions, filter by folder if specified
+            all_sessions = sessions.get_all_sessions()
+            ordered = sessions.get_ordered_sessions(all_sessions)
+
+            # Get selected folder (from URL or default)
+            selected = folder_from_url or get_selected_folder()
+
+            # Get all known directories for the sidebar
+            dirs = sessions.get_directories()
+
+            cards_html = build_session_cards(ordered)
+            html = render_template(
+                "index.html",
+                cards=cards_html,
+                directories="\n".join(
+                    f'<option value="{escape(d)}"{"selected" if d == selected else ""}>'
+                    f'{escape(d.split("/")[-1] or "/")}</option>'
+                    for d in dirs
+                ),
+                version=get_version(),
+            )
+            self.send_html(html)
             return
 
         if path == "/create":
