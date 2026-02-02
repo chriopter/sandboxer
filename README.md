@@ -13,6 +13,7 @@
 - **Live previews** - See all Claude sessions at a glance in a scalable grid layout
 - **Claude Chat** - Mobile-friendly chat UI as alternative to terminal view
 - **SSH takeover** - `ssh -t sandboxer@host sandboxer-shell` to take over any session from terminal
+- **Cronjobs** - Schedule Claude/bash/loop sessions via `.sandboxer/cron-*.yaml` files with optional conditions
 - **Session persistence** - All sessions survive restarts via tmux
 - **Claude Loop** - Autonomous mode: create PROMPT.md, start loop, Claude works until done
 
