@@ -948,17 +948,18 @@ function initDirDropdown() {
   });
   window.addEventListener("resize", debouncedUpdateScales);
 
-  // Start stats updates - with visibility awareness to reduce server load
+  // Start stats updates - relaxed polling for single-user system
+  // Stats update every 15s (was 5s), crons every 2min (was 60s)
   updateStats();
-  let statsInterval = setInterval(updateStats, 5000);
+  let statsInterval = setInterval(updateStats, 15000);
 
-  // Refresh crons periodically (every 60 seconds)
+  // Refresh crons periodically
   let cronsInterval = setInterval(async () => {
     await loadCrons();
     populateSidebar();
-  }, 60000);
+  }, 120000);
 
-  // Pause polling when tab is not visible to reduce server load
+  // Pause polling completely when tab is not visible
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
       clearInterval(statsInterval);
@@ -967,11 +968,11 @@ function initDirDropdown() {
       // Resume polling and immediately update
       updateStats();
       loadCrons().then(() => populateSidebar());
-      statsInterval = setInterval(updateStats, 5000);
+      statsInterval = setInterval(updateStats, 15000);
       cronsInterval = setInterval(async () => {
         await loadCrons();
         populateSidebar();
-      }, 60000);
+      }, 120000);
     }
   });
 

@@ -38,6 +38,16 @@
 
 > **Warning**: This gives Claude complete control of a machine. Only use on a disposable VM without secrets.
 
+### GitHub Token Best Practices
+
+**Fine-grained PAT permissions (recommended):**
+- Actions: Read-only
+- Contents: Read and write
+- Issues: Read and write
+- Metadata: Read-only (required)
+
+**Branch protection:** Require pull request reviews, restrict who can push, restrict deletions, require linear history, block force pushes.
+
 ## Mobile Access (Terminus/Blink)
 
 Set `sandboxer-shell` as your SSH client's startup command:

@@ -309,7 +309,7 @@ def _cleanup_playwright_browsers():
         pass
 
 
-@cached(ttl_seconds=2.0)
+@cached(ttl_seconds=5.0)  # Cache for 5 seconds - single-user system
 def get_all_sessions() -> list[dict]:
     """Get all sessions from tmux + chat sessions from DB."""
     from . import db
@@ -366,7 +366,7 @@ def _get_all_pane_titles() -> dict[str, str]:
         return {}
 
 
-@cached(ttl_seconds=2.0)  # Cache for 2 seconds - coalesces concurrent requests
+@cached(ttl_seconds=5.0)  # Cache for 5 seconds - single-user system
 def get_tmux_sessions() -> list[dict]:
     """Get list of all tmux sessions."""
     try:

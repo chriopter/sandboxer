@@ -531,7 +531,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
                     with _stats_lock:
                         _stats_cache["data"] = stats
-                        _stats_cache["expires"] = now + 2  # 2 second TTL
+                        _stats_cache["expires"] = now + 5  # 5 second TTL (single-user)
                         _stats_cache["refreshing"] = False
 
                     self.send_json(stats)

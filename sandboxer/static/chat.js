@@ -423,10 +423,10 @@ chatInput?.addEventListener("paste", async (e) => {
   // Focus input
   chatInput?.focus();
 
-  // Start background polling to catch any updates
-  setInterval(() => {
-    if (!isStreaming) {
-      // Light polling when not actively streaming
+  // Start background polling to catch any updates (relaxed for single-user)
+  let bgPollInterval = setInterval(() => {
+    if (!isStreaming && !document.hidden) {
+      // Light polling when not actively streaming and tab visible
       fetch(`/api/chat/poll?session=${encodeURIComponent(SESSION_NAME)}&since=${lastMessageId}`)
         .then(res => res.json())
         .then(data => {
@@ -436,5 +436,36 @@ chatInput?.addEventListener("paste", async (e) => {
         })
         .catch(() => {});
     }
-  }, 5000);
+  }, 10000);  // 10s instead of 5s
+
+  // Pause background polling when tab hidden
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      clearInterval(bgPollInterval);
+    } else {
+      // Resume and poll immediately
+      if (!isStreaming) {
+        fetch(`/api/chat/poll?session=${encodeURIComponent(SESSION_NAME)}&since=${lastMessageId}`)
+          .then(res => res.json())
+          .then(data => {
+            if (data.messages && data.messages.length > 0) {
+              renderMessages(data.messages);
+            }
+          })
+          .catch(() => {});
+      }
+      bgPollInterval = setInterval(() => {
+        if (!isStreaming && !document.hidden) {
+          fetch(`/api/chat/poll?session=${encodeURIComponent(SESSION_NAME)}&since=${lastMessageId}`)
+            .then(res => res.json())
+            .then(data => {
+              if (data.messages && data.messages.length > 0) {
+                renderMessages(data.messages);
+              }
+            })
+            .catch(() => {});
+        }
+      }, 10000);
+    }
+  });
 })();
