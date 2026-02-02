@@ -296,11 +296,12 @@ def execute_cron(cron: dict):
     execution_id = db.add_cron_execution(cron_id, session_name, "started")
 
     try:
+        import subprocess
+
         if cron_type == 'bash':
             # Create bash session
             sessions.create_session(session_name, 'bash', repo_path)
             # Send command
-            import subprocess
             subprocess.run(
                 ["tmux", "send-keys", "-t", session_name, command, "Enter"],
                 capture_output=True
@@ -310,7 +311,6 @@ def execute_cron(cron: dict):
             sessions.create_session(session_name, 'claude', repo_path)
             # Wait a moment for claude to start, then inject prompt
             time.sleep(2)
-            import subprocess
             # Escape the prompt for tmux
             subprocess.run(
                 ["tmux", "send-keys", "-t", session_name, "-l", prompt],
@@ -325,7 +325,6 @@ def execute_cron(cron: dict):
             sessions.create_session(session_name, 'loop', repo_path)
             # Wait a moment for claude-loop to start, then inject prompt
             time.sleep(2)
-            import subprocess
             subprocess.run(
                 ["tmux", "send-keys", "-t", session_name, "-l", prompt],
                 capture_output=True
@@ -334,6 +333,12 @@ def execute_cron(cron: dict):
                 ["tmux", "send-keys", "-t", session_name, "Enter"],
                 capture_output=True
             )
+
+        # Move cron session to front of order so it appears at top
+        if session_name in sessions.session_order:
+            sessions.session_order.remove(session_name)
+            sessions.session_order.insert(0, session_name)
+            sessions._save_session_order()
 
         # Start ttyd for web access
         sessions.start_ttyd(session_name)
