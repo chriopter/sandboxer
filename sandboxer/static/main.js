@@ -85,17 +85,14 @@ function buildFolderPathMap() {
 function getSelectedDir() {
   if (_selectedDirCache !== null) return _selectedDirCache;
 
-  // Get folder from URL path (e.g., /sandboxer -> sandboxer)
-  const pathName = window.location.pathname.slice(1);
-  if (!pathName) {
+  // Get folder from URL path (e.g., /sandboxer -> sandboxer, /root -> /)
+  const pathName = window.location.pathname.split("/")[1] || "root";
+  if (pathName === "root") {
     _selectedDirCache = "/";
     return _selectedDirCache;
   }
 
-  // Build map if needed
   if (!_folderPathMap) buildFolderPathMap();
-
-  // Look up in map
   _selectedDirCache = _folderPathMap[pathName] || "/";
   return _selectedDirCache;
 }
@@ -393,9 +390,8 @@ function onTypeChange() {
 }
 
 function saveSelectedFolder(folder) {
-  // Update URL to reflect folder (each tab can have its own folder view)
-  const folderName = folder === "/" ? "" : folder.split("/").pop();
-  const newPath = folderName ? "/" + folderName : "/";
+  const folderName = folder === "/" ? "root" : folder.split("/").pop();
+  const newPath = "/" + folderName;
   if (window.location.pathname !== newPath) {
     window.history.replaceState(null, "", newPath);
   }
@@ -722,9 +718,7 @@ function populateSidebar() {
         li.textContent = title;
         li.title = name;
 
-        // Build URL with folder prefix
-        const folderUrlName = folderPath === "/" ? "" : folderPath.split("/").pop();
-        const basePath = folderUrlName ? "/" + folderUrlName : "";
+        const folder = folderPath === "/" ? "root" : folderPath.split("/").pop();
 
         if (isCron) {
           li.onclick = () => {
@@ -733,16 +727,14 @@ function populateSidebar() {
           };
           ul.appendChild(li);
 
-          // Add cron child sessions
           if (children && children.length > 0) {
             children.forEach(child => {
               const childLi = document.createElement("li");
               childLi.className = "cron-child";
-              const timestamp = child.name.split("-").pop();
-              childLi.textContent = "└ " + timestamp;
+              childLi.textContent = "└ " + child.name.split("-").pop();
               childLi.title = child.name;
               childLi.onclick = () => {
-                window.open(basePath + "/terminal?session=" + encodeURIComponent(child.name), "_blank");
+                window.open(`/${folder}/terminal/${encodeURIComponent(child.name)}`, "_blank");
                 toggleSidebar();
               };
               ul.appendChild(childLi);
@@ -750,11 +742,8 @@ function populateSidebar() {
           }
         } else {
           li.onclick = () => {
-            if (isChat || type === "chat") {
-              window.open(basePath + "/chat?session=" + encodeURIComponent(name), "_blank");
-            } else {
-              window.open(basePath + "/terminal?session=" + encodeURIComponent(name), "_blank");
-            }
+            const endpoint = (isChat || type === "chat") ? "chat" : "terminal";
+            window.open(`/${folder}/${endpoint}/${encodeURIComponent(name)}`, "_blank");
             toggleSidebar();
           };
           ul.appendChild(li);
@@ -1097,11 +1086,9 @@ function initDirDropdown() {
 })();
 
 function openFullscreen(sessionName) {
-  // Include folder prefix in URL
   const dir = getSelectedDir();
-  const folderName = dir === "/" ? "" : dir.split("/").pop();
-  const basePath = folderName ? "/" + folderName : "";
-  window.open(basePath + "/terminal?session=" + encodeURIComponent(sessionName), "_blank");
+  const folder = dir === "/" ? "root" : dir.split("/").pop();
+  window.open(`/${folder}/terminal/${encodeURIComponent(sessionName)}`, "_blank");
 }
 
 // ═══ Cronjobs ═══
@@ -1140,24 +1127,20 @@ function escapeHtml(str) {
 }
 
 async function openCronEditor(repoPath, cronName) {
-  // Create a bash session with split: nano left, logs right
   const cronFile = repoPath + "/.sandboxer/cron-" + cronName + ".yaml";
   const logFile = "/var/log/sandboxer/crons.log";
   try {
     const res = await fetch("/api/create?type=bash&dir=" + encodeURIComponent(repoPath));
     const data = await res.json();
     if (data.ok && data.name) {
-      // Create split panes: nano on left, tail logs on right
       const cmd = `tmux split-window -h -t ${data.name} "tail -f ${logFile}" && nano ${cronFile}`;
       await fetch("/api/inject", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ session: data.name, text: cmd + "\n" })
       });
-      // Open terminal with folder prefix
-      const folderName = repoPath.split("/").pop();
-      const basePath = folderName ? "/" + folderName : "";
-      window.open(basePath + "/terminal?session=" + encodeURIComponent(data.name), "_blank");
+      const folder = repoPath.split("/").pop();
+      window.open(`/${folder}/terminal/${encodeURIComponent(data.name)}`, "_blank");
     }
   } catch (err) {
     showToast("Error opening cron editor: " + err.message, "error");
@@ -1165,11 +1148,9 @@ async function openCronEditor(repoPath, cronName) {
 }
 
 function openChat(sessionName) {
-  // Include folder prefix in URL
   const dir = getSelectedDir();
-  const folderName = dir === "/" ? "" : dir.split("/").pop();
-  const basePath = folderName ? "/" + folderName : "";
-  window.open(basePath + "/chat?session=" + encodeURIComponent(sessionName), "_blank");
+  const folder = dir === "/" ? "root" : dir.split("/").pop();
+  window.open(`/${folder}/chat/${encodeURIComponent(sessionName)}`, "_blank");
 }
 
 // ═══ Image Upload from Mini Views ═══
