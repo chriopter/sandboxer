@@ -514,6 +514,10 @@ select-dropdown column button[aria-selected="true"] {
     padding-top: 70px !important; /* 50px header + 20px gap */
   }
 
+  .grid-header {
+    display: none;
+  }
+
   /* Sidebar full screen - compact TUI style */
   .sidebar {
     width: 100%;
@@ -751,6 +755,22 @@ main {
 
 
 /* ═══ Grid ═══ */
+
+.grid-header {
+  display: grid;
+  grid-template-columns: 1fr 2fr auto;
+  gap: 2ch;
+  padding: 0.5ch 1ch;
+  margin-bottom: 0.5ch;
+  color: var(--overlay1);
+  font-size: 0.9em;
+  border-bottom: 1px solid var(--surface0);
+}
+
+.grid-header .col-actions {
+  min-width: 12ch;
+  text-align: right;
+}
 
 .grid {
   display: grid;
