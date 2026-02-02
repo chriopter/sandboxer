@@ -297,46 +297,6 @@ select-dropdown column button[aria-selected="true"] {
   color: var(--overlay0);
 }
 
-/* ═══ Cron Items in Sidebar ═══ */
-
-.cron-name {
-  flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.cron-next {
-  white-space: nowrap;
-}
-
-.cron-actions {
-  display: flex;
-  gap: 0.3ch;
-  opacity: 0;
-  transition: opacity 0.15s;
-}
-
-.group-sessions li:hover .cron-actions {
-  opacity: 1;
-}
-
-.cron-btn {
-  background: transparent !important;
-  border: none !important;
-  padding: 0 0.3ch !important;
-  font-size: 0.85em;
-  cursor: pointer;
-  color: var(--overlay1);
-}
-
-.cron-btn:hover {
-  color: var(--text);
-}
-
-.group-sessions li.disabled {
-  opacity: 0.5;
-}
 
 .sidebar-toggle {
   flex-shrink: 0;

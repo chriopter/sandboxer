@@ -1,17 +1,22 @@
 # Example cron configuration for Sandboxer
-# This file demonstrates the cronjob feature
 
 crons:
-  # Test cron - runs in 2 minutes (disabled by default)
-  - name: test-echo
-    schedule: "*/5 * * * *"  # Every 5 minutes
-    type: bash
-    command: "echo 'Cron test: Hello from sandboxer cronjob!'"
-    enabled: false
+  # Example: Condition that FAILS - job is skipped
+  # - name: monitor-api
+  #   schedule: "*/15 * * * *"
+  #   type: claude
+  #   prompt: "API is down, investigate"
+  #   condition: "! curl -sf http://localhost:3000/health"
 
-  # Example: Daily code review (disabled)
-  # Uncomment and set enabled: true to activate
-  # - name: morning-review
+  # Example: Condition that PASSES - job runs
+  # - name: daily-review
   #   schedule: "0 9 * * *"
   #   type: claude
-  #   prompt: "Review recent commits in this repo and suggest improvements"
+  #   prompt: "Review code changes"
+  #   condition: "git status --porcelain | grep -q ."
+
+  # Example: No condition - always runs on schedule
+  # - name: backup
+  #   schedule: "0 3 * * *"
+  #   type: bash
+  #   command: "./scripts/backup.sh"

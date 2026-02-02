@@ -92,7 +92,7 @@ def get_session_workdir(session_name: str) -> str | None:
 
     # Infer workdir from session name pattern: <folder>-<type>-<number>
     # e.g., "valiido-claude-1" -> /home/sandboxer/git/valiido
-    known_types = {"claude", "bash", "lazygit", "gemini", "loop", "resume", "chat"}
+    known_types = {"claude", "bash", "lazygit", "gemini", "loop", "resume", "chat", "cronjob"}
     for session_type in known_types:
         marker = f"-{session_type}-"
         if marker in session_name:
@@ -338,21 +338,21 @@ def create_session(name: str, session_type: str = "claude", workdir: str = "/hom
         # Wait for claude to start, then inject the cronjob creation prompt
         import time
         time.sleep(2)
-        cronjob_prompt = """Help me create a cronjob for Sandboxer. Interview me to understand what I need, then create the .sandboxer/crons.yaml file.
+        cronjob_prompt = """Help me create a cronjob for Sandboxer. Interview me to understand what I need, then create a cron file.
 
-Cronjob format:
+Each cronjob is a separate file: `.sandboxer/cron-{name}.yaml`
+
+Example `.sandboxer/cron-morning-review.yaml`:
 ```yaml
-crons:
-  - name: task-name           # Unique name
-    schedule: "0 9 * * *"     # Cron syntax
-    type: claude|bash|loop    # Session type
-    prompt: "Task for claude" # For claude/loop
-    command: "./script.sh"    # For bash
-    condition: "./check.sh"   # Optional: only run if exits 0
-    enabled: true
+schedule: "0 9 * * *"     # Cron syntax
+type: claude              # claude | bash | loop
+prompt: "Review commits"  # For claude/loop
+# command: "./script.sh"  # For bash type
+# condition: "./check.sh" # Optional: only run if exits 0
+enabled: true
 ```
 
-The `condition` field is optional - if set, it runs the script first and only executes the job if it exits with code 0. This saves tokens when conditions aren't met.
+The `condition` field is optional - runs the script first and only executes the job if it exits 0. Saves tokens when conditions aren't met.
 
 Ask me:
 1. What should this cronjob do?
@@ -381,8 +381,8 @@ Ask me:
         session_order.append(name)
 
     # Track session metadata (persisted for reboot survival)
-    # Don't persist 'resume' type - it's a one-time action
-    persist_type = "claude" if session_type == "resume" else session_type
+    # Don't persist 'resume' or 'cronjob' type - treat them as claude
+    persist_type = "claude" if session_type in ("resume", "cronjob") else session_type
     session_meta[name] = {"workdir": workdir, "type": persist_type, "mode": "cli"}
     _save_session_meta()
 

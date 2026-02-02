@@ -618,24 +618,16 @@ function populateSidebar() {
 
     group.sessions.forEach(({ name, title, isChat, isCron, cron }) => {
       const li = document.createElement("li");
+      li.textContent = title;
+      li.title = name;
 
       if (isCron) {
-        // Cron item with actions
-        li.className = cron.enabled ? "" : "disabled";
-        li.innerHTML = `
-          <span class="cron-name">${escapeHtml(title)}</span>
-          <span class="cron-next" style="color: var(--overlay1); font-size: 0.8em;">${cron.enabled ? (cron.next_run_display || '...') : ''}</span>
-          <span class="cron-actions">
-            <button class="cron-btn" onclick="event.stopPropagation(); triggerCron('${escapeHtml(cron.id)}')" title="Run now">▶</button>
-            <button class="cron-btn" onclick="event.stopPropagation(); toggleCron('${escapeHtml(cron.id)}')" title="${cron.enabled ? 'Disable' : 'Enable'}">${cron.enabled ? '●' : '○'}</button>
-          </span>
-        `;
-        li.style.display = "flex";
-        li.style.alignItems = "center";
-        li.style.gap = "0.5ch";
+        // Clicking cron opens nano to edit the crons.yaml
+        li.onclick = () => {
+          openCronEditor(cron.repo_path);
+          toggleSidebar();
+        };
       } else {
-        li.textContent = title;
-        li.title = name;
         li.onclick = () => {
           if (isChat || type === "chat") {
             window.open("/chat?session=" + encodeURIComponent(name), "_blank");
@@ -972,50 +964,24 @@ function escapeHtml(str) {
             .replace(/'/g, '&#39;');
 }
 
-async function triggerCron(cronId) {
+async function openCronEditor(repoPath, cronName) {
+  // Create a bash session that opens nano to edit the cron file
+  const cronFile = repoPath + "/.sandboxer/cron-" + cronName + ".yaml";
   try {
-    const res = await fetch("/api/crons/" + encodeURIComponent(cronId) + "/trigger", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: "{}"
-    });
+    const res = await fetch("/api/create?type=bash&dir=" + encodeURIComponent(repoPath));
     const data = await res.json();
-    if (data.ok) {
-      showToast("Cron triggered: " + cronId, "success");
-      // Reload sessions to show new cron session
-      setTimeout(cleanupAndReload, 1000);
-    } else {
-      showToast("Error: " + (data.error || "Failed to trigger"), "error");
+    if (data.ok && data.name) {
+      // Inject nano command to edit the cron file
+      await fetch("/api/inject", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session: data.name, text: "nano " + cronFile + "\n" })
+      });
+      // Open terminal
+      window.open("/terminal?session=" + encodeURIComponent(data.name), "_blank");
     }
   } catch (err) {
-    showToast("Error triggering cron: " + err.message, "error");
-  }
-}
-
-async function toggleCron(cronId) {
-  try {
-    const res = await fetch("/api/crons/" + encodeURIComponent(cronId) + "/toggle", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: "{}"
-    });
-    const data = await res.json();
-    if (data.ok) {
-      // Update cache and re-render sidebar
-      const cron = cronsCache.find(c => c.id === cronId);
-      if (cron) {
-        cron.enabled = data.enabled;
-        if (!data.enabled) {
-          cron.next_run_display = null;
-        }
-      }
-      populateSidebar();
-      showToast(data.enabled ? "Cron enabled" : "Cron disabled", "info");
-    } else {
-      showToast("Error: " + (data.error || "Failed to toggle"), "error");
-    }
-  } catch (err) {
-    showToast("Error toggling cron: " + err.message, "error");
+    showToast("Error opening cron editor: " + err.message, "error");
   }
 }
 

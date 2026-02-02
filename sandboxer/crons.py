@@ -20,7 +20,8 @@ from . import sessions
 
 # Constants
 GIT_DIR = "/home/sandboxer/git"
-CRON_CONFIG_PATH = ".sandboxer/crons.yaml"
+CRON_DIR = ".sandboxer"
+CRON_FILE_PREFIX = "cron-"
 SCAN_INTERVAL = 60  # Scan repos for cron files every 60 seconds
 CHECK_INTERVAL = 30  # Check for due jobs every 30 seconds
 
@@ -59,58 +60,64 @@ def parse_datetime(s: str) -> datetime | None:
         return None
 
 
-def parse_cron_file(file_path: str) -> list[dict]:
-    """Parse a crons.yaml file and return list of cron definitions."""
+def parse_cron_file(file_path: str) -> dict | None:
+    """Parse a single cron-*.yaml file and return cron definition."""
     if yaml is None:
         print(f"[crons] PyYAML not installed, cannot parse {file_path}")
-        return []
+        return None
 
     try:
         with open(file_path, 'r') as f:
-            data = yaml.safe_load(f)
+            cron = yaml.safe_load(f)
 
-        if not data or 'crons' not in data:
-            return []
+        if not cron:
+            return None
 
-        crons = []
-        for cron in data.get('crons', []):
-            # Validate required fields
-            if not cron.get('name') or not cron.get('schedule') or not cron.get('type'):
-                print(f"[crons] Skipping invalid cron in {file_path}: missing name, schedule, or type")
-                continue
+        # Derive name from filename if not specified: cron-foo.yaml -> foo
+        filename = os.path.basename(file_path)
+        if filename.startswith(CRON_FILE_PREFIX) and filename.endswith('.yaml'):
+            default_name = filename[len(CRON_FILE_PREFIX):-5]
+        else:
+            default_name = filename.replace('.yaml', '')
 
-            # Validate type
-            cron_type = cron.get('type')
-            if cron_type not in ('claude', 'bash', 'loop'):
-                print(f"[crons] Skipping cron '{cron.get('name')}': invalid type '{cron_type}'")
-                continue
+        name = cron.get('name', default_name)
+        schedule = cron.get('schedule')
+        cron_type = cron.get('type')
 
-            # Validate prompt/command based on type
-            if cron_type in ('claude', 'loop') and not cron.get('prompt'):
-                print(f"[crons] Skipping cron '{cron.get('name')}': {cron_type} type requires prompt")
-                continue
-            if cron_type == 'bash' and not cron.get('command'):
-                print(f"[crons] Skipping cron '{cron.get('name')}': bash type requires command")
-                continue
+        # Validate required fields
+        if not schedule or not cron_type:
+            print(f"[crons] Skipping {file_path}: missing schedule or type")
+            return None
 
-            crons.append({
-                'name': cron['name'],
-                'schedule': cron['schedule'],
-                'type': cron_type,
-                'prompt': cron.get('prompt'),
-                'command': cron.get('command'),
-                'condition': cron.get('condition'),  # Optional condition script
-                'enabled': cron.get('enabled', True),
-            })
+        # Validate type
+        if cron_type not in ('claude', 'bash', 'loop'):
+            print(f"[crons] Skipping {file_path}: invalid type '{cron_type}'")
+            return None
 
-        return crons
+        # Validate prompt/command based on type
+        if cron_type in ('claude', 'loop') and not cron.get('prompt'):
+            print(f"[crons] Skipping {file_path}: {cron_type} type requires prompt")
+            return None
+        if cron_type == 'bash' and not cron.get('command'):
+            print(f"[crons] Skipping {file_path}: bash type requires command")
+            return None
+
+        return {
+            'name': name,
+            'schedule': schedule,
+            'type': cron_type,
+            'prompt': cron.get('prompt'),
+            'command': cron.get('command'),
+            'condition': cron.get('condition'),
+            'enabled': cron.get('enabled', True),
+        }
     except Exception as e:
         print(f"[crons] Error parsing {file_path}: {e}")
-        return []
+        return None
 
 
 def discover_crons() -> dict[str, list[dict]]:
-    """Scan all repos for .sandboxer/crons.yaml files.
+    """Scan all repos for .sandboxer/cron-*.yaml files.
 
     Returns: {repo_path: [cron_definitions]}
     """
@@ -122,11 +129,20 @@ def discover_crons() -> dict[str, list[dict]]:
             if not os.path.isdir(repo_path) or entry.startswith('.'):
                 continue
 
-            cron_file = os.path.join(repo_path, CRON_CONFIG_PATH)
-            if os.path.isfile(cron_file):
-                crons = parse_cron_file(cron_file)
-                if crons:
-                    discovered[repo_path] = crons
+            cron_dir = os.path.join(repo_path, CRON_DIR)
+            if not os.path.isdir(cron_dir):
+                continue
+
+            crons = []
+            for filename in os.listdir(cron_dir):
+                if filename.startswith(CRON_FILE_PREFIX) and filename.endswith('.yaml'):
+                    cron_file = os.path.join(cron_dir, filename)
+                    cron = parse_cron_file(cron_file)
+                    if cron:
+                        crons.append(cron)
+
+            if crons:
+                discovered[repo_path] = crons
     except Exception as e:
         print(f"[crons] Error scanning repos: {e}")
 
