@@ -171,6 +171,10 @@ async function createSession(forceType) {
       initCardDragDrop(newCard);
       observeCardResize(newCard);
 
+      // Set up iframe retry for the new card
+      const iframe = newCard.querySelector(".terminal iframe");
+      if (iframe) setupIframeRetry(iframe);
+
       // Update terminal scales for new card
       requestAnimationFrame(updateTerminalScales);
 
@@ -195,19 +199,57 @@ function renameSession(name) {
   }
 }
 
-let killTimeout = null;
+// Store timeout IDs per button to avoid conflicts when clicking multiple kill buttons
+const killTimeouts = new WeakMap();
+
 async function killSession(btn, name) {
+  if (!btn || !name) return;
+
   if (btn.classList.contains("confirm")) {
-    await fetch("/kill?session=" + encodeURIComponent(name));
-    cleanupAndReload();
-  } else {
-    btn.classList.add("confirm");
-    btn.textContent = "?";
-    clearTimeout(killTimeout);
-    killTimeout = setTimeout(() => {
+    // Clear the timeout since we're confirming
+    const existingTimeout = killTimeouts.get(btn);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+      killTimeouts.delete(btn);
+    }
+
+    // Disable button to prevent double-clicks
+    btn.disabled = true;
+    btn.textContent = "...";
+
+    try {
+      const res = await fetch("/kill?session=" + encodeURIComponent(name));
+      if (!res.ok && res.status !== 302) {
+        throw new Error("Kill failed with status " + res.status);
+      }
+      cleanupAndReload();
+    } catch (err) {
+      console.error("Failed to kill session:", err);
+      showToast("Failed to kill session: " + err.message, "error");
+      btn.disabled = false;
       btn.classList.remove("confirm");
       btn.textContent = "×";
-    }, 2000);
+      btn.title = "";
+    }
+  } else {
+    btn.classList.add("confirm");
+    btn.textContent = "✓";  // More visible confirm indicator
+    btn.title = "Click again to confirm kill";
+
+    // Clear any existing timeout for this specific button
+    const existingTimeout = killTimeouts.get(btn);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+    }
+
+    // Set new timeout for this button (5 seconds to confirm)
+    const timeoutId = setTimeout(() => {
+      btn.classList.remove("confirm");
+      btn.textContent = "×";
+      btn.title = "";
+      killTimeouts.delete(btn);
+    }, 5000);
+    killTimeouts.set(btn, timeoutId);
   }
 }
 
@@ -1005,9 +1047,61 @@ function initDirDropdown() {
   });
 }
 
-// ═══ Auto-Reconnect Iframes ═══
-// Note: Removed auto-reconnect on tab change as it was annoying.
-// Iframes maintain their connection state on their own.
+// ═══ Iframe Connection Retry ═══
+// Retry loading iframes that fail to connect (ttyd may not be ready yet)
+
+function setupIframeRetry(iframe) {
+  if (!iframe.src || iframe.dataset.retrySetup) return;
+  iframe.dataset.retrySetup = "true";
+  iframe.dataset.retryCount = "0";
+
+  iframe.addEventListener("error", () => retryIframe(iframe));
+
+  // Also detect blank/failed loads via load event
+  iframe.addEventListener("load", () => {
+    // Give ttyd a moment to render content
+    setTimeout(() => {
+      try {
+        // Check if iframe loaded successfully by testing if we can access it
+        // If ttyd isn't ready, the iframe may load but show an error page
+        const doc = iframe.contentDocument || iframe.contentWindow?.document;
+        if (doc && doc.body && doc.body.innerHTML.length < 100) {
+          // Suspiciously small content - might be an error page
+          retryIframe(iframe);
+        }
+      } catch (e) {
+        // Cross-origin - means ttyd loaded successfully
+      }
+    }, 500);
+  });
+}
+
+function initIframeRetry() {
+  document.querySelectorAll(".terminal iframe").forEach(setupIframeRetry);
+}
+
+function retryIframe(iframe) {
+  const retryCount = parseInt(iframe.dataset.retryCount || "0");
+  const maxRetries = 3;
+  const retryDelay = 1000; // 1 second between retries
+
+  if (retryCount >= maxRetries) {
+    console.warn("Max retries reached for iframe:", iframe.src);
+    return;
+  }
+
+  iframe.dataset.retryCount = String(retryCount + 1);
+  console.log(`Retrying iframe (${retryCount + 1}/${maxRetries}):`, iframe.src);
+
+  setTimeout(() => {
+    // Force reload by resetting src
+    const src = iframe.src;
+    iframe.src = "";
+    requestAnimationFrame(() => {
+      iframe.src = src;
+    });
+  }, retryDelay);
+}
 
 // ═══ Initialization ═══
 
@@ -1038,6 +1132,9 @@ function initDirDropdown() {
 
   // Initialize sidebar
   initSidebar();
+
+  // Initialize iframe retry for ttyd connection failures
+  initIframeRetry();
 
   // Focus iframe on hover (dispatch real mouse events)
   document.querySelectorAll(".terminal").forEach((terminal) => {
@@ -1747,7 +1844,7 @@ function handleGridKeyboard(e, key) {
       e.preventDefault();
       const cardToKill = getFocusedCard();
       if (cardToKill) {
-        const killBtn = cardToKill.querySelector(".card-kill");
+        const killBtn = cardToKill.querySelector(".kill-btn");
         if (killBtn) killBtn.click();
       }
       break;

@@ -628,6 +628,17 @@ def start_ttyd(session_name: str) -> int:
     )
 
     ttyd_processes[session_name] = (proc.pid, port)
+
+    # Wait briefly for ttyd to start accepting connections (max 500ms)
+    for _ in range(10):
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(0.05)
+                s.connect(("127.0.0.1", port))
+                break  # Connected successfully
+        except (OSError, socket.timeout):
+            time.sleep(0.05)
+
     return port
 
 

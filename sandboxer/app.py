@@ -194,8 +194,8 @@ def build_single_card(s: dict) -> str:
   </div>
 </article>"""
     else:
-        # Terminal session card
-        port = sessions.get_ttyd_port(s["name"])
+        # Terminal session card - start ttyd if not running
+        port = sessions.start_ttyd(s["name"])
         terminal_url = f"/t/{port}/" if port else ""
 
         return f"""<article class="card" draggable="true" data-session="{escape(s['name'])}" data-workdir="{escape(workdir)}">
@@ -358,27 +358,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_html(html)
             return
 
-        # / or /{folder} - dashboard
-        if len(parts) <= 1:
-            folder = folder_name_to_path(parts[0]) if parts else None
-            all_sessions = sessions.get_all_sessions()
-            ordered = sessions.get_ordered_sessions(all_sessions)
-            selected = folder or get_selected_folder()
-            dirs = sessions.get_directories()
-            cards_html = build_session_cards(ordered)
-            html = render_template(
-                "index.html",
-                cards=cards_html,
-                directories="\n".join(
-                    f'<option value="{escape(d)}"{"selected" if d == selected else ""}>'
-                    f'{escape(d.split("/")[-1] or "/")}</option>'
-                    for d in dirs
-                ),
-                version=get_version(),
-            )
-            self.send_html(html)
-            return
-
         if path == "/create":
             session_type = query.get("type", ["claude"])[0]
             workdir = query.get("dir", ["/home/sandboxer/git/sandboxer"])[0]
@@ -532,6 +511,27 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if path == "/api/directories":
             dirs = sessions.get_directories()
             self.send_json({"directories": dirs})
+            return
+
+        # / or /{folder} - dashboard (must be last to not catch /kill, /create, etc.)
+        if len(parts) <= 1:
+            folder = folder_name_to_path(parts[0]) if parts else None
+            all_sessions = sessions.get_all_sessions()
+            ordered = sessions.get_ordered_sessions(all_sessions)
+            selected = folder or get_selected_folder()
+            dirs = sessions.get_directories()
+            cards_html = build_session_cards(ordered)
+            html = render_template(
+                "index.html",
+                cards=cards_html,
+                directories="\n".join(
+                    f'<option value="{escape(d)}"{"selected" if d == selected else ""}>'
+                    f'{escape(d.split("/")[-1] or "/")}</option>'
+                    for d in dirs
+                ),
+                version=get_version(),
+            )
+            self.send_html(html)
             return
 
         self.send_response(404)
