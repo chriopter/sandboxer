@@ -157,6 +157,7 @@
   .type-sessions li.active { color: var(--text); text-decoration: underline; font-weight: 600; }
   .type-sessions li.cron-child { padding-left: 2ch; font-size: 0.9em; color: var(--overlay1); }
   .type-sessions li.cron-child::before { content: ""; }
+  .cron-freq { color: var(--overlay1); font-size: 0.85em; margin-left: 0.3ch; }
 
   .sidebar-empty { padding: 1lh 1ch; text-align: center; color: var(--overlay0); }
   .sidebar-toggle { flex-shrink: 0; }

@@ -556,6 +556,64 @@ def get_cron_config_path(cron_id: str) -> str | None:
     return os.path.join(repo_path, CRON_DIR, f"{CRON_FILE_PREFIX}{name}.yaml")
 
 
+def parse_schedule_frequency(schedule: str) -> str:
+    """Convert a cron schedule to a human-readable frequency string."""
+    if not schedule:
+        return ""
+
+    parts = schedule.split()
+    if len(parts) != 5:
+        return ""
+
+    minute, hour, day, month, dow = parts
+
+    # Common patterns
+    # Every minute: * * * * *
+    if minute == "*" and hour == "*" and day == "*" and month == "*" and dow == "*":
+        return "every min"
+
+    # Every N minutes: */N * * * *
+    if minute.startswith("*/") and hour == "*" and day == "*" and month == "*" and dow == "*":
+        n = minute[2:]
+        return f"every {n}min"
+
+    # Every hour: 0 * * * * (or any specific minute)
+    if hour == "*" and day == "*" and month == "*" and dow == "*":
+        if minute.isdigit() or minute == "0":
+            return "hourly"
+        return "hourly"
+
+    # Every N hours: 0 */N * * *
+    if hour.startswith("*/") and day == "*" and month == "*" and dow == "*":
+        n = hour[2:]
+        return f"every {n}h"
+
+    # Daily at specific time: M H * * *
+    if day == "*" and month == "*" and dow == "*":
+        if hour.isdigit() and minute.isdigit():
+            return "daily"
+
+    # Weekly: M H * * N (specific day of week)
+    if day == "*" and month == "*" and dow.isdigit():
+        return "weekly"
+
+    # Monthly: M H D * * (specific day of month)
+    if day.isdigit() and month == "*" and dow == "*":
+        return "monthly"
+
+    # Workdays: M H * * 1-5
+    if day == "*" and month == "*" and dow == "1-5":
+        return "workdays"
+
+    # Multiple times per day: M H1,H2,H3 * * *
+    if "," in hour and day == "*" and month == "*" and dow == "*":
+        times = len(hour.split(","))
+        return f"{times}x/day"
+
+    # Fallback: just show the schedule is set
+    return "scheduled"
+
+
 def get_crons_for_ui() -> list[dict]:
     """Get all crons with UI-friendly formatting."""
     crons = db.get_all_crons()
@@ -590,6 +648,7 @@ def get_crons_for_ui() -> list[dict]:
             'repo': repo_name,
             'repo_path': cron['repo_path'],
             'schedule': cron['schedule'],
+            'frequency': parse_schedule_frequency(cron['schedule']),
             'type': cron['type'],
             'enabled': bool(cron['enabled']),
             'next_run': cron.get('next_run'),

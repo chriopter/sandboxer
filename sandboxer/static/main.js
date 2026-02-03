@@ -740,9 +740,15 @@ function populateSidebar() {
     const prefix = `cron-${repoName}-${cron.name}-`;
     const children = cronSessions.filter(s => s.name.startsWith(prefix));
 
+    // Build title with frequency indicator
+    let cronTitle = cron.name;
+    if (!cron.enabled) cronTitle += " (off)";
+    const freqHtml = cron.frequency ? `<span class="cron-freq">(${cron.frequency})</span>` : "";
+
     folders[workdir].cron.push({
       name: cron.id,
-      title: cron.name + (cron.enabled ? "" : " (off)"),
+      title: cronTitle,
+      titleHtml: cronTitle + " " + freqHtml,
       isCron: true,
       cron: cron,
       children: children
@@ -833,9 +839,13 @@ function populateSidebar() {
       const ul = document.createElement("ul");
       ul.className = "type-sessions";
 
-      sessions.forEach(({ name, title, isChat, isCron, cron, children }) => {
+      sessions.forEach(({ name, title, titleHtml, isChat, isCron, cron, children }) => {
         const li = document.createElement("li");
-        li.textContent = title;
+        if (titleHtml) {
+          li.innerHTML = titleHtml;
+        } else {
+          li.textContent = title;
+        }
         li.title = name;
 
         const folder = folderPath === "/" ? "root" : folderPath.split("/").pop();
