@@ -181,7 +181,7 @@ def build_single_card(s: dict) -> str:
         else:
             preview_html = '<div class="chat-preview-empty">Start a conversation</div>'
 
-        return f"""<article class="card card-chat" draggable="true" data-session="{escape(s['name'])}" data-workdir="{escape(workdir)}">
+        return f"""<article class="card card-chat" draggable="true" data-session="{escape(s['name'])}" data-workdir="{escape(workdir)}" data-type="chat">
   <header>
     <span class="card-title" onclick="renameSession('{escape(s['name'])}')">{escape(display_name)}</span>
     <div class="card-actions">
@@ -198,7 +198,8 @@ def build_single_card(s: dict) -> str:
         port = sessions.start_ttyd(s["name"])
         terminal_url = f"/t/{port}/" if port else ""
 
-        return f"""<article class="card" draggable="true" data-session="{escape(s['name'])}" data-workdir="{escape(workdir)}">
+        session_type = s.get("type", "")
+        return f"""<article class="card" draggable="true" data-session="{escape(s['name'])}" data-workdir="{escape(workdir)}" data-type="{escape(session_type)}">
   <header>
     <span class="card-title" onclick="renameSession('{escape(s['name'])}')">{escape(display_name)}</span>
     <div class="card-actions">

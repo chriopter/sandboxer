@@ -222,7 +222,28 @@ async function killSession(btn, name) {
       if (!res.ok && res.status !== 302) {
         throw new Error("Kill failed with status " + res.status);
       }
-      cleanupAndReload();
+
+      // Remove card from DOM without full reload
+      const card = btn.closest(".card");
+      if (card) {
+        card.remove();
+
+        // Show empty state if no cards left
+        const grid = document.querySelector(".grid");
+        const remainingCards = grid.querySelectorAll(".card");
+        if (remainingCards.length === 0) {
+          grid.innerHTML = `
+            <div class="empty">
+              <div class="empty-icon">◇</div>
+              <p>no active sessions</p>
+              <p class="hint">create one below</p>
+            </div>`;
+        }
+
+        // Update sidebar and save order
+        populateSidebar();
+        saveCardOrder();
+      }
     } catch (err) {
       console.error("Failed to kill session:", err);
       showToast("Failed to kill session: " + err.message, "error");
@@ -257,11 +278,9 @@ async function killSession(btn, name) {
 
 async function closeAllSessions() {
   const cards = document.querySelectorAll(".card");
-  const visibleSessions = [...cards]
-    .filter(card => card.style.display !== "none")
-    .map(card => card.dataset.session);
+  const visibleCards = [...cards].filter(card => card.style.display !== "none");
 
-  if (visibleSessions.length === 0) {
+  if (visibleCards.length === 0) {
     showToast("No sessions to close", "info");
     return;
   }
@@ -269,15 +288,37 @@ async function closeAllSessions() {
   const dir = getSelectedDir();
   const folderName = dir === "/" ? "all folders" : dir.split("/").pop() || dir;
 
-  if (!confirm(`Close ${visibleSessions.length} session(s) in "${folderName}"?`)) {
+  if (!confirm(`Close ${visibleCards.length} session(s) in "${folderName}"?`)) {
     return;
   }
 
-  for (const name of visibleSessions) {
+  // Kill all sessions
+  for (const card of visibleCards) {
+    const name = card.dataset.session;
     await fetch("/kill?session=" + encodeURIComponent(name));
+    card.remove();
   }
 
-  cleanupAndReload();
+  // Show empty state
+  const grid = document.querySelector(".grid");
+  const remainingCards = grid.querySelectorAll(".card");
+  if (remainingCards.length === 0 || [...remainingCards].every(c => c.style.display === "none")) {
+    const existingEmpty = grid.querySelector(".empty");
+    if (!existingEmpty) {
+      const emptyDiv = document.createElement("div");
+      emptyDiv.className = "empty";
+      emptyDiv.innerHTML = `
+        <div class="empty-icon">◇</div>
+        <p>no active sessions</p>
+        <p class="hint">create one below</p>`;
+      grid.appendChild(emptyDiv);
+    }
+  }
+
+  // Update sidebar and save order
+  populateSidebar();
+  saveCardOrder();
+  showToast(`Closed ${visibleCards.length} session(s)`, "success");
 }
 
 // ═══ Restart Sandboxer ═══
@@ -653,17 +694,30 @@ function populateSidebar() {
     const title = card.querySelector(".card-title")?.textContent || name;
     const isChat = card.classList.contains("card-chat");
     const workdir = card.dataset.workdir || "/";
+    const cardType = card.dataset.type; // Type from session metadata
 
-    // Detect session type from name patterns or card class
+    // Use card's data-type attribute if available, otherwise detect from name
     let type = "other";
-    if (isChat || name.includes("-chat-") || name.startsWith("chat")) type = "chat";
-    else if (name.includes("-loop-") || name.startsWith("loop")) type = "loop";
-    else if (name.includes("-claude-") || name.startsWith("claude")) type = "claude";
-    else if (name.includes("-gemini-") || name.startsWith("gemini")) type = "gemini";
-    else if (name.includes("-bash-") || name.startsWith("bash")) type = "bash";
-    else if (name.includes("-lazygit-") || name.startsWith("lazygit")) type = "lazygit";
-    else if (name.includes("-resume-") || name.startsWith("resume")) type = "claude";
-    else if (name.startsWith("cron-")) {
+    if (cardType && cardType !== "") {
+      // Use the stored session type
+      type = cardType;
+    } else if (isChat || name.includes("-chat-") || name.startsWith("chat")) {
+      type = "chat";
+    } else if (name.includes("-loop-") || name.startsWith("loop")) {
+      type = "loop";
+    } else if (name.includes("-claude-") || name.startsWith("claude")) {
+      type = "claude";
+    } else if (name.includes("-gemini-") || name.startsWith("gemini")) {
+      type = "gemini";
+    } else if (name.includes("-bash-") || name.startsWith("bash")) {
+      type = "bash";
+    } else if (name.includes("-lazygit-") || name.startsWith("lazygit")) {
+      type = "lazygit";
+    } else if (name.includes("-resume-") || name.startsWith("resume")) {
+      type = "claude";
+    } else if (name.startsWith("cron-")) {
+      // Only fallback to cronSessions if we have no type info
+      // (legacy sessions before type tracking)
       cronSessions.push({ name, title, isChat, workdir });
       return;
     }
