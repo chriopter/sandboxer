@@ -740,15 +740,14 @@ function populateSidebar() {
     const prefix = `cron-${repoName}-${cron.name}-`;
     const children = cronSessions.filter(s => s.name.startsWith(prefix));
 
-    // Build title with frequency indicator
-    let cronTitle = cron.name;
-    if (!cron.enabled) cronTitle += " (off)";
-    const freqHtml = cron.frequency ? `<span class="cron-freq">(${cron.frequency})</span>` : "";
+    // Build title with frequency/status indicator (off takes precedence)
+    const statusText = !cron.enabled ? "off" : (cron.frequency || "");
+    const statusHtml = statusText ? `<span class="cron-freq">(${statusText})</span>` : "";
 
     folders[workdir].cron.push({
       name: cron.id,
-      title: cronTitle,
-      titleHtml: cronTitle + " " + freqHtml,
+      title: cron.name,
+      titleHtml: cron.name + " " + statusHtml,
       isCron: true,
       cron: cron,
       children: children
