@@ -22,18 +22,30 @@ from . import sessions
 GIT_DIR = "/home/sandboxer/git"
 CRON_DIR = ".sandboxer"
 CRON_FILE_PREFIX = "cron-"
-CRON_LOG_FILE = "/var/log/sandboxer/crons.log"
+CRON_LOG_DIR = "/var/log/sandboxer/crons"
 SCAN_INTERVAL = 60  # Scan repos for cron files every 60 seconds
 CHECK_INTERVAL = 30  # Check for due jobs every 30 seconds
 
 
-def log(message: str):
+def get_cron_log_path(cron_id: str) -> str:
+    """Get log file path for a specific cron job."""
+    # cron_id is like "repo:name", convert to "repo-name.log"
+    safe_name = cron_id.replace(":", "-").replace("/", "-")
+    return os.path.join(CRON_LOG_DIR, f"{safe_name}.log")
+
+
+def log(message: str, cron_id: str = None):
     """Write a log message to the cron log file."""
     try:
-        os.makedirs(os.path.dirname(CRON_LOG_FILE), exist_ok=True)
+        os.makedirs(CRON_LOG_DIR, exist_ok=True)
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        with open(CRON_LOG_FILE, "a") as f:
-            f.write(f"[{timestamp}] {message}\n")
+        log_line = f"[{timestamp}] {message}\n"
+
+        # Write to cron-specific log if cron_id provided
+        if cron_id:
+            log_path = get_cron_log_path(cron_id)
+            with open(log_path, "a") as f:
+                f.write(log_line)
     except Exception:
         pass  # Silent fail
     # Also print to stdout for systemd journal
@@ -295,7 +307,7 @@ def execute_cron(cron: dict):
     # Check condition first
     should_run, reason = check_condition(cron)
     if not should_run:
-        log(f"Skipping cron {cron_id}: {reason}")
+        log(f"Skipped: {reason}", cron_id)
         # Update next_run time even if skipped
         now = datetime.now()
         next_dt = get_next_run(cron['schedule'], now)
@@ -311,7 +323,7 @@ def execute_cron(cron: dict):
     # Sanitize session name (tmux doesn't like dots)
     session_name = sessions.sanitize_session_name(session_name)
 
-    log(f"Executing cron {cron_id}: creating session {session_name}")
+    log(f"Executing: creating session {session_name}", cron_id)
 
     # Record execution start
     execution_id = db.add_cron_execution(cron_id, session_name, "started")
@@ -379,10 +391,10 @@ def execute_cron(cron: dict):
         if next_dt:
             db.update_cron_field(cron_id, 'next_run', format_datetime(next_dt))
 
-        log(f"Cron {cron_id} executed successfully, next run: {next_dt}")
+        log(f"Executed successfully, next run: {next_dt}", cron_id)
 
     except Exception as e:
-        log(f"Error executing cron {cron_id}: {e}")
+        log(f"Error: {e}", cron_id)
         db.update_cron_execution(execution_id, "failed")
 
 
@@ -498,6 +510,50 @@ def toggle_cron(cron_id: str) -> tuple[bool, str, bool]:
 
     status = "enabled" if new_state else "disabled"
     return True, f"Cron job '{cron_id}' {status}", new_state
+
+
+def get_cron_log(cron_id: str, lines: int = 100) -> str:
+    """Get the last N lines of a cron's log file."""
+    log_path = get_cron_log_path(cron_id)
+    if not os.path.isfile(log_path):
+        return "(no log yet)"
+    try:
+        with open(log_path, "r") as f:
+            all_lines = f.readlines()
+            return "".join(all_lines[-lines:])
+    except Exception as e:
+        return f"(error reading log: {e})"
+
+
+def get_cron_config(cron_id: str) -> str:
+    """Get the raw YAML config for a cron job."""
+    cron = db.get_cron(cron_id)
+    if not cron:
+        return "(cron not found)"
+
+    repo_path = cron['repo_path']
+    name = cron['name']
+    config_path = os.path.join(repo_path, CRON_DIR, f"{CRON_FILE_PREFIX}{name}.yaml")
+
+    if not os.path.isfile(config_path):
+        return f"(config file not found: {config_path})"
+
+    try:
+        with open(config_path, "r") as f:
+            return f.read()
+    except Exception as e:
+        return f"(error reading config: {e})"
+
+
+def get_cron_config_path(cron_id: str) -> str | None:
+    """Get the filesystem path to a cron's config file."""
+    cron = db.get_cron(cron_id)
+    if not cron:
+        return None
+
+    repo_path = cron['repo_path']
+    name = cron['name']
+    return os.path.join(repo_path, CRON_DIR, f"{CRON_FILE_PREFIX}{name}.yaml")
 
 
 def get_crons_for_ui() -> list[dict]:

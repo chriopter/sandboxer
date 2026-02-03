@@ -788,7 +788,7 @@ function populateSidebar() {
 
         if (isCron) {
           li.onclick = () => {
-            openCronEditor(cron.repo_path, cron.name);
+            openCronViewer(cron.id);
             toggleSidebar();
           };
           ul.appendChild(li);
@@ -1247,25 +1247,10 @@ function escapeHtml(str) {
             .replace(/'/g, '&#39;');
 }
 
-async function openCronEditor(repoPath, cronName) {
-  const cronFile = repoPath + "/.sandboxer/cron-" + cronName + ".yaml";
-  const logFile = "/var/log/sandboxer/crons.log";
-  try {
-    const res = await fetch("/api/create?type=bash&dir=" + encodeURIComponent(repoPath));
-    const data = await res.json();
-    if (data.ok && data.name) {
-      const cmd = `tmux split-window -h -t ${data.name} "tail -f ${logFile}" && nano ${cronFile}`;
-      await fetch("/api/inject", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session: data.name, text: cmd + "\n" })
-      });
-      const folder = repoPath.split("/").pop();
-      window.open(`/${folder}/terminal/${encodeURIComponent(data.name)}`, "_blank");
-    }
-  } catch (err) {
-    showToast("Error opening cron editor: " + err.message, "error");
-  }
+function openCronViewer(cronId) {
+  // cronId is like "repo:name"
+  const folder = cronId.split(":")[0] || "root";
+  window.open(`/${folder}/cron/${encodeURIComponent(cronId)}`, "_blank");
 }
 
 function openChat(sessionName) {

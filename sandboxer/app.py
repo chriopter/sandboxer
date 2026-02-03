@@ -358,6 +358,23 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_html(html)
             return
 
+        # /{folder}/cron/{cron_id} - cron viewer
+        if len(parts) == 3 and parts[1] == "cron":
+            cron_id = urllib.parse.unquote(parts[2])
+            cron = db.get_cron(cron_id)
+            if cron:
+                html = render_template(
+                    "cron.html",
+                    cron_id=escape(cron_id),
+                    cron_name=escape(cron['name']),
+                    repo_path=escape(cron['repo_path']),
+                )
+                self.send_html(html)
+                return
+            self.send_response(404)
+            self.end_headers()
+            return
+
         if path == "/create":
             session_type = query.get("type", ["claude"])[0]
             workdir = query.get("dir", ["/home/sandboxer/git/sandboxer"])[0]
@@ -506,6 +523,41 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if path == "/api/crons":
             cron_list = crons.get_crons_for_ui()
             self.send_json({"crons": cron_list})
+            return
+
+        # /api/crons/{id}/log - get cron log content
+        if path.startswith("/api/crons/") and path.endswith("/log"):
+            cron_id = urllib.parse.unquote(path[11:-4])  # Extract ID from /api/crons/{id}/log
+            log_content = crons.get_cron_log(cron_id)
+            self.send_json({"log": log_content})
+            return
+
+        # /api/crons/{id}/config - get cron config content
+        if path.startswith("/api/crons/") and path.endswith("/config"):
+            cron_id = urllib.parse.unquote(path[11:-7])  # Extract ID from /api/crons/{id}/config
+            config_content = crons.get_cron_config(cron_id)
+            self.send_json({"config": config_content})
+            return
+
+        # /api/crons/{id}/edit - open config in nano
+        if path.startswith("/api/crons/") and path.endswith("/edit"):
+            cron_id = urllib.parse.unquote(path[11:-5])  # Extract ID from /api/crons/{id}/edit
+            config_path = crons.get_cron_config_path(cron_id)
+            if config_path:
+                cron = db.get_cron(cron_id)
+                repo_path = cron['repo_path'] if cron else "/home/sandboxer"
+                # Create bash session with nano
+                name = sessions.generate_session_name("bash", repo_path)
+                sessions.create_session(name, "bash", repo_path)
+                # Send nano command
+                import subprocess
+                subprocess.run(["tmux", "send-keys", "-t", name, f"nano {config_path}", "Enter"], capture_output=True)
+                sessions.start_ttyd(name)
+                # Redirect to terminal
+                folder = repo_path.split("/")[-1] if repo_path != "/" else "root"
+                self.send_redirect(f"/{folder}/terminal/{urllib.parse.quote(name)}")
+            else:
+                self.send_json({"error": "Cron not found"}, 404)
             return
 
         if path == "/api/directories":
