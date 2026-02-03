@@ -557,8 +557,27 @@ function initSidebar() {
   if (saved === "closed" || (isMobile && saved !== "open")) {
     document.body.classList.add("sidebar-closed");
   }
-  // Load crons first, then populate sidebar (crons are shown in sidebar groups)
-  loadCrons().then(() => populateSidebar());
+  // Load directories and crons first, then populate sidebar
+  Promise.all([loadDirectories(), loadCrons()]).then(() => populateSidebar());
+}
+
+// All git directories (cached from API)
+let directoriesCache = [];
+
+async function loadDirectories() {
+  try {
+    const res = await fetch("/api/directories");
+    if (!res.ok) {
+      // Auth redirect or error - fallback to empty
+      directoriesCache = [];
+      return;
+    }
+    const data = await res.json();
+    directoriesCache = data.directories || [];
+  } catch (err) {
+    console.warn("Failed to load directories:", err);
+    directoriesCache = [];
+  }
 }
 
 function populateSidebar() {
@@ -581,6 +600,11 @@ function populateSidebar() {
   // Structure: { folderPath: { type: [sessions] } }
   const folders = {};
   const cronSessions = []; // Collect cron-created sessions
+
+  // Initialize all directories from cache (so empty folders appear too)
+  directoriesCache.forEach(dir => {
+    if (!folders[dir]) folders[dir] = {};
+  });
 
   cards.forEach(card => {
     const name = card.dataset.session;
@@ -659,8 +683,8 @@ function populateSidebar() {
     const folderTypes = folders[folderPath];
     const folderName = folderPath === "/" ? "/" : folderPath.split("/").pop();
 
-    // Count AI sessions (claude, chat, loop, gemini, cron - not lazygit/bash)
-    const aiTypes = ["claude", "chat", "loop", "gemini", "cron"];
+    // Count AI sessions (claude, chat, loop, gemini - not lazygit/bash/cron)
+    const aiTypes = ["claude", "chat", "loop", "gemini"];
     const aiCount = aiTypes.reduce((sum, type) => {
       return sum + (folderTypes[type]?.length || 0);
     }, 0);

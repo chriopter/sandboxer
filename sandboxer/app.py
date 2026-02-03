@@ -186,7 +186,7 @@ def build_single_card(s: dict) -> str:
     <span class="card-title" onclick="renameSession('{escape(s['name'])}')">{escape(display_name)}</span>
     <div class="card-actions">
       <button class="fullscreen-header-btn" onclick="event.stopPropagation(); openChat('{escape(s['name'])}')">&#9671;</button>
-      <button class="btn-red" class="kill-btn" onclick="event.stopPropagation(); killSession(this, '{escape(s['name'])}')">×</button>
+      <button class="btn-red kill-btn" onclick="event.stopPropagation(); killSession(this, '{escape(s['name'])}')">×</button>
     </div>
   </header>
   <div class="chat-preview" onclick="openChat('{escape(s['name'])}')">
@@ -202,11 +202,11 @@ def build_single_card(s: dict) -> str:
   <header>
     <span class="card-title" onclick="renameSession('{escape(s['name'])}')">{escape(display_name)}</span>
     <div class="card-actions">
-      <button class="btn-teal" class="ssh-btn" onclick="event.stopPropagation(); copySSH('{escape(s['name'])}')">ssh</button>
+      <button class="btn-teal ssh-btn" onclick="event.stopPropagation(); copySSH('{escape(s['name'])}')">ssh</button>
       <button class="img-btn" onclick="event.stopPropagation(); triggerImageUpload('{escape(s['name'])}')" ondblclick="event.stopPropagation(); triggerImageBrowse('{escape(s['name'])}')">↑</button>
       <input type="file" class="card-image-input" multiple style="display:none" data-session="{escape(s['name'])}">
       <button class="fullscreen-header-btn" onclick="event.stopPropagation(); openFullscreen('{escape(s['name'])}')">⧉</button>
-      <button class="btn-red" class="kill-btn" onclick="event.stopPropagation(); killSession(this, '{escape(s['name'])}')">×</button>
+      <button class="btn-red kill-btn" onclick="event.stopPropagation(); killSession(this, '{escape(s['name'])}')">×</button>
     </div>
   </header>
   <div class="terminal">
@@ -527,6 +527,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if path == "/api/crons":
             cron_list = crons.get_crons_for_ui()
             self.send_json({"crons": cron_list})
+            return
+
+        if path == "/api/directories":
+            dirs = sessions.get_directories()
+            self.send_json({"directories": dirs})
             return
 
         self.send_response(404)
