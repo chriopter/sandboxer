@@ -1,9 +1,17 @@
 # Auto-update Sandboxer daily at 4am
 # Uses relative paths - cron runs in repo directory automatically
+# Sessions (tmux) survive restarts - only web UI briefly disconnects
 schedule: "0 4 * * *"
 type: bash
 command: |
-  git pull --ff-only
-  sudo systemctl restart sandboxer
+  OLD_HEAD=$(git rev-parse HEAD)
+  git pull --ff-only || exit 0
+  NEW_HEAD=$(git rev-parse HEAD)
+  if [ "$OLD_HEAD" != "$NEW_HEAD" ]; then
+    echo "Updated from ${OLD_HEAD:0:7} to ${NEW_HEAD:0:7}, restarting..."
+    sudo systemctl restart sandboxer
+  else
+    echo "No changes after pull, skipping restart"
+  fi
 condition: "git fetch && [ $(git rev-parse HEAD) != $(git rev-parse @{u}) ]"
 enabled: true
