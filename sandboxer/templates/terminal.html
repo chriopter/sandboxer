@@ -6,17 +6,15 @@
   <link rel="icon" type="image/png" href="/static/favicon.png">
   <link rel="apple-touch-icon" href="/static/favicon.png">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <link rel="stylesheet" href="/static/webtui.css">
-  <link rel="stylesheet" href="/static/catppuccin.css">
   <link rel="stylesheet" href="/static/style.css">
 </head>
-<body class="terminal-page" data-webtui-theme="catppuccin-mocha">
+<body class="terminal-page">
   <div class="term-bar">
     <span class="term-title">{{session_title}}</span>
     <span class="term-spacer"></span>
-    <button id="ssh-btn" size-="small" variant-="teal">ssh</button>
-    <button id="paste-btn" size-="small" class="img-btn">↑</button>
-    <button id="kill-btn" size-="small" variant-="red">×</button>
+    <button id="ssh-btn" class="btn-teal">ssh</button>
+    <button id="paste-btn" class="img-btn">↑</button>
+    <button id="kill-btn" class="btn-red">×</button>
   </div>
   <div class="terminal-wrap" id="terminal-wrap">
     <iframe src="{{ttyd_url}}" id="terminal-iframe"></iframe>

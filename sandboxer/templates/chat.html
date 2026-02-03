@@ -6,19 +6,17 @@
   <link rel="icon" type="image/png" href="/static/favicon.png">
   <link rel="apple-touch-icon" href="/static/favicon.png">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-  <link rel="stylesheet" href="/static/webtui.css">
-  <link rel="stylesheet" href="/static/catppuccin.css">
   <link rel="stylesheet" href="/static/style.css">
   <link rel="stylesheet" href="/static/chat.css">
 </head>
-<body class="chat-page" data-webtui-theme="catppuccin-mocha">
+<body class="chat-page">
   <div class="chat-header">
     <a href="/" class="chat-back" title="Back to dashboard">&#8592;</a>
     <span class="chat-title">{{session_title}}</span>
     <span class="chat-spacer"></span>
     <span class="chat-status" id="chatStatus"></span>
-    <button id="clear-btn" size-="small" variant-="surface1" title="Clear chat">&#8634;</button>
-    <button id="kill-btn" size-="small" variant-="red" title="Delete session">&#215;</button>
+    <button id="clear-btn" class="btn-surface1" title="Clear chat">&#8634;</button>
+    <button id="kill-btn" class="btn-red" title="Delete session">&#215;</button>
   </div>
 
   <div class="chat-messages" id="chatMessages">
@@ -31,9 +29,9 @@
 
   <div class="chat-composer">
     <div class="composer-input">
-      <button id="attach-btn" class="composer-btn square" variant-="surface1" title="Attach file">&#8593;</button>
+      <button id="attach-btn" class="composer-btn square btn-surface1" title="Attach file">&#8593;</button>
       <textarea id="chatInput" placeholder="Message Claude..." rows="1" autocomplete="off" autocorrect="off" autocapitalize="sentences" spellcheck="true"></textarea>
-      <button id="send-btn" class="composer-btn square" variant-="mauve" title="Send message">&#8629;</button>
+      <button id="send-btn" class="composer-btn square btn-mauve" title="Send message">&#8629;</button>
     </div>
   </div>
 

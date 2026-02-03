@@ -185,8 +185,8 @@ def build_single_card(s: dict) -> str:
   <header>
     <span class="card-title" onclick="renameSession('{escape(s['name'])}')">{escape(display_name)}</span>
     <div class="card-actions">
-      <button size-="small" class="fullscreen-header-btn" onclick="event.stopPropagation(); openChat('{escape(s['name'])}')">&#9671;</button>
-      <button size-="small" variant-="red" class="kill-btn" onclick="event.stopPropagation(); killSession(this, '{escape(s['name'])}')">×</button>
+      <button class="fullscreen-header-btn" onclick="event.stopPropagation(); openChat('{escape(s['name'])}')">&#9671;</button>
+      <button class="btn-red" class="kill-btn" onclick="event.stopPropagation(); killSession(this, '{escape(s['name'])}')">×</button>
     </div>
   </header>
   <div class="chat-preview" onclick="openChat('{escape(s['name'])}')">
@@ -202,11 +202,11 @@ def build_single_card(s: dict) -> str:
   <header>
     <span class="card-title" onclick="renameSession('{escape(s['name'])}')">{escape(display_name)}</span>
     <div class="card-actions">
-      <button size-="small" variant-="teal" class="ssh-btn" onclick="event.stopPropagation(); copySSH('{escape(s['name'])}')">ssh</button>
-      <button size-="small" class="img-btn" onclick="event.stopPropagation(); triggerImageUpload('{escape(s['name'])}')" ondblclick="event.stopPropagation(); triggerImageBrowse('{escape(s['name'])}')">↑</button>
+      <button class="btn-teal" class="ssh-btn" onclick="event.stopPropagation(); copySSH('{escape(s['name'])}')">ssh</button>
+      <button class="img-btn" onclick="event.stopPropagation(); triggerImageUpload('{escape(s['name'])}')" ondblclick="event.stopPropagation(); triggerImageBrowse('{escape(s['name'])}')">↑</button>
       <input type="file" class="card-image-input" multiple style="display:none" data-session="{escape(s['name'])}">
-      <button size-="small" class="fullscreen-header-btn" onclick="event.stopPropagation(); openFullscreen('{escape(s['name'])}')">⧉</button>
-      <button size-="small" variant-="red" class="kill-btn" onclick="event.stopPropagation(); killSession(this, '{escape(s['name'])}')">×</button>
+      <button class="fullscreen-header-btn" onclick="event.stopPropagation(); openFullscreen('{escape(s['name'])}')">⧉</button>
+      <button class="btn-red" class="kill-btn" onclick="event.stopPropagation(); killSession(this, '{escape(s['name'])}')">×</button>
     </div>
   </header>
   <div class="terminal">

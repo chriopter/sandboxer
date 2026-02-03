@@ -6,11 +6,9 @@
   <link rel="icon" type="image/png" href="/static/favicon.png">
   <link rel="apple-touch-icon" href="/static/favicon.png">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="/static/webtui.css">
-  <link rel="stylesheet" href="/static/catppuccin.css">
   <link rel="stylesheet" href="/static/style.css">
 </head>
-<body data-webtui-theme="catppuccin-mocha">
+<body>
 
 <header class="mobile-header">
   <button class="mobile-menu-btn" onclick="toggleSidebar()">☰</button>
@@ -21,58 +19,58 @@
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-row">
-    <button size-="small" class="sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">≡</button>
+    <button class="sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">≡</button>
     <select-dropdown id="typeSelect" data-value="claude">
-      <details is-="popover" position-="bottom">
-        <summary tabindex="0" is-="button" size-="small">claude <span class="dropdown-indicator">˅</span></summary>
+      <details position-="bottom">
+        <summary tabindex="0">claude <span class="dropdown-indicator">˅</span></summary>
         <column id="typeOptions" class="dropdown-left">
-          <button data-value="claude" size-="small" aria-selected="true">claude</button>
-          <button data-value="chat" size-="small" aria-selected="false">claude chat</button>
-          <button data-value="loop" size-="small" aria-selected="false">claude loop</button>
-          <button data-value="resume" size-="small" aria-selected="false">claude resume</button>
-          <button data-value="cronjob" size-="small" aria-selected="false">cronjob</button>
-          <button data-value="lazygit" size-="small" aria-selected="false">lazygit</button>
-          <button data-value="bash" size-="small" aria-selected="false">bash</button>
-          <button data-value="gemini" size-="small" aria-selected="false">gemini</button>
+          <button data-value="claude" aria-selected="true">claude</button>
+          <button data-value="chat" aria-selected="false">claude chat</button>
+          <button data-value="loop" aria-selected="false">claude loop</button>
+          <button data-value="resume" aria-selected="false">claude resume</button>
+          <button data-value="cronjob" aria-selected="false">cronjob</button>
+          <button data-value="lazygit" aria-selected="false">lazygit</button>
+          <button data-value="bash" aria-selected="false">bash</button>
+          <button data-value="gemini" aria-selected="false">gemini</button>
         </column>
       </details>
     </select-dropdown>
     <span id="resumeWrap" class="resume-wrap">
       <select-dropdown id="resumeSelect" data-value="">
-        <details is-="popover" position-="bottom">
-          <summary tabindex="0" is-="button" size-="small">... <span class="dropdown-indicator">˅</span></summary>
+        <details position-="bottom">
+          <summary tabindex="0">... <span class="dropdown-indicator">˅</span></summary>
           <column id="resumeOptions">
           </column>
         </details>
       </select-dropdown>
     </span>
-    <button variant-="green" size-="small" onclick="createSession()" class="new-btn" title="New session">+</button>
+    <button class="btn-green new-btn" onclick="createSession()" title="New session">+</button>
   </div>
-  <button variant-="green" size-="small" class="sidebar-new-collapsed" onclick="createSession()" title="New session">+</button>
+  <button class="btn-green sidebar-new-collapsed" onclick="createSession()" title="New session">+</button>
   <ul class="sidebar-list" id="sidebarList" data-selected-folder="{{selected_folder}}">
   </ul>
   <div class="sidebar-bottom">
     <div id="versionLabel" class="version-label"></div>
     <div class="sidebar-controls">
       <select-dropdown id="viewSelect" data-value="2">
-        <details is-="popover" position-="top">
-          <summary tabindex="0" is-="button" size-="small">2 col <span class="dropdown-indicator">˅</span></summary>
+        <details position-="top">
+          <summary tabindex="0">2 col <span class="dropdown-indicator">˅</span></summary>
           <column id="viewOptions">
-            <button data-value="1" size-="small" aria-selected="false">1 col</button>
-            <button data-value="2" size-="small" aria-selected="true">2 col</button>
-            <button data-value="3" size-="small" aria-selected="false">3 col</button>
+            <button data-value="1" aria-selected="false">1 col</button>
+            <button data-value="2" aria-selected="true">2 col</button>
+            <button data-value="3" aria-selected="false">3 col</button>
           </column>
         </details>
       </select-dropdown>
       <select-dropdown id="zoomSelect" data-value="100">
-        <details is-="popover" position-="top">
-          <summary tabindex="0" is-="button" size-="small">100% <span class="dropdown-indicator">˅</span></summary>
+        <details position-="top">
+          <summary tabindex="0">100% <span class="dropdown-indicator">˅</span></summary>
           <column id="zoomOptions">
-            <button data-value="50" size-="small" aria-selected="false">50%</button>
-            <button data-value="75" size-="small" aria-selected="false">75%</button>
-            <button data-value="100" size-="small" aria-selected="true">100%</button>
-            <button data-value="125" size-="small" aria-selected="false">125%</button>
-            <button data-value="150" size-="small" aria-selected="false">150%</button>
+            <button data-value="50" aria-selected="false">50%</button>
+            <button data-value="75" aria-selected="false">75%</button>
+            <button data-value="100" aria-selected="true">100%</button>
+            <button data-value="125" aria-selected="false">125%</button>
+            <button data-value="150" aria-selected="false">150%</button>
           </column>
         </details>
       </select-dropdown>
@@ -86,9 +84,9 @@
       </div>
     </div>
     <div class="sidebar-actions">
-      <button variant-="teal" size-="small" onclick="copyTakeover()" title="SSH to current folder">ssh</button>
-      <button variant-="mauve" size-="small" onclick="restartSandboxer()" title="Restart sandboxer service">restart</button>
-      <button variant-="red" size-="small" onclick="closeAllSessions()" title="Close all visible sessions">kill</button>
+      <button class="btn-teal" onclick="copyTakeover()" title="SSH to current folder">ssh</button>
+      <button class="btn-mauve" onclick="restartSandboxer()" title="Restart sandboxer service">restart</button>
+      <button class="btn-red" onclick="closeAllSessions()" title="Close all visible sessions">kill</button>
     </div>
   </div>
 </aside>
@@ -101,7 +99,7 @@
 
 <div id="modal" class="modal" onclick="if(event.target===this) hideModal()">
   <div class="modal-box">
-    <button class="modal-close" variant-="red" size-="small" onclick="hideModal()">×</button>
+    <button class="modal-close" class="btn-red" onclick="hideModal()">×</button>
     <h2>claude command</h2>
     <pre>IS_SANDBOX=1 claude --dangerously-skip-permissions \
   --system-prompt {{system_prompt_path}}</pre>
