@@ -248,13 +248,13 @@ pasteBtn?.addEventListener("dblclick", (e) => {
   fileInput?.click();
 });
 
-// ─── SSH Button Handler ───
+// ─── Mosh Button Handler ───
 
 const sshBtn = document.getElementById("ssh-btn");
 
 sshBtn?.addEventListener("click", async () => {
   const host = window.location.hostname;
-  const cmd = `ssh -t sandboxer@${host} "sudo tmux attach -t '${SESSION_NAME}'"`;
+  const cmd = `mosh sandboxer@${host} -- sudo tmux attach -t '${SESSION_NAME}'`;
 
   try {
     await navigator.clipboard.writeText(cmd);

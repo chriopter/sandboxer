@@ -113,18 +113,18 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 This ensures proper attribution in the git history. See [example commit](https://github.com/chriopter/sandboxer/commit/bd1727faddb59b281f788986d0e61a1bcc21685a).
 
-## SSH Session Takeover
+## Mosh Session Takeover
 
 ```bash
-ssh -t sandboxer@host "sudo tmux attach -t 'session-name'"
-ssh -t sandboxer@host sandboxer-shell                              # Folder picker → session picker
-ssh -t sandboxer@host sandboxer-shell -f /home/sandboxer/git/valiido  # Direct to folder context
-ssh -t sandboxer@host sandboxer-shell --all                        # Skip folder picker, show all
+mosh sandboxer@host -- sudo tmux attach -t 'session-name'
+mosh sandboxer@host -- sandboxer-shell                              # Folder picker → session picker
+mosh sandboxer@host -- sandboxer-shell -f /home/sandboxer/git/valiido  # Direct to folder context
+mosh sandboxer@host -- sandboxer-shell --all                        # Skip folder picker, show all
 ```
 
 **Session display format:** `[folder] title (session-name) [time]`
 
-The SSH button in the web UI copies a command with the current folder context.
+The mosh button in the web UI copies a command with the current folder context.
 
 Detach: `Ctrl-B d` | Switch: `Ctrl-B s`
 

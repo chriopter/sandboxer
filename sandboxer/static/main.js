@@ -315,11 +315,11 @@ function restartSandboxer() {
   });
 }
 
-// ═══ SSH Session Takeover ═══
+// ═══ Mosh Session Takeover ═══
 
-async function copySSH(sessionName) {
+async function copyMosh(sessionName) {
   const host = window.location.hostname;
-  const cmd = `ssh -t sandboxer@${host} "sudo tmux attach -t '${sessionName}'"`;
+  const cmd = `mosh sandboxer@${host} -- sudo tmux attach -t '${sessionName}'`;
 
   try {
     await navigator.clipboard.writeText(cmd);
@@ -330,16 +330,19 @@ async function copySSH(sessionName) {
   }
 }
 
+// Backwards compatibility alias
+const copySSH = copyMosh;
+
 async function copyTakeover() {
   const host = window.location.hostname;
   const dir = getSelectedDir();
 
-  // Include folder context in SSH command
+  // Include folder context in mosh command
   let cmd;
   if (dir && dir !== "/") {
-    cmd = `ssh -t sandboxer@${host} "sandboxer-shell -f '${dir}'"`;
+    cmd = `mosh sandboxer@${host} -- sandboxer-shell -f '${dir}'`;
   } else {
-    cmd = `ssh -t sandboxer@${host} sandboxer-shell`;
+    cmd = `mosh sandboxer@${host} -- sandboxer-shell`;
   }
 
   try {
@@ -1602,7 +1605,7 @@ function showKeyboardHelp() {
             <dt>→/l</dt><dd>Move right</dd>
             <dt>Enter/o</dt><dd>Open session</dd>
             <dt>x</dt><dd>Kill session</dd>
-            <dt>c</dt><dd>Copy SSH command</dd>
+            <dt>c</dt><dd>Copy mosh command</dd>
           </dl>
         </div>
         <div class="keyboard-help-section">
