@@ -105,7 +105,7 @@
     border-bottom: 1px solid var(--surface0);
   }
 
-  .sidebar-row .btn-green { font-size: 0.8em; padding: 0.25em 0.5em; }
+  .sidebar-row .btn-green { font-size: 0.85em; padding: 0.3em 0.8em; }
 
   /* Select Dropdown */
   select-dropdown { position: relative; display: block; }
