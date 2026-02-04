@@ -12,7 +12,7 @@
   <div class="header">
     <span>{{title_html}}</span>
     <div class="spacer"></div>
-    <button class="btn-teal" id="mosh-btn">mosh</button>
+    <button class="btn-teal" id="ssh-btn">ssh</button>
     <button class="btn-red" id="kill-btn">×</button>
   </div>
   <div class="terminal-wrap">
@@ -65,9 +65,9 @@
       setTimeout(() => t.classList.remove("show"), 2000);
     }
 
-    document.getElementById("mosh-btn").onclick = () => {
-      navigator.clipboard.writeText(`mosh sandboxer@${location.hostname} -- sudo tmux attach -t '${SESSION}'`);
-      toast("Copied mosh command");
+    document.getElementById("ssh-btn").onclick = () => {
+      navigator.clipboard.writeText(`ssh -t sandboxer@${location.hostname} sudo tmux attach -t '${SESSION}'`);
+      toast("Copied SSH command");
     };
 
     document.getElementById("kill-btn").onclick = async () => {

@@ -13,16 +13,28 @@
 </head>
 <body>
 
+<header class="mobile-header">
+  <button class="mobile-menu-btn" onclick="toggleSidebar()">☰</button>
+  <span class="mobile-title">sandboxer</span>
+  <button class="mobile-add-btn" onclick="createSession()">+</button>
+</header>
+
+<div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-row">
-    <select id="folder-select">{{folder_options}}</select>
+    <button class="sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">≡</button>
+    <select id="folder-select" title="Folder">{{folder_options}}</select>
+    <select id="type-select" title="Session type">
+      <option value="claude">claude</option>
+      <option value="lazygit">lazygit</option>
+      <option value="bash">bash</option>
+      <option value="gemini">gemini</option>
+    </select>
+    <button class="btn-green new-btn" onclick="createSession()" title="New session">+</button>
   </div>
-  <div class="sidebar-row sidebar-buttons">
-    <button class="btn-green" onclick="createSession('claude')">claude</button>
-    <button class="btn-green" onclick="createSession('lazygit')">lazygit</button>
-    <button class="btn-green" onclick="createSession('bash')">bash</button>
-    <button class="btn-green" onclick="createSession('gemini')">gemini</button>
-  </div>
+  <button class="btn-green sidebar-new-collapsed" onclick="createSession()" title="New session">+</button>
+  <ul class="sidebar-list" id="sidebarList">{{sidebar_sessions}}</ul>
   <div class="sidebar-bottom">
     <div class="sidebar-stats">
       <div class="stat" id="cpuStat">
@@ -33,8 +45,8 @@
       </div>
     </div>
     <div class="sidebar-actions">
-      <button class="btn-teal" onclick="copyMoshFolder()">mosh</button>
-      <button class="btn-red" onclick="killAllSessions()">kill all</button>
+      <button class="btn-teal" onclick="copySSH()" title="Copy SSH command">ssh</button>
+      <button class="btn-red" onclick="killAllSessions()" title="Kill all visible sessions">kill</button>
     </div>
   </div>
 </aside>

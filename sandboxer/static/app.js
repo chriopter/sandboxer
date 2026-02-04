@@ -22,6 +22,16 @@ function initWS() {
   };
 
   ws.onclose = () => setTimeout(initWS, 1000);
+  ws.onopen = () => {
+    // Auto-attach first visible session
+    const firstVisible = document.querySelector(".card:not([style*='display: none'])");
+    if (firstVisible) {
+      const name = firstVisible.dataset.session;
+      if (name && terminals.has(name)) {
+        attachSession(name);
+      }
+    }
+  };
 }
 
 function wsSend(data) {
@@ -64,7 +74,6 @@ function attachSession(name) {
   const t = terminals.get(name);
   if (!t) return;
   wsSend(JSON.stringify({ action: "attach", session: name, rows: t.term.rows, cols: t.term.cols }));
-  t.term.focus();
 }
 
 // ═══ UI Actions ═══
@@ -73,7 +82,12 @@ function getSelectedFolder() {
   return document.getElementById("folder-select")?.value || "/";
 }
 
+function getSelectedType() {
+  return document.getElementById("type-select")?.value || "claude";
+}
+
 async function createSession(type) {
+  type = type || getSelectedType();
   const dir = getSelectedFolder();
   const res = await fetch(`/api/create?type=${type}&dir=${encodeURIComponent(dir)}`);
   const data = await res.json();
@@ -81,7 +95,7 @@ async function createSession(type) {
     const grid = document.querySelector(".grid");
     grid.querySelector(".empty")?.remove();
     grid.insertAdjacentHTML("afterbegin", data.html);
-    initCard(grid.firstElementChild);
+    initCard(grid.firstElementChild, true);
   }
 }
 
@@ -110,19 +124,32 @@ function openFullscreen(name) {
   location.href = `/${folder}/terminal/${encodeURIComponent(name)}`;
 }
 
-function copyMosh(name) {
-  const cmd = `mosh sandboxer@${location.hostname} -- sudo tmux attach -t '${name}'`;
+function copySessionSSH(name) {
+  const cmd = `ssh -t sandboxer@${location.hostname} sudo tmux attach -t '${name}'`;
   navigator.clipboard.writeText(cmd);
-  showToast("Copied mosh command");
+  showToast("Copied SSH command");
 }
 
-function copyMoshFolder() {
+function focusSession(name) {
+  // Scroll card into view and attach
+  const card = document.querySelector(`[data-session="${name}"]`);
+  if (card) {
+    card.scrollIntoView({ behavior: "smooth", block: "center" });
+    attachSession(name);
+    // Update sidebar active state
+    document.querySelectorAll(".sidebar-session").forEach(el => {
+      el.classList.toggle("active", el.dataset.session === name);
+    });
+  }
+}
+
+function copySSH() {
   const folder = getSelectedFolder();
   const cmd = folder === "/"
-    ? `mosh sandboxer@${location.hostname} -- sandboxer-shell --all`
-    : `mosh sandboxer@${location.hostname} -- sandboxer-shell -f '${folder}'`;
+    ? `ssh -t sandboxer@${location.hostname} sandboxer-shell --all`
+    : `ssh -t sandboxer@${location.hostname} sandboxer-shell -f '${folder}'`;
   navigator.clipboard.writeText(cmd);
-  showToast("Copied mosh command");
+  showToast("Copied SSH command");
 }
 
 function showToast(msg) {
@@ -135,7 +162,7 @@ function showToast(msg) {
 
 // ═══ Card Init ═══
 
-function initCard(card) {
+function initCard(card, autoAttach = false) {
   const name = card.dataset.session;
   if (!name) return;
 
@@ -147,6 +174,10 @@ function initCard(card) {
 
   card.addEventListener("mouseenter", () => attachSession(name));
   card.addEventListener("click", () => { attachSession(name); terminals.get(name)?.term.focus(); });
+
+  if (autoAttach) {
+    attachSession(name);
+  }
 }
 
 // ═══ Stats ═══
@@ -175,26 +206,72 @@ async function loadStats() {
 // ═══ Filter ═══
 
 function filterCards(folder) {
+  let firstVisible = null;
+
+  // Filter cards
   document.querySelectorAll(".card").forEach(card => {
     const workdir = card.dataset.workdir || "";
     const show = folder === "/" || workdir.startsWith(folder) || !workdir;
     card.style.display = show ? "" : "none";
+    if (show && !firstVisible) firstVisible = card;
   });
+
+  // Filter sidebar sessions
+  document.querySelectorAll(".sidebar-session").forEach(el => {
+    const workdir = el.dataset.workdir || "";
+    const show = folder === "/" || workdir.startsWith(folder) || !workdir;
+    el.style.display = show ? "" : "none";
+  });
+
+  // Show/hide type headers based on visible children
+  document.querySelectorAll(".sidebar-type-header").forEach(header => {
+    let hasVisible = false;
+    let next = header.nextElementSibling;
+    while (next && !next.classList.contains("sidebar-type-header")) {
+      if (next.style.display !== "none") hasVisible = true;
+      next = next.nextElementSibling;
+    }
+    header.style.display = hasVisible ? "" : "none";
+  });
+
   fetch("/api/selected-folder", { method: "POST", body: folder });
+
+  // Attach first visible session
+  if (firstVisible && ws?.readyState === WebSocket.OPEN) {
+    const name = firstVisible.dataset.session;
+    if (name) attachSession(name);
+  }
+}
+
+// ═══ Sidebar ═══
+
+function toggleSidebar() {
+  document.body.classList.toggle("sidebar-collapsed");
+  localStorage.setItem("sidebar-collapsed", document.body.classList.contains("sidebar-collapsed"));
 }
 
 // ═══ Init ═══
 
 document.addEventListener("DOMContentLoaded", () => {
-  initWS();
-  document.querySelectorAll(".card").forEach(initCard);
+  // Restore sidebar state
+  if (localStorage.getItem("sidebar-collapsed") === "true") {
+    document.body.classList.add("sidebar-collapsed");
+  }
 
+  // Init all cards and create terminals
+  document.querySelectorAll(".card").forEach(card => initCard(card));
+
+  // Init WebSocket (will auto-attach first visible on connect)
+  initWS();
+
+  // Folder filter
   const select = document.getElementById("folder-select");
   if (select) {
     select.onchange = () => filterCards(select.value);
     filterCards(select.value);
   }
 
+  // Stats
   loadStats();
   setInterval(loadStats, 5000);
 });

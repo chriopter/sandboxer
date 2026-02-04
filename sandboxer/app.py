@@ -179,6 +179,34 @@ def build_folder_options() -> str:
     return "\n".join(opts)
 
 
+def build_sidebar_sessions() -> str:
+    """Build sidebar session list HTML."""
+    sessions = get_sessions()
+    if not sessions:
+        return '<li class="sidebar-empty">No sessions</li>'
+
+    # Group by type
+    by_type = {}
+    for s in sessions:
+        t = s.get("type", "bash")
+        if t not in by_type:
+            by_type[t] = []
+        by_type[t].append(s)
+
+    html = []
+    for t in ["claude", "lazygit", "bash", "gemini"]:
+        if t not in by_type:
+            continue
+        html.append(f'<li class="sidebar-type-header">{t}</li>')
+        for s in by_type[t]:
+            name = escape(s["name"])
+            title = escape(s["title"])[:30]
+            workdir = escape(s.get("workdir", ""))
+            html.append(f'<li class="sidebar-session" data-session="{name}" data-workdir="{workdir}" onclick="focusSession(\'{name}\')">{title}</li>')
+
+    return "\n".join(html)
+
+
 # ═══ Templates ═══
 
 _tpl_index = None
@@ -204,7 +232,7 @@ def build_card(s: dict) -> str:
   <header>
     <span class="card-title">{escape(s['title'])}</span>
     <div class="card-actions">
-      <button class="btn-teal" onclick="copyMosh('{escape(s['name'])}')">mosh</button>
+      <button class="btn-teal" onclick="copySessionSSH('{escape(s['name'])}')">ssh</button>
       <button onclick="openFullscreen('{escape(s['name'])}')">⧉</button>
       <button class="btn-red" onclick="killSession('{escape(s['name'])}')">×</button>
     </div>
@@ -297,7 +325,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if len(parts) <= 1:
             sessions = get_sessions()
             cards = "".join(build_card(s) for s in sessions) or '<div class="empty">No sessions</div>'
-            html = render(_tpl_index, cards=cards, folder_options=build_folder_options())
+            html = render(_tpl_index, cards=cards, folder_options=build_folder_options(), sidebar_sessions=build_sidebar_sessions())
             self.send_html(html)
             return
 
@@ -347,6 +375,7 @@ def main():
     threading.Thread(target=start_ws, daemon=True).start()
 
     print(f"sandboxer http://127.0.0.1:{PORT}")
+    socketserver.ThreadingTCPServer.allow_reuse_address = True
     server = socketserver.ThreadingTCPServer(("127.0.0.1", PORT), Handler)
     server.serve_forever()
 
