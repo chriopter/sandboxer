@@ -142,7 +142,7 @@ Scheduled tasks defined as `.sandboxer/cron-{name}.yaml` files. Sandboxer auto-d
 **File:** `.sandboxer/cron-morning-review.yaml`
 ```yaml
 schedule: "0 9 * * *"      # Standard cron syntax
-type: claude               # claude | bash | loop
+type: claude               # claude | bash
 prompt: "Review recent commits"
 condition: "./check.sh"    # Optional: only run if exits 0
 enabled: true

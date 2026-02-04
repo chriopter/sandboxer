@@ -69,7 +69,7 @@ def init_db():
                 repo_path TEXT NOT NULL,
                 name TEXT NOT NULL,
                 schedule TEXT NOT NULL,
-                type TEXT NOT NULL,         -- claude | bash | loop
+                type TEXT NOT NULL,         -- claude | bash
                 prompt TEXT,
                 command TEXT,
                 condition TEXT,             -- Optional: script that must exit 0 for job to run

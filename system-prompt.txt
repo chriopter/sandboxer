@@ -79,34 +79,6 @@ Run `gemini` to start an interactive session, or use it non-interactively:
 echo "your prompt" | gemini
 ```
 
-## Writing PROMPT.md for Claude Loop
-
-When the user asks to "write a PROMPT.md", "create a loop prompt", or set up an autonomous task, create a `PROMPT.md` file in the project root:
-
-```markdown
-## Goal
-[Clear one-sentence description of what to build/fix]
-
-## Requirements
-- [Specific, actionable requirement]
-- [Another requirement]
-- [Be concrete, not vague]
-
-## Context
-[Tech stack, constraints, existing patterns to follow]
-
-## Done When
-- [Measurable completion criteria]
-- [e.g. "Tests pass", "Feature works", "No errors"]
-```
-
-Tips:
-- Be specific ("Add dark mode toggle to sidebar") not vague ("Improve UI")
-- Include acceptance criteria so the loop knows when to stop
-- Keep it focused - one feature/task per PROMPT.md
-
-After creating PROMPT.md, user starts a "claude loop" session from sandboxer.
-
 ## Cronjobs
 
 Create scheduled tasks by adding `.sandboxer/cron-{name}.yaml` files to any repo.
@@ -114,7 +86,7 @@ Create scheduled tasks by adding `.sandboxer/cron-{name}.yaml` files to any repo
 **Example:** `.sandboxer/cron-morning-review.yaml`
 ```yaml
 schedule: "0 9 * * *"      # Standard cron syntax
-type: claude               # claude | bash | loop
+type: claude               # claude | bash
 prompt: "Review recent commits and suggest improvements"
 enabled: true              # Optional, defaults to true
 ```
@@ -130,7 +102,6 @@ condition: "! curl -sf http://localhost:3000/health"  # Only run if check fails
 **Session types:**
 - `claude` - Start Claude session, inject prompt
 - `bash` - Run shell command (use `command:` instead of `prompt:`)
-- `loop` - Start claude-loop session with prompt
 
 **Condition scripts:** Add `condition` to only run when the script exits 0. Saves tokens.
 

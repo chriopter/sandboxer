@@ -159,7 +159,7 @@ def get_session_workdir(session_name: str) -> str | None:
 
     # Infer workdir from session name pattern: <folder>-<type>-<number>
     # e.g., "valiido-claude-1" -> /home/sandboxer/git/valiido
-    known_types = {"claude", "bash", "lazygit", "gemini", "loop", "resume", "chat", "cronjob"}
+    known_types = {"claude", "bash", "lazygit", "gemini", "resume", "chat", "cronjob"}
     for session_type in known_types:
         marker = f"-{session_type}-"
         if marker in session_name:
@@ -194,8 +194,6 @@ def restore_sessions():
                 subprocess.run(["tmux", "send-keys", "-t", name, cmd, "Enter"], capture_output=True)
             elif session_type == "lazygit":
                 subprocess.run(["tmux", "send-keys", "-t", name, "lazygit", "Enter"], capture_output=True)
-            elif session_type == "loop":
-                subprocess.run(["tmux", "send-keys", "-t", name, "claude-loop", "Enter"], capture_output=True)
             # bash: just leave the shell prompt
 
             restored += 1
@@ -443,8 +441,8 @@ Each cronjob is a separate file: `.sandboxer/cron-{name}.yaml`
 Example `.sandboxer/cron-morning-review.yaml`:
 ```yaml
 schedule: "0 9 * * *"     # Cron syntax
-type: claude              # claude | bash | loop
-prompt: "Review commits"  # For claude/loop
+type: claude              # claude | bash
+prompt: "Review commits"  # For claude type
 # command: "./script.sh"  # For bash type
 # condition: "./check.sh" # Optional: only run if exits 0
 enabled: true
@@ -455,7 +453,7 @@ The `condition` field is optional - runs the script first and only executes the 
 Ask me:
 1. What should this cronjob do?
 2. When should it run? (schedule)
-3. Should it be a claude session, bash script, or claude-loop?
+3. Should it be a claude session or bash script?
 4. Does it need a condition check before running?"""
         subprocess.run(["tmux", "send-keys", "-t", name, "-l", cronjob_prompt], capture_output=True)
         subprocess.run(["tmux", "send-keys", "-t", name, "Enter"], capture_output=True)
@@ -470,8 +468,6 @@ Ask me:
         subprocess.run(["tmux", "send-keys", "-t", name, cmd, "Enter"], capture_output=True)
     elif session_type == "lazygit":
         subprocess.run(["tmux", "send-keys", "-t", name, "lazygit", "Enter"], capture_output=True)
-    elif session_type == "loop":
-        subprocess.run(["tmux", "send-keys", "-t", name, "claude-loop", "Enter"], capture_output=True)
     # bash type: just leave the shell prompt, no command
 
     # Add to order

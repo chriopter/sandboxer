@@ -671,7 +671,6 @@ function populateSidebar() {
   const typeInfo = {
     chat: { label: "chat", color: "lavender" },
     claude: { label: "claude", color: "mauve" },
-    loop: { label: "loop", color: "pink" },
     lazygit: { label: "lazygit", color: "peach" },
     bash: { label: "bash", color: "green" },
     gemini: { label: "gemini", color: "blue" },
@@ -703,8 +702,6 @@ function populateSidebar() {
       type = cardType;
     } else if (isChat || name.includes("-chat-") || name.startsWith("chat")) {
       type = "chat";
-    } else if (name.includes("-loop-") || name.startsWith("loop")) {
-      type = "loop";
     } else if (name.includes("-claude-") || name.startsWith("claude")) {
       type = "claude";
     } else if (name.includes("-gemini-") || name.startsWith("gemini")) {
@@ -766,8 +763,12 @@ function populateSidebar() {
   // Get currently selected folder
   const selectedDir = getSelectedDir();
 
-  // Sort folders alphabetically, but "/" last
+  // Sort folders alphabetically, but selected/expanded folder always last
   const sortedFolders = Object.keys(folders).sort((a, b) => {
+    // Selected folder always last
+    if (a === selectedDir) return 1;
+    if (b === selectedDir) return -1;
+    // "/" after other non-selected folders
     if (a === "/") return 1;
     if (b === "/") return -1;
     return a.localeCompare(b);
@@ -784,8 +785,8 @@ function populateSidebar() {
     const folderTypes = folders[folderPath];
     const folderName = folderPath === "/" ? "/" : folderPath.split("/").pop();
 
-    // Count AI sessions (claude, chat, loop, gemini - not lazygit/bash/cron)
-    const aiTypes = ["claude", "chat", "loop", "gemini"];
+    // Count AI sessions (claude, chat, gemini - not lazygit/bash/cron)
+    const aiTypes = ["claude", "chat", "gemini"];
     const aiCount = aiTypes.reduce((sum, type) => {
       return sum + (folderTypes[type]?.length || 0);
     }, 0);
@@ -817,28 +818,55 @@ function populateSidebar() {
     });
 
     // Type order for consistent display
-    const typeOrder = ["claude", "chat", "loop", "gemini", "lazygit", "bash", "cron", "other"];
+    const typeOrder = ["claude", "chat", "gemini", "lazygit", "bash", "other"];
+    const folder = folderPath === "/" ? "root" : folderPath.split("/").pop();
+
+    // Flat list for non-cron sessions
+    const flatList = document.createElement("ul");
+    flatList.className = "type-sessions";
 
     typeOrder.forEach(type => {
       const sessions = folderTypes[type];
       if (!sessions || sessions.length === 0) return;
 
       const info = typeInfo[type];
-      const typeKey = `${folderPath}:${type}`;
+
+      sessions.forEach(({ name, title, isChat }) => {
+        const li = document.createElement("li");
+        li.innerHTML = `<span class="type-label" style="color: var(--${info.color})">${info.label}</span> - ${title}`;
+        li.title = name;
+        li.onclick = () => {
+          const endpoint = (isChat || type === "chat") ? "chat" : "terminal";
+          window.open(`/${folder}/${endpoint}/${encodeURIComponent(name)}`, "_blank");
+          toggleSidebar();
+        };
+        flatList.appendChild(li);
+      });
+    });
+
+    // Add flat list if it has items
+    if (flatList.children.length > 0) {
+      folderDetails.appendChild(flatList);
+    }
+
+    // Cron keeps collapsible structure (added after flat list)
+    const cronSessions = folderTypes.cron;
+    if (cronSessions && cronSessions.length > 0) {
+      const cronInfo = typeInfo.cron;
 
       const typeDetails = document.createElement("details");
       typeDetails.className = "sidebar-type";
-      typeDetails.dataset.type = type;
-      typeDetails.open = type !== "cron"; // Cron collapsed by default
+      typeDetails.dataset.type = "cron";
+      typeDetails.open = false;
 
       const typeSummary = document.createElement("summary");
-      typeSummary.innerHTML = `<span class="type-label" style="color: var(--${info.color})">${info.label}</span>`;
+      typeSummary.innerHTML = `<span class="type-label" style="color: var(--${cronInfo.color})">${cronInfo.label}</span>`;
       typeDetails.appendChild(typeSummary);
 
       const ul = document.createElement("ul");
       ul.className = "type-sessions";
 
-      sessions.forEach(({ name, title, titleHtml, isChat, isCron, cron, children }) => {
+      cronSessions.forEach(({ name, title, titleHtml, cron, children }) => {
         const li = document.createElement("li");
         if (titleHtml) {
           li.innerHTML = titleHtml;
@@ -846,42 +874,30 @@ function populateSidebar() {
           li.textContent = title;
         }
         li.title = name;
+        li.onclick = () => {
+          openCronViewer(cron.id);
+          toggleSidebar();
+        };
+        ul.appendChild(li);
 
-        const folder = folderPath === "/" ? "root" : folderPath.split("/").pop();
-
-        if (isCron) {
-          li.onclick = () => {
-            openCronViewer(cron.id);
-            toggleSidebar();
-          };
-          ul.appendChild(li);
-
-          if (children && children.length > 0) {
-            children.forEach(child => {
-              const childLi = document.createElement("li");
-              childLi.className = "cron-child";
-              childLi.textContent = "└ " + child.name.split("-").pop();
-              childLi.title = child.name;
-              childLi.onclick = () => {
-                window.open(`/${folder}/terminal/${encodeURIComponent(child.name)}`, "_blank");
-                toggleSidebar();
-              };
-              ul.appendChild(childLi);
-            });
-          }
-        } else {
-          li.onclick = () => {
-            const endpoint = (isChat || type === "chat") ? "chat" : "terminal";
-            window.open(`/${folder}/${endpoint}/${encodeURIComponent(name)}`, "_blank");
-            toggleSidebar();
-          };
-          ul.appendChild(li);
+        if (children && children.length > 0) {
+          children.forEach(child => {
+            const childLi = document.createElement("li");
+            childLi.className = "cron-child";
+            childLi.textContent = "└ " + child.name.split("-").pop();
+            childLi.title = child.name;
+            childLi.onclick = () => {
+              window.open(`/${folder}/terminal/${encodeURIComponent(child.name)}`, "_blank");
+              toggleSidebar();
+            };
+            ul.appendChild(childLi);
+          });
         }
       });
 
       typeDetails.appendChild(ul);
       folderDetails.appendChild(typeDetails);
-    });
+    }
 
     fragment.appendChild(folderDetails);
   });

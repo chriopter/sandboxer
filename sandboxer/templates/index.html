@@ -20,33 +20,16 @@
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-row">
     <button class="sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">≡</button>
-    <select-dropdown id="typeSelect" data-value="claude">
-      <details is-="popover" position-="bottom">
-        <summary tabindex="0">claude <span class="dropdown-indicator">˅</span></summary>
-        <column id="typeOptions" class="dropdown-left">
-          <button data-value="claude" aria-selected="true">claude</button>
-          <button data-value="chat" aria-selected="false">claude chat</button>
-          <button data-value="loop" aria-selected="false">claude loop</button>
-          <button data-value="resume" aria-selected="false">claude resume</button>
-          <button data-value="cronjob" aria-selected="false">cronjob</button>
-          <button data-value="lazygit" aria-selected="false">lazygit</button>
-          <button data-value="bash" aria-selected="false">bash</button>
-          <button data-value="gemini" aria-selected="false">gemini</button>
-        </column>
-      </details>
-    </select-dropdown>
-    <span id="resumeWrap" class="resume-wrap">
-      <select-dropdown id="resumeSelect" data-value="">
-        <details is-="popover" position-="bottom">
-          <summary tabindex="0">... <span class="dropdown-indicator">˅</span></summary>
-          <column id="resumeOptions">
-          </column>
-        </details>
-      </select-dropdown>
-    </span>
-    <button class="btn-green new-btn" onclick="createSession()" title="New session">+</button>
   </div>
-  <button class="btn-green sidebar-new-collapsed" onclick="createSession()" title="New session">+</button>
+  <div class="sidebar-buttons">
+    <button class="btn-green" onclick="createSession('claude')" title="New Claude session">claude</button>
+    <button class="btn-green" onclick="createSession('chat')" title="New Claude chat">chat</button>
+    <button class="btn-green" onclick="createSession('lazygit')" title="New lazygit">lazygit</button>
+    <button class="btn-green" onclick="createSession('bash')" title="New bash shell">bash</button>
+    <button class="btn-green" onclick="createSession('gemini')" title="New Gemini session">gemini</button>
+    <button class="btn-green" onclick="createSession('cronjob')" title="Create cronjob">cron</button>
+  </div>
+  <button class="btn-green sidebar-new-collapsed" onclick="createSession('claude')" title="New session">+</button>
   <ul class="sidebar-list" id="sidebarList" data-selected-folder="{{selected_folder}}">
   </ul>
   <div class="sidebar-bottom">

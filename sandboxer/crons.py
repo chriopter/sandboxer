@@ -116,13 +116,13 @@ def parse_cron_file(file_path: str) -> dict | None:
             return None
 
         # Validate type
-        if cron_type not in ('claude', 'bash', 'loop'):
+        if cron_type not in ('claude', 'bash'):
             log(f"Skipping {file_path}: invalid type '{cron_type}'")
             return None
 
         # Validate prompt/command based on type
-        if cron_type in ('claude', 'loop') and not cron.get('prompt'):
-            log(f"Skipping {file_path}: {cron_type} type requires prompt")
+        if cron_type == 'claude' and not cron.get('prompt'):
+            log(f"Skipping {file_path}: claude type requires prompt")
             return None
         if cron_type == 'bash' and not cron.get('command'):
             log(f"Skipping {file_path}: bash type requires command")
@@ -343,22 +343,6 @@ def execute_cron(cron: dict):
             # Create claude session
             sessions.create_session(session_name, 'claude', repo_path)
             # Wait for claude to fully start up before injecting prompt
-            time.sleep(4)
-            # Send prompt text
-            subprocess.run(
-                ["tmux", "send-keys", "-t", session_name, "-l", prompt],
-                capture_output=True
-            )
-            # Small delay to ensure text is received before Enter
-            time.sleep(0.5)
-            subprocess.run(
-                ["tmux", "send-keys", "-t", session_name, "Enter"],
-                capture_output=True
-            )
-        elif cron_type == 'loop':
-            # Create loop session
-            sessions.create_session(session_name, 'loop', repo_path)
-            # Wait for claude-loop to fully start up before injecting prompt
             time.sleep(4)
             # Send prompt text
             subprocess.run(

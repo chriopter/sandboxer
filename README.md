@@ -13,9 +13,8 @@
 - **Live previews** - See all Claude sessions at a glance in a scalable grid layout
 - **Claude Chat** - Mobile-friendly chat UI as alternative to terminal view
 - **SSH takeover** - `ssh -t sandboxer@host sandboxer-shell` to take over any session from terminal
-- **Cronjobs** - Schedule Claude/bash/loop sessions via `.sandboxer/cron-*.yaml` files with optional conditions
+- **Cronjobs** - Schedule Claude/bash sessions via `.sandboxer/cron-*.yaml` files with optional conditions
 - **Session persistence** - All sessions survive restarts via tmux
-- **Claude Loop** - Autonomous mode: create PROMPT.md, start loop, Claude works until done
 - **Auto-update** - Updates itself daily at 4am via built-in cronjob
 
 <img width="2528" height="1428" alt="image" src="https://github.com/user-attachments/assets/6b2e0306-d9b3-4151-b94d-a90fae7573ce" />
@@ -75,7 +74,6 @@ git config --global --add safe.directory /home/sandboxer/git/sandboxer
 
 # Symlinks
 ln -sf /home/sandboxer/git/sandboxer/sandboxer-shell /usr/local/bin/sandboxer-shell
-ln -sf /home/sandboxer/git/sandboxer/claude-loop /usr/local/bin/claude-loop
 
 # Systemd service
 cp /home/sandboxer/git/sandboxer/sandboxer.service /etc/systemd/system/
