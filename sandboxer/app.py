@@ -287,8 +287,8 @@ def run_cron(cron: dict):
         subprocess.run(["tmux", "set", "-t", session_name, "mouse", "on"], capture_output=True)
 
         # Start claude with IS_SANDBOX=1 (same as web UI)
-        prompt_escaped = prompt.replace('"', '\\"')
-        cmd = f'IS_SANDBOX=1 claude --dangerously-skip-permissions --system-prompt {SYSTEM_PROMPT} -p "{prompt_escaped}"'
+        # Use heredoc to avoid bash history expansion issues with ! and other special chars
+        cmd = f"IS_SANDBOX=1 claude --dangerously-skip-permissions --system-prompt {SYSTEM_PROMPT} -p \"$(cat <<'PROMPT'\n{prompt}\nPROMPT\n)\""
         subprocess.run(["tmux", "send-keys", "-t", session_name, cmd, "Enter"], capture_output=True)
 
         # Register session

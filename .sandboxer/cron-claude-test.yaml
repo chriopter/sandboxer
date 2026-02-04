@@ -1,4 +1,3 @@
-# Test: Claude cron execution  
 schedule: "* * * * *"
 type: claude
 prompt: "Say 'Cron test successful!' and nothing else."
