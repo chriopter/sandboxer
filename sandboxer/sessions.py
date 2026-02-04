@@ -159,7 +159,7 @@ def get_session_workdir(session_name: str) -> str | None:
 
     # Infer workdir from session name pattern: <folder>-<type>-<number>
     # e.g., "valiido-claude-1" -> /home/sandboxer/git/valiido
-    known_types = {"claude", "bash", "lazygit", "gemini", "resume", "chat", "cronjob"}
+    known_types = {"claude", "bash", "lazygit", "gemini", "chat", "cronjob"}
     for session_type in known_types:
         marker = f"-{session_type}-"
         if marker in session_name:
@@ -417,7 +417,7 @@ def get_pane_title(session_name: str) -> str | None:
     return None
 
 
-def create_session(name: str, session_type: str = "claude", workdir: str = "/home/sandboxer", resume_id: str = None):
+def create_session(name: str, session_type: str = "claude", workdir: str = "/home/sandboxer"):
     """Create a new tmux session."""
     subprocess.run(["tmux", "new-session", "-d", "-s", name, "-c", workdir], capture_output=True)
 
@@ -457,12 +457,6 @@ Ask me:
 4. Does it need a condition check before running?"""
         subprocess.run(["tmux", "send-keys", "-t", name, "-l", cronjob_prompt], capture_output=True)
         subprocess.run(["tmux", "send-keys", "-t", name, "Enter"], capture_output=True)
-    elif session_type == "resume":
-        if resume_id:
-            cmd = f"IS_SANDBOX=1 nice -n 10 claude --dangerously-skip-permissions --resume {resume_id} --system-prompt {SYSTEM_PROMPT_PATH}"
-        else:
-            cmd = f"IS_SANDBOX=1 nice -n 10 claude --dangerously-skip-permissions --resume --system-prompt {SYSTEM_PROMPT_PATH}"
-        subprocess.run(["tmux", "send-keys", "-t", name, cmd, "Enter"], capture_output=True)
     elif session_type == "gemini":
         cmd = f"cd {workdir} && gemini"
         subprocess.run(["tmux", "send-keys", "-t", name, cmd, "Enter"], capture_output=True)
@@ -475,8 +469,8 @@ Ask me:
         session_order.append(name)
 
     # Track session metadata (persisted for reboot survival)
-    # Don't persist 'resume' or 'cronjob' type - treat them as claude
-    persist_type = "claude" if session_type in ("resume", "cronjob") else session_type
+    # Don't persist 'cronjob' type - treat as claude
+    persist_type = "claude" if session_type == "cronjob" else session_type
     session_meta[name] = {"workdir": workdir, "type": persist_type, "mode": "cli"}
     _save_session_meta()
 
@@ -697,78 +691,6 @@ def get_directories() -> list[str]:
     except Exception:
         pass
     return dirs
-
-
-# ═══ Resume Sessions ═══
-
-def get_resumable_sessions(workdir: str) -> list[dict]:
-    """Get list of resumable Claude sessions for a directory."""
-    project_dir = workdir.replace("/", "-") if workdir != "/" else "-"
-    claude_projects_path = os.path.expanduser(f"~/.claude/projects/{project_dir}")
-
-    sessions = []
-    try:
-        if os.path.isdir(claude_projects_path):
-            for filename in os.listdir(claude_projects_path):
-                if filename.startswith("agent-") or not filename.endswith(".jsonl"):
-                    continue
-
-                filepath = os.path.join(claude_projects_path, filename)
-                session_id = filename[:-6]  # Remove .jsonl
-                size = os.path.getsize(filepath)
-
-                if size == 0:
-                    continue
-
-                mtime = os.path.getmtime(filepath)
-                summary = None
-                message_count = 0
-                branch = None
-
-                try:
-                    with open(filepath, "r") as f:
-                        for line in f:
-                            try:
-                                data = json.loads(line)
-                                msg_type = data.get("type")
-
-                                if msg_type in ("user", "assistant", "human"):
-                                    message_count += 1
-
-                                if msg_type == "summary":
-                                    summary = data.get("summary", "")[:80]
-
-                                if not branch:
-                                    branch = data.get("gitBranch")
-
-                                if msg_type in ("user", "human") and not summary:
-                                    msg = data.get("message", {})
-                                    content = msg.get("content", [])
-                                    if content and isinstance(content, list):
-                                        for item in content:
-                                            if item.get("type") == "text":
-                                                text = item.get("text", "").replace("\n", " ").strip()
-                                                summary = text[:80]
-                                                break
-                            except json.JSONDecodeError:
-                                pass
-                except Exception:
-                    pass
-
-                sessions.append({
-                    "id": session_id,
-                    "size": size,
-                    "summary": summary or session_id[:8] + "...",
-                    "mtime": mtime,
-                    "message_count": message_count,
-                    "branch": branch,
-                })
-
-        sessions.sort(key=lambda x: x["mtime"], reverse=True)
-    except Exception:
-        pass
-
-    return sessions
 
 
 # ═══ Module Initialization ═══

@@ -335,10 +335,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return
             port = sessions.start_ttyd(session_name)
             title = sessions.get_pane_title(session_name) or session_name
+            # Get project name from workdir
+            workdir = sessions.get_session_workdir(session_name) or ""
+            project = os.path.basename(workdir) if workdir and workdir != "/" else ""
+            # Build title with optional project prefix
+            if project:
+                title_html = f'<span class="term-project">{escape(project)}</span> ⠐ {escape(title)}'
+            else:
+                title_html = escape(title)
             html = render_template(
                 "terminal.html",
                 session_name=escape(session_name),
                 session_title=escape(title),
+                title_html=title_html,
                 ttyd_url=f"/t/{port}/",
             )
             self.send_html(html)
@@ -379,9 +388,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if path == "/create":
             session_type = query.get("type", ["claude"])[0]
             workdir = query.get("dir", ["/home/sandboxer/git/sandboxer"])[0]
-            resume_id = query.get("resume_id", [None])[0]
             name = sessions.generate_session_name(session_type, workdir)
-            sessions.create_session(name, session_type, workdir, resume_id)
+            sessions.create_session(name, session_type, workdir)
             self.send_redirect("/")
             return
 
@@ -413,7 +421,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if path == "/api/create":
             session_type = query.get("type", ["claude"])[0]
             workdir = query.get("dir", ["/home/sandboxer/git/sandboxer"])[0]
-            resume_id = query.get("resume_id", [None])[0]
             name = sessions.generate_session_name(session_type, workdir)
 
             if session_type == "chat":
@@ -422,7 +429,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 s = {"name": name, "title": name, "workdir": workdir, "type": "chat", "mode": "chat"}
             else:
                 # Terminal session - create tmux session and start ttyd
-                sessions.create_session(name, session_type, workdir, resume_id)
+                sessions.create_session(name, session_type, workdir)
                 sessions.start_ttyd(name)
                 s = {"name": name, "title": name, "workdir": workdir}
 
@@ -436,12 +443,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             for s in ordered:
                 s["port"] = sessions.get_ttyd_port(s["name"])
             self.send_json(ordered)
-            return
-
-        if path == "/api/resume-sessions":
-            workdir = query.get("dir", ["/home/sandboxer/git/sandboxer"])[0]
-            resumable = sessions.get_resumable_sessions(workdir)
-            self.send_json(resumable)
             return
 
         if path == "/api/stats":

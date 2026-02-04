@@ -1,6 +1,5 @@
 /* Sandboxer - Dashboard JavaScript */
 
-let resumeSessionsCache = {};
 
 // ═══ WebTUI Select Dropdown Custom Element ═══
 
@@ -114,39 +113,22 @@ function switchToFolder(folder) {
   // Filter visible sessions
   filterSessionsByFolder(folder);
 
-  // Handle resume type
-  const type = getSelectedType();
-  if (type === "resume") {
-    loadResumeSessions(folder);
-  }
-
   // Save to server and update URL
   saveSelectedFolder(folder);
 }
 
 function getSelectedType() {
-  const el = document.getElementById("typeSelect");
-  return el?.value || "claude";
+  return "claude"; // Default type when not specified
 }
 
-function getSelectedResume() {
-  const el = document.getElementById("resumeSelect");
-  return el?.value || "";
-}
 
 // ═══ Session Management ═══
 
 async function createSession(forceType) {
   const type = forceType || getSelectedType();
   const dir = getSelectedDir();
-  const resumeId = getSelectedResume();
-
-  if (!forceType) localStorage.setItem("sandboxer_type", type);
 
   let url = "/api/create?type=" + type + "&dir=" + encodeURIComponent(dir);
-  if (type === "resume" && resumeId) {
-    url += "&resume_id=" + encodeURIComponent(resumeId);
-  }
 
   try {
     const res = await fetch(url);
@@ -398,79 +380,6 @@ function showToast(message, type = "info") {
   }, 3000);
 }
 
-// ═══ Resume Sessions ═══
-
-function formatTimeAgo(mtime) {
-  const now = Date.now() / 1000;
-  const diff = now - mtime;
-  if (diff < 60) return "just now";
-  if (diff < 3600) return Math.floor(diff / 60) + " min ago";
-  if (diff < 86400)
-    return Math.floor(diff / 3600) + " hour" + (Math.floor(diff / 3600) > 1 ? "s" : "") + " ago";
-  if (diff < 604800)
-    return Math.floor(diff / 86400) + " day" + (Math.floor(diff / 86400) > 1 ? "s" : "") + " ago";
-  return new Date(mtime * 1000).toLocaleDateString();
-}
-
-async function loadResumeSessions(dir) {
-  const resumeSelect = document.getElementById("resumeSelect");
-  const optionsCol = document.getElementById("resumeOptions");
-  const summary = resumeSelect?.querySelector("summary");
-
-  if (!optionsCol) return;
-
-  optionsCol.innerHTML = '<span style="padding:0.5em;color:var(--overlay0)">loading...</span>';
-  if (summary) summary.textContent = "...";
-  if (resumeSelect) resumeSelect.setAttribute("data-value", "");
-
-  try {
-    const res = await fetch("/api/resume-sessions?dir=" + encodeURIComponent(dir));
-    const sessions = await res.json();
-    resumeSessionsCache[dir] = sessions;
-
-    if (sessions.length === 0) {
-      optionsCol.innerHTML = '<span style="padding:0.5em;color:var(--overlay0)">(no sessions)</span>';
-    } else {
-      optionsCol.innerHTML = sessions
-        .map((s) => {
-          const timeAgo = formatTimeAgo(s.mtime);
-          const label = s.summary.length > 25 ? s.summary.slice(0, 25) + "\u2026" : s.summary;
-          return `<button data-value="${s.id}" size-="small" aria-selected="false">${label} <span style="color:var(--overlay0)">${timeAgo}</span></button>`;
-        })
-        .join("");
-
-      // Set up click handlers for dynamically added buttons
-      optionsCol.querySelectorAll("button").forEach(btn => {
-        btn.addEventListener("click", () => {
-          optionsCol.querySelectorAll("button").forEach(b => b.setAttribute("aria-selected", "false"));
-          btn.setAttribute("aria-selected", "true");
-          const value = btn.getAttribute("data-value");
-          const label = btn.childNodes[0]?.textContent?.trim() || "...";
-          if (resumeSelect) {
-            resumeSelect.setAttribute("data-value", value);
-            if (summary) summary.textContent = label;
-            resumeSelect.querySelector("details")?.removeAttribute("open");
-          }
-        });
-      });
-    }
-  } catch (err) {
-    optionsCol.innerHTML = '<span style="padding:0.5em;color:var(--red)">(error)</span>';
-  }
-}
-
-function onTypeChange() {
-  const type = getSelectedType();
-  const dir = getSelectedDir();
-  const resumeWrap = document.getElementById("resumeWrap");
-
-  if (type === "resume") {
-    resumeWrap.classList.add("show");
-    loadResumeSessions(dir);
-  } else {
-    resumeWrap.classList.remove("show");
-  }
-}
 
 function saveSelectedFolder(folder) {
   const folderName = folder === "/" ? "root" : folder.split("/").pop();
@@ -710,8 +619,6 @@ function populateSidebar() {
       type = "bash";
     } else if (name.includes("-lazygit-") || name.startsWith("lazygit")) {
       type = "lazygit";
-    } else if (name.includes("-resume-") || name.startsWith("resume")) {
-      type = "claude";
     } else if (name.startsWith("cron-")) {
       // Only fallback to cronSessions if we have no type info
       // (legacy sessions before type tracking)
@@ -1185,26 +1092,8 @@ function retryIframe(iframe) {
 // ═══ Initialization ═══
 
 (function init() {
-  // Set up change listener for type dropdown
-  const typeSelect = document.getElementById("typeSelect");
-
-  if (typeSelect) {
-    // Restore type preference
-    const savedType = localStorage.getItem("sandboxer_type");
-    if (savedType) {
-      typeSelect.value = savedType;
-    }
-    typeSelect.addEventListener("change", onTypeChange);
-  }
-
   // Apply initial folder filter
   filterSessionsByFolder(getSelectedDir());
-
-  // Trigger change handler to show resume dropdown if needed
-  if (getSelectedType() === "resume") {
-    document.getElementById("resumeWrap").classList.add("show");
-    loadResumeSessions(getSelectedDir());
-  }
 
   // Initialize drag and drop
   initDragAndDrop();
