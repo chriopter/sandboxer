@@ -168,10 +168,11 @@ def get_directories() -> list[str]:
     return dirs
 
 
-def build_folder_options() -> str:
+def build_folder_options(active_folder: str = None) -> str:
     """Build folder dropdown HTML with Claude session counts."""
     dirs = get_directories()
     sessions = get_sessions()
+    selected = active_folder or _selected_folder
 
     # Count Claude sessions per folder
     counts = {}
@@ -183,7 +184,7 @@ def build_folder_options() -> str:
     opts = []
     for d in dirs:
         label = "/" if d == "/" else os.path.basename(d)
-        sel = " selected" if d == _selected_folder else ""
+        sel = " selected" if d == selected else ""
         # Add count for this folder
         count = counts.get(d, 0)
         count_str = f" ({count})" if count > 0 else ""
@@ -447,6 +448,7 @@ def build_card(s: dict) -> str:
   <header>
     <span class="card-title">{escape(s['title'])}</span>
     <div class="card-actions">
+      <button onclick="uploadFile('{escape(s['name'])}')" title="Upload file">📎</button>
       <button class="btn-teal" onclick="copySessionSSH('{escape(s['name'])}')">ssh</button>
       <button onclick="openFullscreen('{escape(s['name'])}')">⧉</button>
       <button class="btn-red" onclick="killSession('{escape(s['name'])}')">×</button>
@@ -596,11 +598,31 @@ exec bash
             self.send_html(html)
             return
 
-        # Dashboard
-        if len(parts) <= 1:
+        # Dashboard: /, /folder, /folder/session
+        if len(parts) <= 2 and (len(parts) == 0 or parts[0] not in ("api", "static", "kill")):
+            # Parse folder from URL
+            url_folder = "/"
+            url_session = None
+
+            if len(parts) >= 1 and parts[0] != "terminal":
+                folder_name = urllib.parse.unquote(parts[0])
+                # Find full path matching this folder name
+                for d in get_directories():
+                    if os.path.basename(d) == folder_name:
+                        url_folder = d
+                        break
+
+            if len(parts) == 2:
+                url_session = urllib.parse.unquote(parts[1])
+
             sessions = get_sessions()
             cards = "".join(build_card(s) for s in sessions) or '<div class="empty">No sessions</div>'
-            html = render(_tpl_index, cards=cards, folder_options=build_folder_options(), sidebar_sessions=build_sidebar_sessions())
+            html = render(_tpl_index,
+                         cards=cards,
+                         folder_options=build_folder_options(url_folder),
+                         sidebar_sessions=build_sidebar_sessions(),
+                         active_folder=escape(url_folder),
+                         active_session=escape(url_session or ""))
             self.send_html(html)
             return
 
@@ -626,6 +648,22 @@ exec bash
             with open(f"{DATA_DIR}/selected_folder", "w") as f:
                 f.write(_selected_folder)
             self.send_json({"ok": True})
+            return
+
+        if path == "/api/upload":
+            import base64
+            import time
+            data = json.loads(body)
+            filename = data.get("filename", "upload")
+            content = base64.b64decode(data.get("content", ""))
+            # Sanitize filename
+            safe_name = "".join(c for c in filename if c.isalnum() or c in ".-_")
+            # Add timestamp to avoid collisions
+            ts = int(time.time())
+            dest = f"/tmp/{ts}-{safe_name}"
+            with open(dest, "wb") as f:
+                f.write(content)
+            self.send_json({"ok": True, "path": dest})
             return
 
         self.send_response(404)

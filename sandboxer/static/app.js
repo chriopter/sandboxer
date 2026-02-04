@@ -27,7 +27,13 @@ function initWS() {
 
   ws.onclose = () => setTimeout(initWS, 1000);
   ws.onopen = () => {
-    // Auto-attach first visible session
+    // Check server state for session to restore, otherwise attach first visible
+    const state = window.SANDBOXER_STATE || {};
+    if (state.activeSession && terminals.has(state.activeSession)) {
+      attachSession(state.activeSession);
+      return;
+    }
+
     const firstVisible = document.querySelector(".card:not([style*='display: none'])");
     if (firstVisible) {
       const name = firstVisible.dataset.session;
@@ -59,7 +65,14 @@ function createTerminal(name, container) {
   try { term.loadAddon(new WebglAddon.WebglAddon()); } catch {}
 
   term.open(container);
-  setTimeout(() => fit.fit(), 50);
+
+  // Multiple fit() calls to handle layout settling
+  // Initial fit, then again after layout stabilizes
+  const doFit = () => { try { fit.fit(); } catch {} };
+  doFit();
+  setTimeout(doFit, 50);
+  setTimeout(doFit, 150);
+  requestAnimationFrame(() => requestAnimationFrame(doFit));
 
   term.onData((d) => currentSession === name && wsSend(d));
   term.onResize(({ rows, cols }) => currentSession === name && wsSend(JSON.stringify({ action: "resize", rows, cols })));
@@ -83,12 +96,16 @@ async function loadTerminalContent(name, clear = false) {
       if (t) {
         if (clear) t.term.reset();
         t.term.write(data.content);
+        // Refit after content load to fix line wrapping
+        requestAnimationFrame(() => {
+          try { t.fit.fit(); } catch {}
+        });
       }
     }
   } catch {}
 }
 
-function attachSession(name) {
+function attachSession(name, skipUrlUpdate = false) {
   if (currentSession === name) return;
   if (currentSession) wsSend(JSON.stringify({ action: "detach" }));
   currentSession = name;
@@ -96,6 +113,11 @@ function attachSession(name) {
   const t = terminals.get(name);
   if (!t) return;
   wsSend(JSON.stringify({ action: "attach", session: name, rows: t.term.rows, cols: t.term.cols }));
+
+  // Update URL with current session
+  if (!skipUrlUpdate) {
+    updateUrl(getSelectedFolder(), name);
+  }
 }
 
 // ═══ UI Actions ═══
@@ -141,8 +163,8 @@ async function killAllSessions() {
 }
 
 function openFullscreen(name) {
-  const folder = getSelectedFolder().split("/").pop() || "root";
-  location.href = `/${folder}/terminal/${encodeURIComponent(name)}`;
+  const slug = getFolderSlug(getSelectedFolder()) || "root";
+  window.open(`/${slug}/terminal/${encodeURIComponent(name)}`, "_blank");
 }
 
 function copyToClipboard(text) {
@@ -176,12 +198,94 @@ function copySessionSSH(name) {
   copyToClipboard(cmd);
 }
 
+async function doUpload(file, session) {
+  showToast("Uploading...");
+
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = reader.result.split(",")[1];
+      try {
+        const res = await fetch("/api/upload", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ filename: file.name, content: base64 })
+        });
+        const data = await res.json();
+        if (data.ok && data.path) {
+          // Attach to session and paste path
+          if (session) attachSession(session);
+          setTimeout(() => {
+            wsSend(data.path + " ");
+            showToast("Uploaded: " + data.path);
+          }, 100);
+          resolve(data.path);
+        } else {
+          showToast("Upload failed");
+          resolve(null);
+        }
+      } catch (e) {
+        showToast("Upload error");
+        resolve(null);
+      }
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function uploadFile(session) {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.onchange = () => {
+    const file = input.files[0];
+    if (file) doUpload(file, session);
+  };
+  input.click();
+}
+
+function handlePaste(e) {
+  const clipboard = e.clipboardData;
+  if (!clipboard) return;
+
+  const items = clipboard.items;
+  const files = clipboard.files;
+
+  // Try clipboard.files first (some browsers)
+  if (files && files.length > 0) {
+    const file = files[0];
+    e.preventDefault();
+    e.stopPropagation();
+    const filename = file.name || `paste-${Date.now()}.${file.type.split("/")[1] || "png"}`;
+    doUpload(new File([file], filename, { type: file.type }), currentSession);
+    return;
+  }
+
+  // Try clipboard.items
+  if (items) {
+    for (const item of items) {
+      if (item.kind === "file") {
+        const file = item.getAsFile();
+        if (file) {
+          e.preventDefault();
+          e.stopPropagation();
+          let filename = file.name;
+          if (!filename || filename === "image.png" || filename === "blob") {
+            filename = `paste-${Date.now()}.${file.type.split("/")[1] || "png"}`;
+          }
+          doUpload(new File([file], filename, { type: file.type }), currentSession);
+          return;
+        }
+      }
+    }
+  }
+}
+
 function focusSession(name) {
   // Scroll card into view and attach
   const card = document.querySelector(`[data-session="${name}"]`);
   if (card) {
     card.scrollIntoView({ behavior: "smooth", block: "center" });
-    attachSession(name);
+    attachSession(name); // This will also update the URL
     // Update sidebar active state
     document.querySelectorAll(".sidebar-session").forEach(el => {
       el.classList.toggle("active", el.dataset.session === name);
@@ -264,9 +368,29 @@ async function loadStats() {
   } catch {}
 }
 
+// ═══ URL State ═══
+
+function getFolderSlug(folderPath) {
+  // Convert /home/sandboxer/git/sandboxer -> sandboxer
+  if (!folderPath || folderPath === "/") return "";
+  return folderPath.split("/").pop();
+}
+
+function updateUrl(folder, session) {
+  const slug = getFolderSlug(folder);
+  let path = "/";
+  if (slug) {
+    path = `/${encodeURIComponent(slug)}`;
+    if (session) {
+      path += `/${encodeURIComponent(session)}`;
+    }
+  }
+  history.replaceState(null, "", path);
+}
+
 // ═══ Filter ═══
 
-function filterCards(folder) {
+function filterCards(folder, skipUrlUpdate = false) {
   let firstVisible = null;
 
   // Filter cards - show only matching folder (or all if "/")
@@ -296,6 +420,11 @@ function filterCards(folder) {
   });
 
   fetch("/api/selected-folder", { method: "POST", body: folder });
+
+  // Update URL
+  if (!skipUrlUpdate) {
+    updateUrl(folder, currentSession);
+  }
 
   // Attach first visible session
   if (firstVisible && ws?.readyState === WebSocket.OPEN) {
@@ -359,11 +488,27 @@ document.addEventListener("DOMContentLoaded", () => {
   // Init WebSocket (will auto-attach first visible on connect)
   initWS();
 
-  // Folder filter
+  // Folder filter - use server-rendered state from URL
   const select = document.getElementById("folder-select");
+  const state = window.SANDBOXER_STATE || {};
+
   if (select) {
+    // Server already set the correct selected option based on URL
     select.onchange = () => filterCards(select.value);
-    filterCards(select.value);
+    filterCards(select.value, true); // Skip URL update on init
+
+    // If URL had a session, attach it after cards are filtered
+    if (state.activeSession && terminals.has(state.activeSession)) {
+      attachSession(state.activeSession, true);
+      // Scroll to and highlight the session
+      const card = document.querySelector(`[data-session="${state.activeSession}"]`);
+      if (card) {
+        setTimeout(() => card.scrollIntoView({ behavior: "smooth", block: "center" }), 100);
+      }
+    }
+
+    // Ensure URL is correct (in case accessed via /)
+    updateUrl(select.value, currentSession);
   }
 
   // Stats
@@ -378,4 +523,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   }, 3000);
+
+  // Handle Ctrl+V file paste (capture phase to intercept before xterm)
+  document.addEventListener("paste", handlePaste, true);
 });

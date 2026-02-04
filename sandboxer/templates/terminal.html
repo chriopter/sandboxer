@@ -12,6 +12,7 @@
   <div class="header">
     <span>{{title_html}}</span>
     <div class="spacer"></div>
+    <button id="upload-btn" title="Upload file">📎</button>
     <button class="btn-teal" id="ssh-btn">ssh</button>
     <button class="btn-red" id="kill-btn">×</button>
   </div>
@@ -92,6 +93,61 @@
     document.getElementById("kill-btn").onclick = async () => {
       if (confirm("Kill session?")) { await fetch(`/kill?session=${encodeURIComponent(SESSION)}`); location.href = "/"; }
     };
+
+    async function doUpload(file) {
+      toast("Uploading...");
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64 = reader.result.split(",")[1];
+        try {
+          const res = await fetch("/api/upload", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ filename: file.name, content: base64 })
+          });
+          const data = await res.json();
+          if (data.ok && data.path) {
+            ws?.send(data.path + " ");
+            toast("Uploaded: " + data.path);
+          } else {
+            toast("Upload failed");
+          }
+        } catch { toast("Upload error"); }
+      };
+      reader.readAsDataURL(file);
+    }
+
+    document.getElementById("upload-btn").onclick = () => {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.onchange = () => {
+        const file = input.files[0];
+        if (file) doUpload(file);
+      };
+      input.click();
+    };
+
+    document.addEventListener("paste", (e) => {
+      const items = e.clipboardData?.items;
+      if (!items || items.length === 0) return;
+      for (const item of items) {
+        if (item.kind === "file") {
+          const file = item.getAsFile();
+          if (file) {
+            e.preventDefault();
+            e.stopPropagation();
+            let filename = file.name;
+            if (!filename || filename === "image.png" || filename === "blob") {
+              const ext = file.type.split("/")[1] || "png";
+              filename = `paste-${Date.now()}.${ext}`;
+            }
+            const namedFile = new File([file], filename, { type: file.type });
+            doUpload(namedFile);
+            return;
+          }
+        }
+      }
+    }, true);
 
     init();
   </script>
