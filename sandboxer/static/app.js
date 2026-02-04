@@ -48,7 +48,7 @@ const THEME = {
 function createTerminal(name, container) {
   if (terminals.has(name)) return terminals.get(name);
 
-  const term = new Terminal({ cursorBlink: true, fontSize: 13, theme: THEME });
+  const term = new Terminal({ cursorBlink: true, fontSize: 9, theme: THEME });
   const fit = new FitAddon.FitAddon();
   term.loadAddon(fit);
 
@@ -63,7 +63,25 @@ function createTerminal(name, container) {
   new ResizeObserver(() => fit.fit()).observe(container);
 
   terminals.set(name, { term, fit });
+
+  // Load initial content (so terminals render without hover)
+  loadTerminalContent(name);
+
   return terminals.get(name);
+}
+
+async function loadTerminalContent(name, clear = false) {
+  try {
+    const res = await fetch(`/api/capture?session=${encodeURIComponent(name)}`);
+    const data = await res.json();
+    if (data.content) {
+      const t = terminals.get(name);
+      if (t) {
+        if (clear) t.term.reset();
+        t.term.write(data.content);
+      }
+    }
+  } catch {}
 }
 
 function attachSession(name) {
@@ -100,11 +118,10 @@ async function createSession(type) {
 }
 
 async function killSession(name) {
-  if (!confirm(`Kill ${name}?`)) return;
   terminals.get(name)?.term.dispose();
   terminals.delete(name);
   await fetch(`/kill?session=${encodeURIComponent(name)}`);
-  document.querySelector(`[data-session="${name}"]`)?.remove();
+  location.reload();
 }
 
 async function killAllSessions() {
@@ -124,10 +141,35 @@ function openFullscreen(name) {
   location.href = `/${folder}/terminal/${encodeURIComponent(name)}`;
 }
 
+function copyToClipboard(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => {
+      showToast("Copied: " + text.substring(0, 60));
+    }).catch(() => fallbackCopy(text));
+  } else {
+    fallbackCopy(text);
+  }
+}
+
+function fallbackCopy(text) {
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.style.position = "fixed";
+  ta.style.left = "-9999px";
+  document.body.appendChild(ta);
+  ta.select();
+  try {
+    document.execCommand("copy");
+    showToast("Copied: " + text.substring(0, 60));
+  } catch (e) {
+    showToast("Copy failed");
+  }
+  document.body.removeChild(ta);
+}
+
 function copySessionSSH(name) {
   const cmd = `ssh -t sandboxer@${location.hostname} sudo tmux attach -t '${name}'`;
-  navigator.clipboard.writeText(cmd);
-  showToast("Copied SSH command");
+  copyToClipboard(cmd);
 }
 
 function focusSession(name) {
@@ -143,13 +185,28 @@ function focusSession(name) {
   }
 }
 
+async function openCron(path) {
+  // Create split tmux: left=cat cron, right=tail log
+  const dir = getSelectedFolder();
+  const name = path.split("/").pop().replace("cron-", "").replace(".yaml", "");
+  const logPath = `/var/log/sandboxer/cron-${name}.log`;
+
+  const res = await fetch(`/api/create-cron-view?path=${encodeURIComponent(path)}&log=${encodeURIComponent(logPath)}&dir=${encodeURIComponent(dir)}`);
+  const data = await res.json();
+  if (data.ok) {
+    const grid = document.querySelector(".grid");
+    grid.querySelector(".empty")?.remove();
+    grid.insertAdjacentHTML("afterbegin", data.html);
+    initCard(grid.firstElementChild, true);
+  }
+}
+
 function copySSH() {
   const folder = getSelectedFolder();
   const cmd = folder === "/"
     ? `ssh -t sandboxer@${location.hostname} sandboxer-shell --all`
     : `ssh -t sandboxer@${location.hostname} sandboxer-shell -f '${folder}'`;
-  navigator.clipboard.writeText(cmd);
-  showToast("Copied SSH command");
+  copyToClipboard(cmd);
 }
 
 function showToast(msg) {
@@ -208,18 +265,18 @@ async function loadStats() {
 function filterCards(folder) {
   let firstVisible = null;
 
-  // Filter cards
+  // Filter cards - show only matching folder (or all if "/")
   document.querySelectorAll(".card").forEach(card => {
     const workdir = card.dataset.workdir || "";
-    const show = folder === "/" || workdir.startsWith(folder) || !workdir;
+    const show = folder === "/" || workdir === folder || workdir.startsWith(folder + "/");
     card.style.display = show ? "" : "none";
     if (show && !firstVisible) firstVisible = card;
   });
 
-  // Filter sidebar sessions
-  document.querySelectorAll(".sidebar-session").forEach(el => {
+  // Filter sidebar sessions and crons
+  document.querySelectorAll(".sidebar-session, .sidebar-cron").forEach(el => {
     const workdir = el.dataset.workdir || "";
-    const show = folder === "/" || workdir.startsWith(folder) || !workdir;
+    const show = folder === "/" || workdir === folder || workdir.startsWith(folder + "/");
     el.style.display = show ? "" : "none";
   });
 
@@ -250,6 +307,28 @@ function toggleSidebar() {
   localStorage.setItem("sidebar-collapsed", document.body.classList.contains("sidebar-collapsed"));
 }
 
+function toggleCrons() {
+  const toggle = document.querySelector(".cron-toggle");
+  const crons = document.querySelectorAll(".sidebar-cron");
+  const collapsed = toggle?.classList.toggle("collapsed");
+  crons.forEach(c => c.classList.toggle("cron-hidden", collapsed));
+  localStorage.setItem("crons-collapsed", collapsed);
+}
+
+function setColumns(n) {
+  document.querySelector(".grid")?.setAttribute("data-cols", n);
+  localStorage.setItem("grid-cols", n);
+  // Update column selector
+  const sel = document.getElementById("col-select");
+  if (sel) sel.value = n;
+  // Refit all terminals after layout settles
+  setTimeout(() => {
+    terminals.forEach(t => {
+      t.fit.fit();
+    });
+  }, 100);
+}
+
 // ═══ Init ═══
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -257,6 +336,18 @@ document.addEventListener("DOMContentLoaded", () => {
   if (localStorage.getItem("sidebar-collapsed") === "true") {
     document.body.classList.add("sidebar-collapsed");
   }
+
+  // Restore cron collapsed state
+  if (localStorage.getItem("crons-collapsed") === "true") {
+    const toggle = document.querySelector(".cron-toggle");
+    const crons = document.querySelectorAll(".sidebar-cron");
+    if (toggle) toggle.classList.add("collapsed");
+    crons.forEach(c => c.classList.add("cron-hidden"));
+  }
+
+  // Restore grid columns
+  const cols = localStorage.getItem("grid-cols") || "2";
+  setColumns(cols);
 
   // Init all cards and create terminals
   document.querySelectorAll(".card").forEach(card => initCard(card));
@@ -274,4 +365,13 @@ document.addEventListener("DOMContentLoaded", () => {
   // Stats
   loadStats();
   setInterval(loadStats, 5000);
+
+  // Periodically refresh all non-attached terminals (for multi-browser sync)
+  setInterval(() => {
+    terminals.forEach((t, name) => {
+      if (name !== currentSession) {
+        loadTerminalContent(name, true);
+      }
+    });
+  }, 3000);
 });

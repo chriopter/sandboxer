@@ -141,7 +141,7 @@ button:active {
   top: 0;
   bottom: 0;
   left: 0;
-  width: 180px;
+  width: 220px;
   background: var(--mantle);
   border-right: 1px solid var(--surface0);
   display: flex;
@@ -252,6 +252,69 @@ button:active {
   color: var(--lavender);
 }
 
+.sidebar-cron {
+  color: var(--overlay1);
+  font-size: 0.85em;
+  padding: 0.3ch 0.5ch;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-radius: 2px;
+}
+
+.sidebar-cron:hover {
+  background: var(--surface0);
+  color: var(--text);
+}
+
+.sidebar-cron.disabled {
+  color: var(--overlay0);
+  text-decoration: line-through;
+}
+
+.sidebar-cron-header {
+  cursor: pointer;
+  user-select: none;
+}
+
+.sidebar-cron-header:hover {
+  background: var(--surface0);
+}
+
+.cron-toggle {
+  float: right;
+  transition: transform 0.2s;
+}
+
+.cron-toggle.collapsed {
+  transform: rotate(-90deg);
+}
+
+.sidebar-cron.cron-hidden {
+  display: none !important;
+}
+
+.cron-freq {
+  color: var(--overlay0);
+  font-size: 0.85em;
+}
+
+.sidebar-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3ch;
+  padding: 0.5ch;
+  border-bottom: 1px solid var(--surface0);
+}
+
+.sidebar-buttons button {
+  flex: 1;
+  min-width: 45%;
+  font-size: 0.8em;
+  padding: 0.3em 0.5em;
+}
+
 .sidebar-bottom {
   margin-top: auto;
   display: flex;
@@ -319,8 +382,10 @@ body.sidebar-collapsed .sidebar {
 }
 
 body.sidebar-collapsed .sidebar select,
+body.sidebar-collapsed .sidebar-buttons,
 body.sidebar-collapsed .sidebar-list,
-body.sidebar-collapsed .sidebar-bottom {
+body.sidebar-collapsed .sidebar-bottom,
+body.sidebar-collapsed .sidebar-controls {
   display: none;
 }
 
@@ -330,30 +395,44 @@ body.sidebar-collapsed .sidebar-row {
   padding: 0.5ch;
 }
 
-body.sidebar-collapsed .sidebar-row .new-btn {
-  display: none;
-}
-
-body.sidebar-collapsed .sidebar-new-collapsed {
-  display: flex !important;
-}
-
 body.sidebar-collapsed main {
   margin-left: 42px;
 }
 
 /* ─── Main Layout ─── */
 main {
-  margin-left: 180px;
+  margin-left: 220px;
   padding: 2ch;
+  padding-bottom: 4ch;
   min-height: 100vh;
 }
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   gap: 2ch;
   align-items: start;
+}
+
+.grid[data-cols="1"] { grid-template-columns: 1fr; }
+.grid[data-cols="2"] { grid-template-columns: repeat(2, 1fr); }
+.grid[data-cols="3"] { grid-template-columns: repeat(3, 1fr); }
+
+.sidebar-controls {
+  display: flex;
+  gap: 0.5ch;
+  padding-bottom: 0.5ch;
+  border-bottom: 1px solid var(--surface0);
+}
+
+.sidebar-controls select {
+  flex: 1;
+  background: var(--surface0);
+  color: var(--text);
+  border: 1px solid var(--surface1);
+  padding: 0.3em;
+  font: inherit;
+  font-size: 0.8em;
 }
 
 /* ─── Session Cards ─── */
@@ -506,6 +585,41 @@ main {
   background: var(--surface1);
 }
 
+/* ─── Footer ─── */
+.footer {
+  position: fixed;
+  bottom: 0;
+  left: 220px;
+  right: 0;
+  background: var(--mantle);
+  border-top: 1px solid var(--surface0);
+  padding: 0.4ch 1ch;
+  display: flex;
+  gap: 2ch;
+  font-size: 0.75em;
+  color: var(--overlay0);
+  z-index: 50;
+}
+
+body.sidebar-collapsed .footer {
+  left: 42px;
+}
+
+.hint {
+  display: flex;
+  align-items: center;
+  gap: 0.5ch;
+}
+
+.hint kbd {
+  background: var(--surface0);
+  color: var(--text);
+  padding: 0.1em 0.4em;
+  border-radius: 3px;
+  font-family: inherit;
+  font-size: 0.95em;
+}
+
 /* ─── Mobile ─── */
 @media (max-width: 600px) {
   .mobile-header {
@@ -542,5 +656,9 @@ main {
   .grid {
     grid-template-columns: 1fr 1fr;
     gap: 10px;
+  }
+
+  .footer {
+    display: none;
   }
 }

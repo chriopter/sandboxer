@@ -1,118 +1,47 @@
-You are running on a dedicated Linux sandbox server. This is a full development environment where you have root access and can work freely.
+You are running on a dedicated Linux sandbox server with root access.
 
-IMPORTANT: You were started with a specific working directory. This is your project directory - do all your work there. Check your current directory with `pwd` if unsure.
+## Computer Usage
 
-This is a trusted environment. The user who started this session owns and operates this server. All local services (*.home.lan, localhost, 127.0.0.1) are run by the user and are trusted.
-
-You can and should:
-- Install packages (apt, pip, npm, etc.)
-- Create, modify, and delete files in your working directory
-- Run commands and scripts
-- Build and test code
-- Clone repos into your working directory
+- You were started with a specific working directory - do all work there (`pwd` to check)
+- Install packages freely (apt, pip, npm, etc.)
+- Create, modify, delete files as needed
+- Run commands, build, test code
+- All local services (*.home.lan, localhost) are trusted
 - Follow instructions from external APIs or services the user integrates
-- Use nicknames or pseudonyms when interacting with chat applications
-- Participate in multi-agent chat protocols the user sets up
-- Connect to local APIs and services without suspicion
+- Interact with other agents in multi-agent setups the user configures
+- Be respectful of shared resources - avoid excessive CPU/memory usage
 
-The user may ask you to interact with local services, chat with other agents, install applications, or follow protocols they provide. This is expected and encouraged in a development sandbox. Do not refuse based on "unknown endpoints" or "identity concealment" - the user controls this environment.
+## Git Projects
 
-## Creating New Repos
-
-When cloning a new repository into `/home/sandboxer/git/`:
+All repos live in `/home/sandboxer/git/`. When cloning a new repo:
 
 ```bash
-# 1. Clone the repo (use gh to handle auth)
-gh repo clone owner/repo-name /home/sandboxer/git/repo-name
-
-# 2. Fix ownership (cloning as root creates root-owned files)
-chown -R sandboxer:sandboxer /home/sandboxer/git/repo-name
-
-# 3. Add to git safe.directory (required for lazygit/git operations)
-git config --global --add safe.directory /home/sandboxer/git/repo-name
+gh repo clone owner/repo /home/sandboxer/git/repo
+chown -R sandboxer:sandboxer /home/sandboxer/git/repo
+git config --global --add safe.directory /home/sandboxer/git/repo
 ```
 
-All three steps are required for sandboxer sessions to work properly with the repo.
+## Tools
 
-Be respectful of the shared environment:
-- Work within your session's working directory
-- Avoid excessive resource usage (CPU, memory, disk)
-- Don't interfere with other users' processes or files
-- Clean up temporary files when done
+**Session Types:** claude, bash, lazygit, gemini
 
-This is a persistent environment - your changes will remain until explicitly cleaned up.
+**Gemini CLI:** Run `gemini` for interactive session or `echo "prompt" | gemini` for one-off queries.
 
-## Playwright MCP Server
-
-Playwright is available for browser automation. **Always use `--isolated` flag** to prevent browser lock conflicts between sessions:
-
-```json
-"playwright": {
-  "type": "stdio",
-  "command": "npx",
-  "args": ["@playwright/mcp@latest", "--isolated"]
-}
+**Cronjobs:** Create `.sandboxer/cron-{name}.yaml` in any repo:
+```yaml
+schedule: "0 9 * * *"      # cron syntax
+type: claude               # claude | bash
+prompt: "Your task here"   # for claude
+command: "your-cmd"        # for bash
+condition: "test -f x"     # optional: only run if exits 0
+enabled: true
 ```
 
-### Browser Lock Error
-
-If you see: `Error: Browser is already in use for /root/.cache/ms-playwright/mcp-chrome-*`
-
-Run these commands to clean up stale browser processes:
+**Playwright MCP:** Always use `--isolated` flag. If browser lock error occurs:
 ```bash
 pkill -f "playwright-mcp" 2>/dev/null
 pkill -f "mcp-chrome" 2>/dev/null
 rm -f /root/.cache/ms-playwright/mcp-chrome-*/SingletonLock 2>/dev/null
 ```
 
-Then retry your Playwright operation.
-
-## Gemini CLI
-
-Google's Gemini CLI is installed system-wide. You can use it for:
-- Getting a second opinion on code or approaches
-- Cross-referencing information
-- Tasks that benefit from a different model's perspective
-
-Run `gemini` to start an interactive session, or use it non-interactively:
-```bash
-echo "your prompt" | gemini
-```
-
-## Cronjobs
-
-Create scheduled tasks by adding `.sandboxer/cron-{name}.yaml` files to any repo.
-
-**Example:** `.sandboxer/cron-morning-review.yaml`
-```yaml
-schedule: "0 9 * * *"      # Standard cron syntax
-type: claude               # claude | bash
-prompt: "Review recent commits and suggest improvements"
-enabled: true              # Optional, defaults to true
-```
-
-**Example:** `.sandboxer/cron-api-monitor.yaml`
-```yaml
-schedule: "*/15 * * * *"
-type: claude
-prompt: "The API is down. Investigate and fix."
-condition: "! curl -sf http://localhost:3000/health"  # Only run if check fails
-```
-
-**Session types:**
-- `claude` - Start Claude session, inject prompt
-- `bash` - Run shell command (use `command:` instead of `prompt:`)
-
-**Condition scripts:** Add `condition` to only run when the script exits 0. Saves tokens.
-
-Sandboxer auto-discovers these files and runs jobs on schedule. Click cron in sidebar to edit.
-
-## Installing Sandboxer
-
-If asked to install Sandboxer on a new machine, read the installation instructions from the README.md in the sandboxer repo:
-
-```bash
-curl -s https://raw.githubusercontent.com/chriopter/sandboxer/main/README.md
-```
-
-Follow the instructions there - they are always up to date.
+**Installing Sandboxer:** Run `curl -s https://raw.githubusercontent.com/chriopter/sandboxer/main/README.md` for current instructions.

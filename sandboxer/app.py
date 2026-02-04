@@ -179,13 +179,202 @@ def build_folder_options() -> str:
     return "\n".join(opts)
 
 
+def cron_to_human(schedule: str) -> str:
+    """Convert cron schedule to human-readable format."""
+    if not schedule:
+        return ""
+    parts = schedule.split()
+    if len(parts) != 5:
+        return schedule
+
+    minute, hour, dom, month, dow = parts
+
+    # Every N minutes
+    if minute.startswith("*/") and hour == "*" and dom == "*" and month == "*" and dow == "*":
+        n = minute[2:]
+        return f"every {n}m"
+
+    # Every minute
+    if minute == "*" and hour == "*" and dom == "*" and month == "*" and dow == "*":
+        return "every min"
+
+    # Every hour at specific minute
+    if minute.isdigit() and hour == "*" and dom == "*" and month == "*" and dow == "*":
+        return "every hour"
+
+    # Specific time daily
+    if minute.isdigit() and hour.isdigit() and dom == "*" and month == "*" and dow == "*":
+        return f"daily {hour}:{minute.zfill(2)}"
+
+    # Specific weekday
+    dow_names = {0: "sun", 1: "mon", 2: "tue", 3: "wed", 4: "thu", 5: "fri", 6: "sat"}
+    if minute.isdigit() and hour.isdigit() and dom == "*" and month == "*" and dow.isdigit():
+        return f"{dow_names.get(int(dow), dow)} {hour}:{minute.zfill(2)}"
+
+    return schedule[:15]
+
+
+def get_crons() -> list[dict]:
+    """Get all cron jobs from .sandboxer/cron-*.yaml files."""
+    import glob
+    crons = []
+    for d in get_directories():
+        if d == "/":
+            continue
+        pattern = f"{d}/.sandboxer/cron-*.yaml"
+        for f in glob.glob(pattern):
+            try:
+                import yaml
+                with open(f) as fp:
+                    data = yaml.safe_load(fp)
+                name = os.path.basename(f).replace("cron-", "").replace(".yaml", "")
+                schedule = data.get("schedule", "")
+                crons.append({
+                    "name": name,
+                    "path": f,
+                    "workdir": d,
+                    "schedule": schedule,
+                    "schedule_human": cron_to_human(schedule),
+                    "type": data.get("type", "bash"),
+                    "command": data.get("command", ""),
+                    "prompt": data.get("prompt", ""),
+                    "condition": data.get("condition", ""),
+                    "enabled": data.get("enabled", True),
+                })
+            except:
+                pass
+    return crons
+
+
+def run_cron(cron: dict):
+    """Execute a cron job - creates visible tmux session for claude."""
+    from datetime import datetime
+
+    name = cron["name"]
+    workdir = cron["workdir"]
+    log_path = f"/var/log/sandboxer/cron-{name}.log"
+
+    os.makedirs("/var/log/sandboxer", exist_ok=True)
+
+    with open(log_path, "a") as log:
+        log.write(f"\n{'='*60}\n")
+        log.write(f"[{datetime.now().isoformat()}] CRON: {name}\n")
+        log.flush()
+
+        # Check condition if specified
+        if cron.get("condition"):
+            result = subprocess.run(
+                cron["condition"], shell=True, cwd=workdir,
+                capture_output=True, text=True
+            )
+            if result.returncode != 0:
+                log.write(f"[{datetime.now().isoformat()}] CONDITION NOT MET ✗\n")
+                return
+            log.write(f"[{datetime.now().isoformat()}] CONDITION MET ✓\n")
+            log.flush()
+
+    # Execute based on type
+    if cron["type"] == "claude":
+        # Create tmux session like regular claude sessions
+        prompt = cron.get("prompt", "Run scheduled task")
+        session_name = f"cron-{name}"
+
+        # Kill existing if any
+        subprocess.run(["tmux", "kill-session", "-t", session_name], capture_output=True)
+
+        # Create session
+        subprocess.run(["tmux", "new-session", "-d", "-s", session_name, "-c", workdir], capture_output=True)
+        subprocess.run(["tmux", "set", "-t", session_name, "mouse", "on"], capture_output=True)
+
+        # Start claude with IS_SANDBOX=1 (same as web UI)
+        prompt_escaped = prompt.replace('"', '\\"')
+        cmd = f'IS_SANDBOX=1 claude --dangerously-skip-permissions --system-prompt {SYSTEM_PROMPT} -p "{prompt_escaped}"'
+        subprocess.run(["tmux", "send-keys", "-t", session_name, cmd, "Enter"], capture_output=True)
+
+        # Register session
+        _sessions[session_name] = {"workdir": workdir, "type": "claude"}
+        if session_name not in _order:
+            _order.insert(0, session_name)
+        _save()
+
+        with open(log_path, "a") as log:
+            log.write(f"[{datetime.now().isoformat()}] SPAWNING CLAUDE → session: {session_name}\n")
+    else:
+        # Bash command - run in background and log
+        command = cron.get("command", "echo 'No command specified'")
+
+        def run_job():
+            with open(log_path, "a") as log:
+                log.write(f"[{datetime.now().isoformat()}] RUNNING: {command[:50]}...\n")
+                log.flush()
+                try:
+                    result = subprocess.run(
+                        command, shell=True, cwd=workdir,
+                        capture_output=True, text=True, timeout=3600
+                    )
+                    if result.stdout:
+                        log.write(result.stdout)
+                    if result.stderr:
+                        log.write(f"STDERR: {result.stderr}")
+                    log.write(f"[{datetime.now().isoformat()}] EXIT: {result.returncode}\n")
+                except subprocess.TimeoutExpired:
+                    log.write(f"[{datetime.now().isoformat()}] TIMEOUT after 1h\n")
+                except Exception as e:
+                    log.write(f"[{datetime.now().isoformat()}] ERROR: {e}\n")
+
+        threading.Thread(target=run_job, daemon=True).start()
+
+
+def cron_scheduler():
+    """Background thread that checks and runs crons."""
+    import time
+    from datetime import datetime
+    from croniter import croniter
+
+    last_run = {}  # Track last run time per cron
+
+    while True:
+        try:
+            now = datetime.now()
+            crons = get_crons()
+
+            for cron in crons:
+                if not cron.get("enabled", True):
+                    continue
+                if not cron.get("schedule"):
+                    continue
+
+                cron_id = cron["path"]
+                schedule = cron["schedule"]
+
+                try:
+                    cron_iter = croniter(schedule, now)
+                    prev_time = cron_iter.get_prev(datetime)
+
+                    # Check if we should run (within last minute and not already run)
+                    if (now - prev_time).total_seconds() < 60:
+                        last = last_run.get(cron_id)
+                        if last is None or (now - last).total_seconds() >= 60:
+                            print(f"[cron] Running: {cron['name']}")
+                            last_run[cron_id] = now
+                            run_cron(cron)
+                except Exception as e:
+                    print(f"[cron] Error with {cron['name']}: {e}")
+        except Exception as e:
+            print(f"[cron] Scheduler error: {e}")
+
+        time.sleep(30)  # Check every 30 seconds
+
+
 def build_sidebar_sessions() -> str:
     """Build sidebar session list HTML."""
     sessions = get_sessions()
-    if not sessions:
+    crons = get_crons()
+
+    if not sessions and not crons:
         return '<li class="sidebar-empty">No sessions</li>'
 
-    # Group by type
+    # Group sessions by type
     by_type = {}
     for s in sessions:
         t = s.get("type", "bash")
@@ -194,6 +383,8 @@ def build_sidebar_sessions() -> str:
         by_type[t].append(s)
 
     html = []
+
+    # Sessions
     for t in ["claude", "lazygit", "bash", "gemini"]:
         if t not in by_type:
             continue
@@ -203,6 +394,18 @@ def build_sidebar_sessions() -> str:
             title = escape(s["title"])[:30]
             workdir = escape(s.get("workdir", ""))
             html.append(f'<li class="sidebar-session" data-session="{name}" data-workdir="{workdir}" onclick="focusSession(\'{name}\')">{title}</li>')
+
+    # Crons (collapsible)
+    if crons:
+        html.append('<li class="sidebar-type-header sidebar-cron-header" onclick="toggleCrons()">cron <span class="cron-toggle">▼</span></li>')
+        for c in crons:
+            name = escape(c["name"])
+            path = escape(c["path"])
+            workdir = escape(c["workdir"])
+            enabled = "enabled" if c["enabled"] else "disabled"
+            schedule_human = escape(c.get("schedule_human", ""))
+            freq = f' <span class="cron-freq">({schedule_human})</span>' if schedule_human else ""
+            html.append(f'<li class="sidebar-cron {enabled}" data-workdir="{workdir}" onclick="openCron(\'{path}\')">{name}{freq}</li>')
 
     return "\n".join(html)
 
@@ -292,6 +495,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
             })
             return
 
+        # API: capture pane content (for initial render)
+        if path == "/api/capture":
+            name = q.get("session", [""])[0]
+            if name:
+                r = subprocess.run(
+                    ["tmux", "capture-pane", "-t", name, "-p", "-e"],
+                    capture_output=True, text=True
+                )
+                self.send_json({"content": r.stdout if r.returncode == 0 else ""})
+            else:
+                self.send_json({"content": ""})
+            return
+
         # API: create session
         if path == "/api/create":
             t = q.get("type", ["claude"])[0]
@@ -299,6 +515,53 @@ class Handler(http.server.BaseHTTPRequestHandler):
             name = generate_name(t, d)
             create_session(name, t, d)
             s = {"name": name, "title": name, "workdir": d, "type": t}
+            self.send_json({"ok": True, "name": name, "html": build_card(s)})
+            return
+
+        # API: create cron view (split pane: cat + log)
+        if path == "/api/create-cron-view":
+            cron_path = q.get("path", [""])[0]
+            log_path = q.get("log", [""])[0]
+            d = q.get("dir", [f"{GIT_DIR}/sandboxer"])[0]
+            cron_name = os.path.basename(cron_path).replace("cron-", "").replace(".yaml", "")
+            name = f"cron-{cron_name}"
+
+            # Kill existing if any
+            subprocess.run(["tmux", "kill-session", "-t", name], capture_output=True)
+
+            # Create session
+            subprocess.run(["tmux", "new-session", "-d", "-s", name, "-c", d], capture_output=True)
+            subprocess.run(["tmux", "set", "-t", name, "mouse", "on"], capture_output=True)
+
+            # Script that sets up split panes after terminal is sized
+            script = f'''#!/bin/bash
+sleep 0.3
+tmux split-window -h -t {name} 2>/dev/null
+tmux send-keys -t {name}:0.1 "clear; echo '─── Log ───'; mkdir -p /var/log/sandboxer; touch {log_path}; tail -f {log_path}" Enter 2>/dev/null
+tmux select-pane -t {name}:0.0 2>/dev/null
+clear
+echo '─── {os.path.basename(cron_path)} ───'
+echo
+cat {cron_path}
+echo
+echo '>>> Press Enter to edit <<<'
+read -r
+nano {cron_path}
+exec bash
+'''
+            # Write script to temp file and execute
+            script_path = f"/tmp/cron-setup-{cron_name}.sh"
+            with open(script_path, "w") as f:
+                f.write(script)
+            os.chmod(script_path, 0o755)
+            subprocess.run(["tmux", "send-keys", "-t", name, f"bash {script_path}", "Enter"], capture_output=True)
+
+            _sessions[name] = {"workdir": d, "type": "cron"}
+            if name not in _order:
+                _order.insert(0, name)
+            _save()
+
+            s = {"name": name, "title": f"cron: {cron_name}", "workdir": d, "type": "cron"}
             self.send_json({"ok": True, "name": name, "html": build_card(s)})
             return
 
@@ -373,6 +636,9 @@ def main():
 
     # Start WebSocket server
     threading.Thread(target=start_ws, daemon=True).start()
+
+    # Start cron scheduler
+    threading.Thread(target=cron_scheduler, daemon=True).start()
 
     print(f"sandboxer http://127.0.0.1:{PORT}")
     socketserver.ThreadingTCPServer.allow_reuse_address = True

@@ -25,15 +25,13 @@
   <div class="sidebar-row">
     <button class="sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">≡</button>
     <select id="folder-select" title="Folder">{{folder_options}}</select>
-    <select id="type-select" title="Session type">
-      <option value="claude">claude</option>
-      <option value="lazygit">lazygit</option>
-      <option value="bash">bash</option>
-      <option value="gemini">gemini</option>
-    </select>
-    <button class="btn-green new-btn" onclick="createSession()" title="New session">+</button>
   </div>
-  <button class="btn-green sidebar-new-collapsed" onclick="createSession()" title="New session">+</button>
+  <div class="sidebar-row sidebar-buttons">
+    <button class="btn-green" onclick="createSession('claude')">claude</button>
+    <button class="btn-green" onclick="createSession('lazygit')">lazygit</button>
+    <button class="btn-green" onclick="createSession('bash')">bash</button>
+    <button class="btn-green" onclick="createSession('gemini')">gemini</button>
+  </div>
   <ul class="sidebar-list" id="sidebarList">{{sidebar_sessions}}</ul>
   <div class="sidebar-bottom">
     <div class="sidebar-stats">
@@ -43,6 +41,13 @@
       <div class="stat" id="memStat">
         <div class="progress-bar"><div class="progress-fill"></div><span class="progress-text">mem 0%</span></div>
       </div>
+    </div>
+    <div class="sidebar-controls">
+      <select id="col-select" title="Columns" onchange="setColumns(this.value)">
+        <option value="1">1 col</option>
+        <option value="2" selected>2 col</option>
+        <option value="3">3 col</option>
+      </select>
     </div>
     <div class="sidebar-actions">
       <button class="btn-teal" onclick="copySSH()" title="Copy SSH command">ssh</button>
@@ -54,6 +59,12 @@
 <main>
   <div class="grid">{{cards}}</div>
 </main>
+
+<footer class="footer">
+  <span class="hint"><kbd>Tab</kbd> cycle folders</span>
+  <span class="hint"><kbd>Ctrl-B d</kbd> detach tmux</span>
+  <span class="hint"><kbd>Ctrl-B s</kbd> list sessions</span>
+</footer>
 
 <div id="toast"></div>
 <script src="/static/app.js"></script>
