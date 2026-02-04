@@ -1,7 +1,7 @@
 <p align="center">
   <img src="logo.png" width="100" /><br><br>
   <b>Sandboxer</b><br><br>
-  An agent orchestrator IDE for disposable machines.<br>
+  Agent orchestrator for disposable machines.<br>
   Run multiple AI agents in parallel, monitor live, schedule tasks, and take over via SSH.
 </p>
 
