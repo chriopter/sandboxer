@@ -3,28 +3,78 @@
 <head>
   <meta charset="utf-8">
   <title>{{session_title}} - sandboxer</title>
-  <link rel="icon" type="image/png" href="/static/favicon.png">
-  <link rel="apple-touch-icon" href="/static/favicon.png">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/vendor/xterm.min.css">
+  <link rel="icon" href="/static/favicon.png">
 </head>
 <body class="terminal-page">
-  <div class="term-bar">
-    <span class="term-title">{{title_html}}</span>
-    <span class="term-spacer"></span>
-    <button id="ssh-btn" class="btn-teal">mosh</button>
-    <button id="paste-btn" class="img-btn">↑</button>
-    <button id="kill-btn" class="btn-red">×</button>
+  <div class="header">
+    <span>{{title_html}}</span>
+    <div class="spacer"></div>
+    <button class="btn-teal" id="mosh-btn">mosh</button>
+    <button class="btn-red" id="kill-btn">×</button>
   </div>
-  <div class="terminal-wrap" id="terminal-wrap">
-    <iframe src="{{ttyd_url}}" id="terminal-iframe"></iframe>
-    <div class="touch-overlay" id="touch-overlay"></div>
+  <div class="terminal-wrap">
+    <div id="terminal-container"></div>
   </div>
-  <input type="file" id="image-input" multiple hidden>
-  <div id="paste-toast" class="paste-toast"></div>
+  <div id="toast"></div>
+  <script>window.SESSION = "{{session_name}}";</script>
+  <script src="/static/vendor/xterm.min.js"></script>
+  <script src="/static/vendor/addon-fit.min.js"></script>
+  <script src="/static/vendor/addon-webgl.min.js"></script>
   <script>
-    window.SANDBOXER_SESSION = "{{session_name}}";
+    const THEME = {
+      background: "#1e1e2e", foreground: "#cdd6f4", cursor: "#f5e0dc",
+      black: "#45475a", red: "#f38ba8", green: "#a6e3a1", yellow: "#f9e2af",
+      blue: "#89b4fa", magenta: "#f5c2e7", cyan: "#94e2d5", white: "#bac2de",
+    };
+
+    let ws, term, fit;
+
+    function init() {
+      const container = document.getElementById("terminal-container");
+      term = new Terminal({ cursorBlink: true, fontSize: 14, theme: THEME });
+      fit = new FitAddon.FitAddon();
+      term.loadAddon(fit);
+      try { term.loadAddon(new WebglAddon.WebglAddon()); } catch {}
+      term.open(container);
+      setTimeout(() => { fit.fit(); connect(); }, 50);
+
+      window.addEventListener("resize", () => fit.fit());
+      term.onData((d) => ws?.send(d));
+      term.onResize(({ rows, cols }) => ws?.send(JSON.stringify({ action: "resize", rows, cols })));
+    }
+
+    function connect() {
+      const proto = location.protocol === "https:" ? "wss:" : "ws:";
+      ws = new WebSocket(`${proto}//${location.host}/ws/terminal`);
+      ws.binaryType = "arraybuffer";
+
+      ws.onopen = () => ws.send(JSON.stringify({ action: "attach", session: SESSION, rows: term.rows, cols: term.cols }));
+      ws.onmessage = (e) => {
+        if (typeof e.data === "string") { try { JSON.parse(e.data); } catch { term.write(e.data); } }
+        else term.write(new Uint8Array(e.data));
+      };
+      ws.onclose = () => setTimeout(connect, 1000);
+    }
+
+    function toast(msg) {
+      const t = document.getElementById("toast");
+      t.textContent = msg; t.classList.add("show");
+      setTimeout(() => t.classList.remove("show"), 2000);
+    }
+
+    document.getElementById("mosh-btn").onclick = () => {
+      navigator.clipboard.writeText(`mosh sandboxer@${location.hostname} -- sudo tmux attach -t '${SESSION}'`);
+      toast("Copied mosh command");
+    };
+
+    document.getElementById("kill-btn").onclick = async () => {
+      if (confirm("Kill session?")) { await fetch(`/kill?session=${encodeURIComponent(SESSION)}`); location.href = "/"; }
+    };
+
+    init();
   </script>
-  <script src="/static/terminal.js"></script>
 </body>
 </html>

@@ -21,32 +21,47 @@ Sessions (tmux) survive restarts. Only the web UI briefly disconnects.
 ```
 /home/sandboxer/git/sandboxer/
 ├── sandboxer/
-│   ├── app.py              # HTTP server, routing
-│   ├── sessions.py         # tmux/ttyd management
+│   ├── app.py              # HTTP server + session management (~350 lines)
+│   ├── ws.py               # WebSocket server for xterm.js
 │   ├── static/
-│   │   ├── style.css
-│   │   ├── main.js
-│   │   ├── terminal.js
-│   │   ├── catppuccin.css
-│   │   └── webtui.css
+│   │   ├── app.js          # Client-side JS
+│   │   ├── style.css       # Catppuccin theme
+│   │   └── vendor/         # Local xterm.js (NO CDN!)
+│   │       ├── xterm.min.js
+│   │       ├── xterm.min.css
+│   │       ├── addon-fit.min.js
+│   │       └── addon-webgl.min.js
 │   └── templates/
 │       ├── index.html
 │       └── terminal.html
-├── set-password.sh         # Set Caddy basicauth password
-├── remove-password.sh      # Remove password protection
-├── sandboxer-shell         # SSH session picker script
-├── sandboxer.service       # Systemd unit
-├── Caddyfile               # Reference config (actual: /etc/caddy/Caddyfile)
-└── system-prompt.txt       # Claude system prompt
+├── scripts/
+│   └── pull-xterm.sh       # Update xterm.js vendor files
+├── config/
+│   ├── sandboxer.service
+│   ├── Caddyfile
+│   ├── system-prompt.txt
+│   └── *.sh                # Helper scripts
+└── SKILL.md                # OpenClaw skill definition
 ```
 
 ## Architecture
 
-- **app.py** - HTTP server (port 8081), serves UI and manages sessions
-- **sessions.py** - tmux/ttyd orchestration, session tracking
-- **ttyd** - Web terminal, one per session (ports 7700-7799)
+- **app.py** - HTTP server (port 8081), serves UI and manages tmux sessions
+- **ws.py** - WebSocket server (port 8082), connects xterm.js to tmux via PTY
+- **xterm.js** - Client-side terminal rendering (local vendor files, NO CDN)
 - **tmux** - Session persistence layer
-- **Caddy** - Reverse proxy (:8080 → server + ttyd), basicauth
+- **Caddy** - Reverse proxy (:8080 → server + WebSocket), basicauth
+
+## No CDN Policy
+
+**Never use CDN links for JavaScript or CSS.** All dependencies must be vendored locally:
+
+```bash
+# Update xterm.js
+./scripts/pull-xterm.sh
+```
+
+This ensures the app works offline and doesn't depend on external services.
 
 ## Folder Context Switching
 
@@ -128,176 +143,19 @@ The mosh button in the web UI copies a command with the current folder context.
 
 Detach: `Ctrl-B d` | Switch: `Ctrl-B s`
 
-## Cronjobs
+## CSS Variables (Catppuccin Mocha)
 
-Scheduled tasks defined as `.sandboxer/cron-{name}.yaml` files. Sandboxer auto-discovers and executes them.
-
-### Quick Start
-
-1. Select "cronjob" from session type dropdown - launches Claude to help create one
-2. Or manually create `.sandboxer/cron-{name}.yaml` in any repo
-
-### Config Format
-
-**File:** `.sandboxer/cron-morning-review.yaml`
-```yaml
-schedule: "0 9 * * *"      # Standard cron syntax
-type: claude               # claude | bash
-prompt: "Review recent commits"
-condition: "./check.sh"    # Optional: only run if exits 0
-enabled: true
-```
-
-### Condition Scripts
-
-Save tokens by only running jobs when conditions are met:
-
-```yaml
-# Only if API is down
-condition: "! curl -sf http://localhost:3000/health"
-
-# Only if uncommitted changes
-condition: "git status --porcelain | grep -q ."
-```
-
-### Sidebar
-
-Crons appear in sidebar under "cron" group. Click to edit the cron file.
-
-## WebTUI Usage Rules
-
-This project uses [WebTUI](https://webtui.ironclad.sh/) ([GitHub](https://github.com/webtui/webtui)) for terminal-style UI.
-
-**Package sources:**
-- `@webtui/css` - Main CSS library
-- `@webtui/theme-catppuccin` - Catppuccin theme
-
-**Update CSS files:**
-```bash
-curl -s "https://unpkg.com/@webtui/css/dist/full.css" -o sandboxer/static/webtui.css
-curl -s "https://unpkg.com/@webtui/theme-catppuccin/dist/index.css" -o sandboxer/static/catppuccin.css
-```
-
-**Always use WebTUI's semantic attributes instead of custom CSS classes.**
-
-### Theme Setup
-
-```html
-<body data-webtui-theme="catppuccin-mocha">
-```
-
-### Buttons
-
-Use native `<button>` elements with WebTUI attributes:
-
-```html
-<!-- Basic button (default has line through middle) -->
-<button>label</button>
-
-<!-- With box border -->
-<button box-="round">label</button>
-<button box-="square">label</button>
-
-<!-- Color variants (Catppuccin) -->
-<button variant-="green">create</button>
-<button variant-="red">delete</button>
-<button variant-="teal">ssh</button>
-<button variant-="mauve">action</button>
-
-<!-- Sizes -->
-<button size-="small">sm</button>
-<button size-="large">lg</button>
-```
-
-**DON'T** create custom button classes. Use `variant-=` for colors.
-
-### Badges
-
-For counts, labels, tags:
-
-```html
-<span is-="badge">5</span>
-<span is-="badge" variant-="green">active</span>
-<span is-="badge" cap-="round">pill</span>
-```
-
-### Separators
-
-Visual dividers between elements:
-
-```html
-<!-- Horizontal (default) -->
-<span is-="separator" style="width: 2ch;"></span>
-
-<!-- Vertical -->
-<span is-="separator" direction-="y" style="height: 1lh;"></span>
-```
-
-### Inputs & Selects
-
-Standard HTML inputs are styled automatically. For custom elements:
-
-```html
-<input type="text" size-="small">
-<select>...</select>
-```
-
-### Boxes
-
-Add borders to any container:
-
-```html
-<div box-="round">content</div>
-<div box-="square">content</div>
-<div box-="double">content</div>
-```
-
-### CSS Variables (Catppuccin Mocha)
-
-Use these instead of hardcoded colors:
+Use these in style.css:
 
 | Variable | Usage |
 |----------|-------|
+| `--crust` | Darkest background |
 | `--base` | Main background |
-| `--mantle` | Header/footer background |
-| `--surface0/1/2` | Elevated surfaces |
+| `--surface` | Elevated surfaces |
+| `--overlay` | Borders, muted elements |
 | `--text` | Primary text |
-| `--subtext0/1` | Secondary text |
-| `--overlay0/1/2` | Muted text |
+| `--subtext` | Secondary text |
 | `--green` | Success, create actions |
 | `--red` | Danger, delete actions |
-| `--teal` | Links, SSH |
+| `--teal` | Links, mosh button |
 | `--mauve` | Primary accent |
-| `--lavender` | Secondary accent |
-
-### What NOT to do
-
-```html
-<!-- BAD: Custom classes for buttons -->
-<button class="btn-primary">Create</button>
-
-<!-- GOOD: WebTUI attributes -->
-<button variant-="green">Create</button>
-
-<!-- BAD: Hardcoded colors -->
-<span style="color: #a6e3a1;">text</span>
-
-<!-- GOOD: CSS variables -->
-<span style="color: var(--green);">text</span>
-
-<!-- BAD: Custom badge styling -->
-<span class="count-badge">5</span>
-
-<!-- GOOD: WebTUI badge -->
-<span is-="badge">5</span>
-```
-
-### style.css Guidelines
-
-Only add custom CSS for:
-1. Layout (flexbox/grid for header, footer, cards)
-2. Component-specific styles not in WebTUI (terminal previews, cards)
-3. Animations and transitions
-4. Responsive breakpoints
-
-**Never duplicate** what WebTUI provides (buttons, badges, inputs, separators).

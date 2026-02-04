@@ -3,59 +3,27 @@
 <head>
   <meta charset="utf-8">
   <title>Sandboxer</title>
-  <link rel="icon" type="image/png" href="/static/favicon.png">
-  <link rel="apple-touch-icon" href="/static/favicon.png">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/vendor/xterm.min.css">
+  <link rel="icon" href="/static/favicon.png">
+  <script src="/static/vendor/xterm.min.js"></script>
+  <script src="/static/vendor/addon-fit.min.js"></script>
+  <script src="/static/vendor/addon-webgl.min.js"></script>
 </head>
 <body>
 
-<header class="mobile-header">
-  <button class="mobile-menu-btn" onclick="toggleSidebar()">☰</button>
-  <span class="mobile-title">sandboxer</span>
-  <button class="mobile-add-btn" onclick="createSession('claude')">+</button>
-</header>
-
-<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-row">
-    <button class="sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">≡</button>
-    <button class="btn-green" onclick="createSession('claude')" title="New Claude session">claude</button>
-    <button class="btn-green" onclick="createSession('chat')" title="New Claude chat">chat</button>
-    <button class="btn-green" onclick="createSession('lazygit')" title="lazygit">git</button>
-    <button class="btn-green" onclick="createSession('bash')" title="New bash shell">bash</button>
-    <button class="btn-green" onclick="createSession('gemini')" title="New Gemini session">gemini</button>
-    <button class="btn-green" onclick="createSession('cronjob')" title="Create cronjob">cron</button>
+    <select id="folder-select">{{folder_options}}</select>
   </div>
-  <button class="btn-green sidebar-new-collapsed" onclick="createSession('claude')" title="New session">+</button>
-  <ul class="sidebar-list" id="sidebarList" data-selected-folder="{{selected_folder}}">
-  </ul>
+  <div class="sidebar-row sidebar-buttons">
+    <button class="btn-green" onclick="createSession('claude')">claude</button>
+    <button class="btn-green" onclick="createSession('lazygit')">lazygit</button>
+    <button class="btn-green" onclick="createSession('bash')">bash</button>
+    <button class="btn-green" onclick="createSession('gemini')">gemini</button>
+  </div>
   <div class="sidebar-bottom">
-    <div id="versionLabel" class="version-label"></div>
-    <div class="sidebar-controls">
-      <select-dropdown id="viewSelect" data-value="2">
-        <details is-="popover" position-="top">
-          <summary tabindex="0">2 col <span class="dropdown-indicator">˅</span></summary>
-          <column id="viewOptions">
-            <button data-value="1" aria-selected="false">1 col</button>
-            <button data-value="2" aria-selected="true">2 col</button>
-            <button data-value="3" aria-selected="false">3 col</button>
-          </column>
-        </details>
-      </select-dropdown>
-      <select-dropdown id="zoomSelect" data-value="100">
-        <details is-="popover" position-="top">
-          <summary tabindex="0">100% <span class="dropdown-indicator">˅</span></summary>
-          <column id="zoomOptions">
-            <button data-value="50" aria-selected="false">50%</button>
-            <button data-value="75" aria-selected="false">75%</button>
-            <button data-value="100" aria-selected="true">100%</button>
-            <button data-value="125" aria-selected="false">125%</button>
-            <button data-value="150" aria-selected="false">150%</button>
-          </column>
-        </details>
-      </select-dropdown>
-    </div>
     <div class="sidebar-stats">
       <div class="stat" id="cpuStat">
         <div class="progress-bar"><div class="progress-fill"></div><span class="progress-text">cpu 0%</span></div>
@@ -65,31 +33,17 @@
       </div>
     </div>
     <div class="sidebar-actions">
-      <button class="btn-teal" onclick="copyTakeover()" title="Mosh to current folder">mosh</button>
-      <button class="btn-mauve" onclick="restartSandboxer()" title="Restart sandboxer service">restart</button>
-      <button class="btn-red" onclick="closeAllSessions()" title="Close all visible sessions">kill</button>
+      <button class="btn-teal" onclick="copyMoshFolder()">mosh</button>
+      <button class="btn-red" onclick="killAllSessions()">kill all</button>
     </div>
   </div>
 </aside>
 
 <main>
-  <div class="grid">
-    {{cards}}
-  </div>
+  <div class="grid">{{cards}}</div>
 </main>
 
-<div id="modal" class="modal" onclick="if(event.target===this) hideModal()">
-  <div class="modal-box">
-    <button class="modal-close" class="btn-red" onclick="hideModal()">×</button>
-    <h2>claude command</h2>
-    <pre>IS_SANDBOX=1 claude --dangerously-skip-permissions \
-  --system-prompt {{system_prompt_path}}</pre>
-    <p>--dangerously-skip-permissions skips all permission prompts</p>
-    <p>--system-prompt loads custom sandbox behavior</p>
-    <p>sessions run in tmux and persist across restarts</p>
-  </div>
-</div>
-
-<script src="/static/main.js"></script>
+<div id="toast"></div>
+<script src="/static/app.js"></script>
 </body>
 </html>
