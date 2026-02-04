@@ -65,9 +65,28 @@
       setTimeout(() => t.classList.remove("show"), 2000);
     }
 
+    function copyToClipboard(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => toast("Copied: " + text.substring(0, 50))).catch(() => fallbackCopy(text));
+      } else {
+        fallbackCopy(text);
+      }
+    }
+
+    function fallbackCopy(text) {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); toast("Copied: " + text.substring(0, 50)); }
+      catch { toast("Copy failed"); }
+      document.body.removeChild(ta);
+    }
+
     document.getElementById("ssh-btn").onclick = () => {
-      navigator.clipboard.writeText(`ssh -t sandboxer@${location.hostname} sudo tmux attach -t '${SESSION}'`);
-      toast("Copied SSH command");
+      copyToClipboard(`ssh -t sandboxer@${location.hostname} sudo tmux attach -t '${SESSION}'`);
     };
 
     document.getElementById("kill-btn").onclick = async () => {
