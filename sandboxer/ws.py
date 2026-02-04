@@ -38,6 +38,9 @@ async def handle_client(websocket):
             if isinstance(message, str):
                 try:
                     msg = json.loads(message)
+                    # Only treat as control message if it's a dict with action key
+                    if not isinstance(msg, dict) or "action" not in msg:
+                        raise ValueError("Not a control message")
                     action = msg.get("action")
 
                     if action == "attach":
@@ -111,8 +114,8 @@ async def handle_client(websocket):
                                 pass
                             pid = None
 
-                except json.JSONDecodeError:
-                    # Terminal input as string
+                except (json.JSONDecodeError, ValueError):
+                    # Terminal input as string (including numbers which are valid JSON)
                     if master_fd is not None:
                         os.write(master_fd, message.encode())
 

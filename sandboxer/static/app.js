@@ -15,7 +15,11 @@ function initWS() {
     const t = terminals.get(currentSession);
     if (!t) return;
     if (typeof e.data === "string") {
-      try { JSON.parse(e.data); } catch { t.term.write(e.data); }
+      try {
+        const parsed = JSON.parse(e.data);
+        // Only treat as control message if it's an object (not number/string/etc)
+        if (typeof parsed !== "object" || parsed === null) t.term.write(e.data);
+      } catch { t.term.write(e.data); }
     } else {
       t.term.write(new Uint8Array(e.data));
     }

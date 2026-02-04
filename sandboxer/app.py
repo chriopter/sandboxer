@@ -169,13 +169,25 @@ def get_directories() -> list[str]:
 
 
 def build_folder_options() -> str:
-    """Build folder dropdown HTML."""
+    """Build folder dropdown HTML with Claude session counts."""
     dirs = get_directories()
+    sessions = get_sessions()
+
+    # Count Claude sessions per folder
+    counts = {}
+    for s in sessions:
+        if s.get("type") == "claude":
+            workdir = s.get("workdir", "")
+            counts[workdir] = counts.get(workdir, 0) + 1
+
     opts = []
     for d in dirs:
         label = "/" if d == "/" else os.path.basename(d)
         sel = " selected" if d == _selected_folder else ""
-        opts.append(f'<option value="{escape(d)}"{sel}>{escape(label)}</option>')
+        # Add count for this folder
+        count = counts.get(d, 0)
+        count_str = f" ({count})" if count > 0 else ""
+        opts.append(f'<option value="{escape(d)}"{sel}>{escape(label)}{count_str}</option>')
     return "\n".join(opts)
 
 
