@@ -1,8 +1,8 @@
 <p align="center">
   <img src="logo.png" width="100" /><br><br>
   <b>Sandboxer</b><br><br>
-  Give Claude root access to a disposable machine and let it run autonomously, manage via web or take over via ssh.<br>
-  Combine with OpenClaw skill to let Claw see the state of Claude Code sessions or let them kick off for you.
+  An agent orchestrator IDE for disposable machines.<br>
+  Run multiple AI agents in parallel, monitor live, schedule tasks, and take over via SSH.
 </p>
 
 ---
@@ -10,12 +10,12 @@
 
 ## Features
 
-- **Live previews** - See all Claude sessions at a glance in a scalable grid layout
-- **Claude Chat** - Mobile-friendly chat UI as alternative to terminal view
-- **SSH takeover** - `ssh -t sandboxer@host sandboxer-shell` to take over any session from terminal
-- **Cronjobs** - Schedule Claude/bash sessions via `.sandboxer/cron-*.yaml` files with optional conditions
+- **Multi-agent dashboard** - Run and monitor multiple Claude/Gemini sessions in a live grid view
+- **One-click sessions** - Instantly spawn claude, chat, lazygit, bash, or gemini sessions
+- **Scheduled agents** - Cron-based agent scheduling via `.sandboxer/cron-*.yaml` with conditions
+- **SSH takeover** - `ssh -t sandboxer@host sandboxer-shell` to take over any session
+- **Mobile chat UI** - Lightweight chat interface as alternative to terminal
 - **Session persistence** - All sessions survive restarts via tmux
-- **Auto-update** - Updates itself daily at 4am via built-in cronjob
 
 <img width="2528" height="1428" alt="image" src="https://github.com/user-attachments/assets/6b2e0306-d9b3-4151-b94d-a90fae7573ce" />
 
