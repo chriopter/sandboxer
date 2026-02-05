@@ -83,11 +83,13 @@ function createTerminal(name, container) {
   new ResizeObserver(() => doFit()).observe(container);
 
   // Use IntersectionObserver to fit when terminal becomes visible
-  // This handles the case where layout isn't settled on initial render
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       if (entry.isIntersecting) {
         doFit();
+        // Also schedule fits after content might have loaded
+        setTimeout(doFit, 100);
+        setTimeout(doFit, 300);
       }
     });
   }, { threshold: 0.1 });
@@ -95,29 +97,48 @@ function createTerminal(name, container) {
 
   terminals.set(name, { term, fit });
 
-  // Load initial content after a short delay to let layout settle
-  // The IntersectionObserver will handle refitting when visible
-  setTimeout(() => loadTerminalContent(name), 100);
+  // Force a layout reflow to ensure container has dimensions
+  void container.offsetHeight;
+
+  // Initial fit calls to handle layout settling
+  doFit();
+  requestAnimationFrame(() => {
+    doFit();
+    requestAnimationFrame(doFit);
+  });
+  setTimeout(doFit, 100);
+  setTimeout(doFit, 300);
+  setTimeout(doFit, 500);
+  setTimeout(doFit, 1000);
+
+  // Load initial content after layout fully settles
+  setTimeout(() => loadTerminalContent(name), 400);
 
   return terminals.get(name);
 }
 
 async function loadTerminalContent(name, clear = false) {
   try {
-    const res = await fetch(`/api/capture?session=${encodeURIComponent(name)}`);
+    const t = terminals.get(name);
+    if (!t) return;
+
+    // Fit first to get correct dimensions
+    const doFit = () => { try { t.fit.fit(); } catch {} };
+    doFit();
+
+    // Get current terminal dimensions
+    const cols = t.term.cols;
+    const rows = t.term.rows;
+
+    // Fetch content, optionally resizing tmux pane to match
+    const res = await fetch(`/api/capture?session=${encodeURIComponent(name)}&cols=${cols}&rows=${rows}`);
     const data = await res.json();
     if (data.content) {
-      const t = terminals.get(name);
-      if (t) {
-        if (clear) t.term.reset();
-        t.term.write(data.content);
-        // Multiple refit calls to handle layout settling after content load
-        const doFit = () => { try { t.fit.fit(); } catch {} };
-        doFit();
-        requestAnimationFrame(doFit);
-        setTimeout(doFit, 50);
-        setTimeout(doFit, 150);
-      }
+      if (clear) t.term.reset();
+      t.term.write(data.content);
+      // Refit after content to adjust scrollback
+      requestAnimationFrame(doFit);
+      setTimeout(doFit, 50);
     }
   } catch {}
 }
@@ -554,4 +575,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Handle Ctrl+V file paste (capture phase to intercept before xterm)
   document.addEventListener("paste", handlePaste, true);
+
+  // Refit all terminals multiple times during page load to ensure proper sizing
+  const refitAll = () => terminals.forEach(t => { try { t.fit.fit(); } catch {} });
+  setTimeout(refitAll, 300);
+  setTimeout(refitAll, 600);
+  setTimeout(refitAll, 1000);
+  setTimeout(refitAll, 2000);
+
+  // Also refit when window gains focus (user switches back to tab)
+  window.addEventListener("focus", () => {
+    setTimeout(refitAll, 50);
+  });
 });

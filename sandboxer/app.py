@@ -512,7 +512,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
         # API: capture pane content (for initial render)
         if path == "/api/capture":
             name = q.get("session", [""])[0]
+            cols = q.get("cols", [""])[0]
+            rows = q.get("rows", [""])[0]
             if name:
+                # Optionally resize pane before capture for proper formatting
+                if cols and rows:
+                    try:
+                        subprocess.run(
+                            ["tmux", "resize-pane", "-t", name, "-x", cols, "-y", rows],
+                            capture_output=True, timeout=1
+                        )
+                    except:
+                        pass
                 r = subprocess.run(
                     ["tmux", "capture-pane", "-t", name, "-p", "-e"],
                     capture_output=True, text=True
