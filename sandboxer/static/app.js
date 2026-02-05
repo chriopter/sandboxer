@@ -66,23 +66,38 @@ function createTerminal(name, container) {
 
   term.open(container);
 
-  // Multiple fit() calls to handle layout settling
-  // Initial fit, then again after layout stabilizes
   const doFit = () => { try { fit.fit(); } catch {} };
-  doFit();
-  setTimeout(doFit, 50);
-  setTimeout(doFit, 150);
-  requestAnimationFrame(() => requestAnimationFrame(doFit));
 
   term.onData((d) => currentSession === name && wsSend(d));
   term.onResize(({ rows, cols }) => currentSession === name && wsSend(JSON.stringify({ action: "resize", rows, cols })));
 
-  new ResizeObserver(() => fit.fit()).observe(container);
+  // Intercept Ctrl+V to allow browser paste event to fire instead of xterm handling it
+  term.attachCustomKeyEventHandler((e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "v") {
+      // Return false to let browser handle it (triggers paste event)
+      return false;
+    }
+    return true;
+  });
+
+  new ResizeObserver(() => doFit()).observe(container);
+
+  // Use IntersectionObserver to fit when terminal becomes visible
+  // This handles the case where layout isn't settled on initial render
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        doFit();
+      }
+    });
+  }, { threshold: 0.1 });
+  observer.observe(container);
 
   terminals.set(name, { term, fit });
 
-  // Load initial content (so terminals render without hover)
-  loadTerminalContent(name);
+  // Load initial content after a short delay to let layout settle
+  // The IntersectionObserver will handle refitting when visible
+  setTimeout(() => loadTerminalContent(name), 100);
 
   return terminals.get(name);
 }
@@ -96,10 +111,12 @@ async function loadTerminalContent(name, clear = false) {
       if (t) {
         if (clear) t.term.reset();
         t.term.write(data.content);
-        // Refit after content load to fix line wrapping
-        requestAnimationFrame(() => {
-          try { t.fit.fit(); } catch {}
-        });
+        // Multiple refit calls to handle layout settling after content load
+        const doFit = () => { try { t.fit.fit(); } catch {} };
+        doFit();
+        requestAnimationFrame(doFit);
+        setTimeout(doFit, 50);
+        setTimeout(doFit, 150);
       }
     }
   } catch {}
@@ -241,6 +258,17 @@ function uploadFile(session) {
     if (file) doUpload(file, session);
   };
   input.click();
+}
+
+// Single click: attach session and show paste hint
+function uploadClick(session) {
+  attachSession(session);
+  showToast("Ctrl+V to paste image");
+}
+
+// Double click: open file dialog
+function uploadDblClick(session) {
+  uploadFile(session);
 }
 
 function handlePaste(e) {

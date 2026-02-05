@@ -12,7 +12,7 @@
   <div class="header">
     <span>{{title_html}}</span>
     <div class="spacer"></div>
-    <button id="upload-btn" title="Upload file">📎</button>
+    <button id="upload-btn" title="Click: paste, Double-click: browse">📎</button>
     <button class="btn-teal" id="ssh-btn">ssh</button>
     <button class="btn-red" id="kill-btn">×</button>
   </div>
@@ -45,6 +45,14 @@
       window.addEventListener("resize", () => fit.fit());
       term.onData((d) => ws?.send(d));
       term.onResize(({ rows, cols }) => ws?.send(JSON.stringify({ action: "resize", rows, cols })));
+
+      // Intercept Ctrl+V to allow browser paste event to fire instead of xterm handling it
+      term.attachCustomKeyEventHandler((e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === "v") {
+          return false; // Let browser handle it (triggers paste event)
+        }
+        return true;
+      });
     }
 
     function connect() {
@@ -117,7 +125,13 @@
       reader.readAsDataURL(file);
     }
 
+    // Single click: show paste hint
     document.getElementById("upload-btn").onclick = () => {
+      toast("Ctrl+V to paste image");
+      term.focus();
+    };
+    // Double click: open file dialog
+    document.getElementById("upload-btn").ondblclick = () => {
       const input = document.createElement("input");
       input.type = "file";
       input.onchange = () => {

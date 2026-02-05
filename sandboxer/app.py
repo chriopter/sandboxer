@@ -448,7 +448,7 @@ def build_card(s: dict) -> str:
   <header>
     <span class="card-title">{escape(s['title'])}</span>
     <div class="card-actions">
-      <button onclick="uploadFile('{escape(s['name'])}')" title="Upload file">📎</button>
+      <button onclick="uploadClick('{escape(s['name'])}')" ondblclick="uploadDblClick('{escape(s['name'])}')" title="Click: paste, Double-click: browse">📎</button>
       <button class="btn-teal" onclick="copySessionSSH('{escape(s['name'])}')">ssh</button>
       <button onclick="openFullscreen('{escape(s['name'])}')">⧉</button>
       <button class="btn-red" onclick="killSession('{escape(s['name'])}')">×</button>
