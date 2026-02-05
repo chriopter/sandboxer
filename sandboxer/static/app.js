@@ -4,6 +4,7 @@
 let ws = null;
 let currentSession = null;
 const terminals = new Map();
+const attachedOnce = new Set(); // Track terminals that have been attached (resized)
 
 function initWS() {
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
@@ -111,8 +112,8 @@ function createTerminal(name, container) {
   setTimeout(doFit, 500);
   setTimeout(doFit, 1000);
 
-  // Load initial content after layout fully settles
-  setTimeout(() => loadTerminalContent(name), 400);
+  // Don't load content on creation - wait for hover/attach
+  // This ensures tmux pane is resized to correct dimensions first
 
   return terminals.get(name);
 }
@@ -126,11 +127,12 @@ async function loadTerminalContent(name, clear = false) {
     const doFit = () => { try { t.fit.fit(); } catch {} };
     doFit();
 
-    // Get current terminal dimensions
+    // Get current terminal dimensions - skip if not properly sized yet
     const cols = t.term.cols;
     const rows = t.term.rows;
+    if (cols < 10 || rows < 5) return; // Not properly sized yet
 
-    // Fetch content, optionally resizing tmux pane to match
+    // Fetch content, resizing tmux pane to match terminal dimensions
     const res = await fetch(`/api/capture?session=${encodeURIComponent(name)}&cols=${cols}&rows=${rows}`);
     const data = await res.json();
     if (data.content) {
@@ -147,6 +149,7 @@ function attachSession(name, skipUrlUpdate = false) {
   if (currentSession === name) return;
   if (currentSession) wsSend(JSON.stringify({ action: "detach" }));
   currentSession = name;
+  attachedOnce.add(name); // Mark as attached (tmux pane will be resized)
 
   const t = terminals.get(name);
   if (!t) return;
@@ -564,10 +567,11 @@ document.addEventListener("DOMContentLoaded", () => {
   loadStats();
   setInterval(loadStats, 5000);
 
-  // Periodically refresh all non-attached terminals (for multi-browser sync)
+  // Periodically refresh terminals that have been attached before (for multi-browser sync)
+  // Only refresh terminals we've attached to, so tmux pane is at correct size
   setInterval(() => {
     terminals.forEach((t, name) => {
-      if (name !== currentSession) {
+      if (name !== currentSession && attachedOnce.has(name)) {
         loadTerminalContent(name, true);
       }
     });
