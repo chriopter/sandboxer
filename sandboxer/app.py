@@ -513,13 +513,28 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if path == "/api/capture":
             name = q.get("session", [""])[0]
             if name:
+                # Get pane dimensions
+                dims = subprocess.run(
+                    ["tmux", "display-message", "-t", name, "-p", "#{pane_width} #{pane_height}"],
+                    capture_output=True, text=True
+                )
+                cols, rows = 80, 24
+                if dims.returncode == 0:
+                    parts = dims.stdout.strip().split()
+                    if len(parts) == 2:
+                        cols, rows = int(parts[0]), int(parts[1])
+
                 r = subprocess.run(
                     ["tmux", "capture-pane", "-t", name, "-p", "-e"],
                     capture_output=True, text=True
                 )
-                self.send_json({"content": r.stdout if r.returncode == 0 else ""})
+                self.send_json({
+                    "content": r.stdout if r.returncode == 0 else "",
+                    "cols": cols,
+                    "rows": rows
+                })
             else:
-                self.send_json({"content": ""})
+                self.send_json({"content": "", "cols": 80, "rows": 24})
             return
 
         # API: create session

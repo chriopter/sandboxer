@@ -111,10 +111,47 @@ async function loadTerminalContent(name, clear = false) {
       const t = terminals.get(name);
       if (t) {
         if (clear) t.term.reset();
+
+        // If we have tmux dimensions and not currently attached, scale to fit
+        if (data.cols && data.rows && currentSession !== name) {
+          scaleTerminalToFit(name, data.cols, data.rows);
+        }
+
         t.term.write(data.content);
       }
     }
   } catch {}
+}
+
+// Scale terminal to show content at correct aspect ratio (like a thumbnail)
+function scaleTerminalToFit(name, tmuxCols, tmuxRows) {
+  const t = terminals.get(name);
+  if (!t) return;
+
+  const container = t.term.element?.parentElement;
+  if (!container) return;
+
+  const containerRect = container.getBoundingClientRect();
+  if (containerRect.width < 10 || containerRect.height < 10) return;
+
+  // Resize terminal to match tmux dimensions
+  t.term.resize(tmuxCols, tmuxRows);
+
+  // Calculate scale to fit container
+  // Get the actual rendered size of the terminal
+  const termElement = t.term.element;
+  if (!termElement) return;
+
+  // Wait for resize to apply
+  requestAnimationFrame(() => {
+    const termRect = termElement.getBoundingClientRect();
+    const scaleX = containerRect.width / termRect.width;
+    const scaleY = containerRect.height / termRect.height;
+    const scale = Math.min(scaleX, scaleY, 1); // Don't scale up, only down
+
+    termElement.style.transformOrigin = 'top left';
+    termElement.style.transform = `scale(${scale})`;
+  });
 }
 
 function attachSession(name, skipUrlUpdate = false) {
@@ -124,6 +161,15 @@ function attachSession(name, skipUrlUpdate = false) {
 
   const t = terminals.get(name);
   if (!t) return;
+
+  // Reset any scaling and fit to container properly
+  const termElement = t.term.element;
+  if (termElement) {
+    termElement.style.transform = '';
+    termElement.style.transformOrigin = '';
+  }
+  t.fit.fit();
+
   wsSend(JSON.stringify({ action: "attach", session: name, rows: t.term.rows, cols: t.term.cols }));
 
   // Update URL with current session
