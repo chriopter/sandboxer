@@ -4,7 +4,6 @@
 let ws = null;
 let currentSession = null;
 const terminals = new Map();
-const attachedOnce = new Set(); // Track terminals that have been attached (resized)
 
 function initWS() {
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
@@ -98,49 +97,22 @@ function createTerminal(name, container) {
 
   terminals.set(name, { term, fit });
 
-  // Force a layout reflow to ensure container has dimensions
-  void container.offsetHeight;
-
-  // Initial fit calls to handle layout settling
-  doFit();
-  requestAnimationFrame(() => {
-    doFit();
-    requestAnimationFrame(doFit);
-  });
-  setTimeout(doFit, 100);
-  setTimeout(doFit, 300);
-  setTimeout(doFit, 500);
-  setTimeout(doFit, 1000);
-
-  // Don't load content on creation - wait for hover/attach
-  // This ensures tmux pane is resized to correct dimensions first
+  // Load content immediately (may be wrong size, but shows something)
+  loadTerminalContent(name);
 
   return terminals.get(name);
 }
 
 async function loadTerminalContent(name, clear = false) {
   try {
-    const t = terminals.get(name);
-    if (!t) return;
-
-    // Fit first to get correct dimensions
-    const doFit = () => { try { t.fit.fit(); } catch {} };
-    doFit();
-
-    // Get current terminal dimensions - skip if not properly sized yet
-    const cols = t.term.cols;
-    const rows = t.term.rows;
-    if (cols < 10 || rows < 5) return; // Not properly sized yet
-
-    // Fetch content, resizing tmux pane to match terminal dimensions
-    const res = await fetch(`/api/capture?session=${encodeURIComponent(name)}&cols=${cols}&rows=${rows}`);
+    const res = await fetch(`/api/capture?session=${encodeURIComponent(name)}`);
     const data = await res.json();
     if (data.content) {
-      if (clear) t.term.reset();
-      t.term.write(data.content);
-      // Refit after content to adjust scrollback
-      requestAnimationFrame(doFit);
-      setTimeout(doFit, 50);
+      const t = terminals.get(name);
+      if (t) {
+        if (clear) t.term.reset();
+        t.term.write(data.content);
+      }
     }
   } catch {}
 }
@@ -149,7 +121,6 @@ function attachSession(name, skipUrlUpdate = false) {
   if (currentSession === name) return;
   if (currentSession) wsSend(JSON.stringify({ action: "detach" }));
   currentSession = name;
-  attachedOnce.add(name); // Mark as attached (tmux pane will be resized)
 
   const t = terminals.get(name);
   if (!t) return;
@@ -567,11 +538,10 @@ document.addEventListener("DOMContentLoaded", () => {
   loadStats();
   setInterval(loadStats, 5000);
 
-  // Periodically refresh terminals that have been attached before (for multi-browser sync)
-  // Only refresh terminals we've attached to, so tmux pane is at correct size
+  // Periodically refresh all non-attached terminals (for multi-browser sync)
   setInterval(() => {
     terminals.forEach((t, name) => {
-      if (name !== currentSession && attachedOnce.has(name)) {
+      if (name !== currentSession) {
         loadTerminalContent(name, true);
       }
     });
@@ -579,16 +549,4 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Handle Ctrl+V file paste (capture phase to intercept before xterm)
   document.addEventListener("paste", handlePaste, true);
-
-  // Refit all terminals multiple times during page load to ensure proper sizing
-  const refitAll = () => terminals.forEach(t => { try { t.fit.fit(); } catch {} });
-  setTimeout(refitAll, 300);
-  setTimeout(refitAll, 600);
-  setTimeout(refitAll, 1000);
-  setTimeout(refitAll, 2000);
-
-  // Also refit when window gains focus (user switches back to tab)
-  window.addEventListener("focus", () => {
-    setTimeout(refitAll, 50);
-  });
 });
