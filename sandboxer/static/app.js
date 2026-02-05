@@ -128,30 +128,25 @@ function scaleTerminalToFit(name, tmuxCols, tmuxRows) {
   const t = terminals.get(name);
   if (!t) return;
 
+  // Calculate what font size would make tmuxCols fit in container
   const container = t.term.element?.parentElement;
   if (!container) return;
 
   const containerRect = container.getBoundingClientRect();
-  if (containerRect.width < 10 || containerRect.height < 10) return;
+  if (containerRect.width < 10) return;
 
-  // Resize terminal to match tmux dimensions
-  t.term.resize(tmuxCols, tmuxRows);
+  // Current terminal cols after fit
+  const currentCols = t.term.cols;
 
-  // Calculate scale to fit container
-  // Get the actual rendered size of the terminal
-  const termElement = t.term.element;
-  if (!termElement) return;
+  // If tmux has more cols than we do, we need smaller font
+  if (tmuxCols > currentCols) {
+    const ratio = currentCols / tmuxCols;
+    const baseFontSize = 9; // Our default font size
+    const newFontSize = Math.max(5, Math.floor(baseFontSize * ratio));
 
-  // Wait for resize to apply
-  requestAnimationFrame(() => {
-    const termRect = termElement.getBoundingClientRect();
-    const scaleX = containerRect.width / termRect.width;
-    const scaleY = containerRect.height / termRect.height;
-    const scale = Math.min(scaleX, scaleY, 1); // Don't scale up, only down
-
-    termElement.style.transformOrigin = 'top left';
-    termElement.style.transform = `scale(${scale})`;
-  });
+    t.term.options.fontSize = newFontSize;
+    t.fit.fit();
+  }
 }
 
 function attachSession(name, skipUrlUpdate = false) {
@@ -162,12 +157,8 @@ function attachSession(name, skipUrlUpdate = false) {
   const t = terminals.get(name);
   if (!t) return;
 
-  // Reset any scaling and fit to container properly
-  const termElement = t.term.element;
-  if (termElement) {
-    termElement.style.transform = '';
-    termElement.style.transformOrigin = '';
-  }
+  // Reset font size and fit to container properly
+  t.term.options.fontSize = 9; // Reset to default
   t.fit.fit();
 
   wsSend(JSON.stringify({ action: "attach", session: name, rows: t.term.rows, cols: t.term.cols }));
